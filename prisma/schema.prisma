@@ -1,0 +1,276 @@
+// Prisma schema multi-tenant-ready.
+// Dev: provider = "sqlite" (sem Docker/Postgres no ambiente).
+// Produção: troque provider para "postgresql" e ajuste DATABASE_URL.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users              User[]
+  professionals      Professional[]
+  clients            Client[]
+  services           Service[]
+  businessHours      BusinessHour[]
+  blockedTimes       BlockedTime[]
+  appointments       Appointment[]
+  financialTx        FinancialTransaction[]
+  whatsappSettings   WhatsAppSettings?
+  whatsappSessions   WhatsAppSession[]
+  whatsappMessages   WhatsAppMessage[]
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+  holidays           Holiday[]
+}
+
+model User {
+  id             String   @id @default(cuid())
+  organizationId String
+  email          String
+  passwordHash   String
+  name           String
+  role           String   @default("OWNER") // OWNER | STAFF
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  professional Professional?
+
+  @@unique([organizationId, email])
+  @@index([organizationId])
+}
+
+model Professional {
+  id               String   @id @default(cuid())
+  organizationId   String
+  userId           String   @unique
+  displayName      String
+  phone            String?
+  bio              String?
+  cancellationHours Int     @default(2) // antecedência mínima cancelamento
+  timezone         String   @default("America/Sao_Paulo")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+  blockedTimes BlockedTime[]
+  businessHours BusinessHour[]
+
+  @@index([organizationId])
+}
+
+model Client {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  phone          String // WhatsApp E.164-ish
+  email          String?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  @@unique([organizationId, phone])
+  @@index([organizationId])
+}
+
+model Service {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  priceCents     Int
+  durationMin    Int
+  category       String?
+  active         Boolean  @default(true)
+  imageUrl       String?
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  @@index([organizationId, active])
+}
+
+model BusinessHour {
+  id             String  @id @default(cuid())
+  organizationId String
+  professionalId String?
+  weekday        Int // 0=Dom .. 6=Sab
+  openTime       String // "09:00"
+  closeTime      String // "18:00"
+  breakStart     String? // almoço
+  breakEnd       String?
+  closed         Boolean @default(false)
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  professional Professional? @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, professionalId, weekday])
+  @@index([organizationId])
+}
+
+model Holiday {
+  id             String   @id @default(cuid())
+  organizationId String
+  date           String // YYYY-MM-DD
+  name           String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, date])
+}
+
+model BlockedTime {
+  id             String   @id @default(cuid())
+  organizationId String
+  professionalId String?
+  startAt        DateTime
+  endAt          DateTime
+  reason         String?
+  allDay         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  professional Professional? @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, startAt, endAt])
+}
+
+model Appointment {
+  id               String   @id @default(cuid())
+  organizationId   String
+  professionalId   String
+  clientId         String
+  serviceId        String
+  startAt          DateTime
+  endAt            DateTime
+  status           String   @default("SCHEDULED")
+  // SCHEDULED | CONFIRMED | IN_PROGRESS | COMPLETED | CANCELED_CLIENT | CANCELED_PRO | NO_SHOW
+  notes            String?
+  priceCents       Int
+  paymentMethod    String? // CASH | PIX | CREDIT | DEBIT | OTHER
+  paidAt           DateTime?
+  canceledAt       DateTime?
+  cancelReason     String?
+  source           String   @default("ADMIN") // ADMIN | WHATSAPP
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  service      Service      @relation(fields: [serviceId], references: [id])
+  financialTx  FinancialTransaction[]
+
+  @@index([organizationId, startAt])
+  @@index([organizationId, status])
+  @@index([professionalId, startAt, endAt])
+}
+
+model FinancialTransaction {
+  id             String   @id @default(cuid())
+  organizationId String
+  appointmentId  String?
+  type           String // INCOME | EXPENSE
+  category       String?
+  description    String
+  amountCents    Int
+  paymentMethod  String? // CASH | PIX | CREDIT | DEBIT | OTHER
+  occurredAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  appointment  Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, occurredAt])
+}
+
+model WhatsAppSettings {
+  id               String  @id @default(cuid())
+  organizationId   String  @unique
+  provider         String  @default("mock") // mock | meta | evolution
+  phoneNumberId    String?
+  accessToken      String?
+  verifyToken      String  @default("manicure-verify")
+  welcomeMessage   String  @default("Olá! Bem-vinda ao atendimento. Digite o número da opção:")
+  humanHandoffNote String  @default("Vou chamar a profissional. Aguarde um momento ✨")
+  active           Boolean @default(true)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model WhatsAppSession {
+  id             String   @id @default(cuid())
+  organizationId String
+  phone          String
+  state          String   @default("MENU")
+  contextJson    String   @default("{}")
+  humanHandoff   Boolean  @default(false)
+  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, phone])
+}
+
+model WhatsAppMessage {
+  id             String   @id @default(cuid())
+  organizationId String
+  phone          String
+  direction      String // IN | OUT
+  body           String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+}
+
+model Notification {
+  id             String   @id @default(cuid())
+  organizationId String
+  title          String
+  body           String
+  read           Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, read])
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String?
+  action         String
+  entity         String?
+  entityId       String?
+  metaJson       String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+}

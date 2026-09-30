@@ -93,13 +93,15 @@ export default async function DuplaPage({
               <div className="mt-4 flex gap-2">
                 <form action={respondInviteAction}>
                   <input type="hidden" name="id" value={invite.id} />
-                  <button className="btn-primary" name="intent" value="accept" type="submit">
+                  <input type="hidden" name="intent" value="accept" />
+                  <button className="btn-primary" type="submit">
                     Aceitar
                   </button>
                 </form>
                 <form action={respondInviteAction}>
                   <input type="hidden" name="id" value={invite.id} />
-                  <button className="btn-danger" name="intent" value="decline" type="submit">
+                  <input type="hidden" name="intent" value="decline" />
+                  <button className="btn-danger" type="submit">
                     Recusar
                   </button>
                 </form>
@@ -119,7 +121,8 @@ export default async function DuplaPage({
               </div>
               <form className="mt-4" action={respondInviteAction}>
                 <input type="hidden" name="id" value={outgoing.id} />
-                <button className="btn-ghost" name="intent" value="cancel" type="submit">
+                <input type="hidden" name="intent" value="cancel" />
+                <button className="btn-ghost" type="submit">
                   Cancelar convite
                 </button>
               </form>

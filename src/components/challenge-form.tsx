@@ -134,22 +134,29 @@ export function CounterForm({ id, slots }: { id: string; slots: SlotOption[] }) 
 export function DecisionButtons({ id }: { id: string }) {
   const [state, action, pending] = useActionState(respondChallengeAction, initial);
   return (
-    <form action={action} className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3">
       {state.error && (
         <p role="alert" className="rounded-2xl bg-clay/10 px-4 py-3 text-sm text-clay">
           {state.error}
         </p>
       )}
-      <input type="hidden" name="id" value={id} />
       <div className="flex flex-wrap gap-2">
-        <button className="btn-primary" name="intent" value="accept" type="submit" disabled={pending}>
-          Aceitar horário
-        </button>
-        <button className="btn-danger" name="intent" value="decline" type="submit" disabled={pending}>
-          Recusar
-        </button>
+        <form action={action}>
+          <input type="hidden" name="id" value={id} />
+          <input type="hidden" name="intent" value="accept" />
+          <button className="btn-primary" type="submit" disabled={pending}>
+            Aceitar horário
+          </button>
+        </form>
+        <form action={action}>
+          <input type="hidden" name="id" value={id} />
+          <input type="hidden" name="intent" value="decline" />
+          <button className="btn-danger" type="submit" disabled={pending}>
+            Recusar
+          </button>
+        </form>
       </div>
-    </form>
+    </div>
   );
 }
 

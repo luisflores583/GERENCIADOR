@@ -1,0 +1,89 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime       @default(now())
+  sports       UserSport[]
+  availability Availability[]
+  invitesSent  Partnership[]  @relation("InvitesSent")
+  invitesRecv  Partnership[]  @relation("InvitesReceived")
+}
+
+model UserSport {
+  userId String
+  sport  String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, sport])
+}
+
+model Availability {
+  id        String @id @default(cuid())
+  userId    String
+  dayOfWeek Int
+  startMin  Int
+  endMin    Int
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Partnership {
+  id           String      @id @default(cuid())
+  inviterId    String
+  inviteeId    String
+  status       String
+  createdAt    DateTime    @default(now())
+  respondedAt  DateTime?
+  inviter      User        @relation("InvitesSent", fields: [inviterId], references: [id])
+  invitee      User        @relation("InvitesReceived", fields: [inviteeId], references: [id])
+  madeChallenges     Challenge[] @relation("ChallengerPair")
+  receivedChallenges Challenge[] @relation("ChallengedPair")
+
+  @@index([inviterId])
+  @@index([inviteeId])
+  @@index([status])
+}
+
+model Challenge {
+  id               String       @id @default(cuid())
+  challengerPairId String
+  challengedPairId String
+  sport            String
+  court            String
+  startAt          DateTime
+  endAt            DateTime
+  status           String
+  awaiting         String
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  challengerPair   Partnership  @relation("ChallengerPair", fields: [challengerPairId], references: [id])
+  challengedPair   Partnership  @relation("ChallengedPair", fields: [challengedPairId], references: [id])
+  proposals        Proposal[]
+
+  @@index([status])
+  @@index([challengerPairId])
+  @@index([challengedPairId])
+}
+
+model Proposal {
+  id          String    @id @default(cuid())
+  challengeId String
+  pairId      String
+  startAt     DateTime
+  endAt       DateTime
+  createdAt   DateTime  @default(now())
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+
+  @@index([challengeId])
+}

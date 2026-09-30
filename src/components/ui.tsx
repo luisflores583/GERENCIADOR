@@ -2,14 +2,18 @@ import { initials, statusLabel } from "@/lib/data";
 import { weekdayShort } from "@/lib/time";
 import { formatMin } from "@/lib/time";
 
-export function PairMark({ a, b, size = "md" }: { a: string; b: string; size?: "sm" | "md" }) {
+export function SquadMark({ names, size = "md" }: { names: string[]; size?: "sm" | "md" }) {
   const box = size === "sm" ? "h-9 w-9 text-xs" : "h-11 w-11 text-sm";
   return (
     <div className="flex items-center">
-      <span className={`grid ${box} place-items-center rounded-full bg-ink font-semibold text-lime`}>{initials(a)}</span>
-      <span className={`-ml-3 grid ${box} place-items-center rounded-full bg-lime font-semibold text-ink ring-2 ring-paper`}>
-        {initials(b)}
-      </span>
+      {names.slice(0, 4).map((name, index) => (
+        <span
+          key={`${name}-${index}`}
+          className={`grid ${box} place-items-center rounded-full font-semibold ring-2 ring-paper ${index > 0 ? "-ml-3" : ""} ${index % 2 === 0 ? "bg-ink text-lime" : "bg-lime text-ink"}`}
+        >
+          {initials(name)}
+        </span>
+      ))}
     </div>
   );
 }
@@ -71,9 +75,10 @@ export function Banner({ ok, erro }: { ok?: string; erro?: string }) {
     convite: "Convite enviado.",
     aceito: "Dupla formada.",
     atualizado: "Convite atualizado.",
-    encerrada: "Dupla desfeita. Desafios em aberto foram cancelados.",
-    enviado: "Desafio enviado. A outra dupla já pode responder.",
-    contra: "Novo horário proposto. Aguardando a outra dupla.",
+    encerrada: "Equipe desfeita. Desafios em aberto foram cancelados.",
+    cancelada: "Formação cancelada.",
+    enviado: "Desafio enviado. A outra equipe já pode responder.",
+    contra: "Novo horário proposto. Aguardando a outra equipe.",
     recusado: "Desafio recusado.",
     confirmado: "Desafio confirmado. Ele entrou na agenda.",
   };

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { CounterForm, DecisionButtons } from "@/components/challenge-form";
 import { Banner, StatusBadge } from "@/components/ui";
 import { getCurrentUser } from "@/lib/auth";
-import { availabilityOf, getActivePair, getChallenge, listOpenChallenges, membersOf, pairNames } from "@/lib/data";
+import { availabilityOf, getActiveSquad, getChallenge, listOpenChallenges, membersOf, squadNames, squadTitle } from "@/lib/data";
 import { buildSlots } from "@/lib/schedule";
 import { formatSlot, formatTimeRange } from "@/lib/time";
 
@@ -18,13 +18,13 @@ export default async function DesafioPage({
   if (!user) return null;
   const { id } = await params;
   const query = await searchParams;
-  const [challenge, pair] = await Promise.all([getChallenge(id), getActivePair(user.id)]);
+  const [challenge, squad] = await Promise.all([getChallenge(id), getActiveSquad(user.id)]);
   if (!challenge) notFound();
-  const involved = pair && (challenge.challengerPairId === pair.id || challenge.challengedPairId === pair.id);
-  if (!involved || !pair) {
+  const involved = squad && (challenge.challengerSquadId === squad.id || challenge.challengedSquadId === squad.id);
+  if (!involved || !squad) {
     return (
       <section className="card">
-        <p>Esse desafio não é da sua dupla.</p>
+        <p>Esse desafio não é da sua equipe.</p>
         <Link className="btn-ghost mt-4" href="/desafios">
           Voltar
         </Link>
@@ -33,15 +33,15 @@ export default async function DesafioPage({
   }
 
   const myTurn =
-    (challenge.awaiting === "challenger" && challenge.challengerPairId === pair.id) ||
-    (challenge.awaiting === "challenged" && challenge.challengedPairId === pair.id);
+    (challenge.awaiting === "challenger" && challenge.challengerSquadId === squad.id) ||
+    (challenge.awaiting === "challenged" && challenge.challengedSquadId === squad.id);
   const open = challenge.status === "pending" || challenge.status === "countered";
   const slots =
     myTurn && open
       ? buildSlots({
-          users: availabilityOf([...membersOf(challenge.challengerPair), ...membersOf(challenge.challengedPair)]),
+          users: availabilityOf([...membersOf(challenge.challengerSquad), ...membersOf(challenge.challengedSquad)]),
           challenges: await listOpenChallenges(),
-          pairIds: [challenge.challengerPairId, challenge.challengedPairId],
+          pairIds: [challenge.challengerSquadId, challenge.challengedSquadId],
           ignoreId: challenge.id,
           courts: [challenge.court],
         }).filter((slot) => !(slot.startIso === challenge.startAt.toISOString() && slot.endIso === challenge.endAt.toISOString()))
@@ -56,6 +56,7 @@ export default async function DesafioPage({
       <article className="card">
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={challenge.status} />
+          <span className="rounded-full bg-sand px-2.5 py-1 text-xs font-semibold">{squadTitle(challenge.challengerSquad)}</span>
           {myTurn && open && <span className="rounded-full bg-clay px-2.5 py-1 text-xs font-semibold text-white">Sua vez</span>}
         </div>
         <h1 className="mt-3 font-display text-4xl font-semibold">
@@ -65,11 +66,11 @@ export default async function DesafioPage({
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <div className="rounded-2xl bg-sand p-4">
             <p className="kicker">Desafiou</p>
-            <p className="mt-2 font-semibold">{pairNames(challenge.challengerPair)}</p>
+            <p className="mt-2 font-semibold">{squadNames(challenge.challengerSquad)}</p>
           </div>
           <div className="rounded-2xl bg-sand p-4">
             <p className="kicker">Desafiada</p>
-            <p className="mt-2 font-semibold">{pairNames(challenge.challengedPair)}</p>
+            <p className="mt-2 font-semibold">{squadNames(challenge.challengedSquad)}</p>
           </div>
         </div>
       </article>
@@ -99,7 +100,7 @@ export default async function DesafioPage({
           <CounterForm id={challenge.id} slots={slots} />
         </section>
       )}
-      {open && !myTurn && <p className="text-sm text-ink/70">Aguardando a outra dupla responder a este horário.</p>}
+      {open && !myTurn && <p className="text-sm text-ink/70">Aguardando a outra equipe responder a este horário.</p>}
       {challenge.status === "accepted" && (
         <Link className="btn-primary w-fit" href="/agenda">
           Ver na agenda

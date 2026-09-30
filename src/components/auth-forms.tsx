@@ -32,9 +32,10 @@ export function LoginForm() {
         <p className="kicker">Atalhos da demonstração</p>
         <p className="mt-2 text-sm text-ink/70">Senha de todas as contas: {DEMO_PASSWORD}</p>
         <div className="mt-3 grid gap-2">
-          <DemoButton action={action} email="ana.souza@arena.local" label="Entrar como Ana Souza" hint="Dupla, desafio pendente e jogo na agenda" />
-          <DemoButton action={action} email="elena.costa@arena.local" label="Entrar como Elena Costa" hint="Pode responder ao horário que a Ana propuser" />
-          <DemoButton action={action} email="gabriela.nunes@arena.local" label="Entrar como Gabriela Nunes" hint="Tem um convite de dupla para aceitar ou recusar" />
+          <DemoButton action={action} email="ana.souza@arena.local" label="Entrar como Ana Souza" hint="Dupla formada e jogo de vôlei na agenda" />
+          <DemoButton action={action} email="carla.mendes@arena.local" label="Entrar como Carla Mendes" hint="Trio com um desafio de beach tennis para responder" />
+          <DemoButton action={action} email="marina.teixeira@arena.local" label="Entrar como Marina Teixeira" hint="Quarteto já formado" />
+          <DemoButton action={action} email="iara.costa@arena.local" label="Entrar como Iara Costa" hint="Convite de dupla para aceitar ou recusar" />
         </div>
       </div>
     </div>

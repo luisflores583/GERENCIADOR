@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Banner, StatusBadge } from "@/components/ui";
 import { getCurrentUser } from "@/lib/auth";
-import { getActivePair, pairNames } from "@/lib/data";
+import { getActiveSquad, squadInclude, squadNames } from "@/lib/data";
 import { prisma } from "@/lib/prisma";
 import { formatSlot } from "@/lib/time";
 
@@ -13,14 +13,14 @@ export default async function DesafiosPage({
   const user = await getCurrentUser();
   if (!user) return null;
   const params = await searchParams;
-  const pair = await getActivePair(user.id);
-  const challenges = pair
+  const squad = await getActiveSquad(user.id);
+  const challenges = squad
     ? await prisma.challenge.findMany({
-        where: { OR: [{ challengerPairId: pair.id }, { challengedPairId: pair.id }] },
+        where: { OR: [{ challengerSquadId: squad.id }, { challengedSquadId: squad.id }] },
         orderBy: { updatedAt: "desc" },
         include: {
-          challengerPair: { include: { inviter: true, invitee: true } },
-          challengedPair: { include: { inviter: true, invitee: true } },
+          challengerSquad: { include: squadInclude },
+          challengedSquad: { include: squadInclude },
         },
       })
     : [];
@@ -33,25 +33,25 @@ export default async function DesafiosPage({
           <p className="kicker">Desafios</p>
           <h1 className="mt-1 font-display text-4xl font-semibold tracking-tight">Jogos propostos</h1>
         </div>
-        {pair && (
+        {squad && (
           <Link className="btn-primary" href="/desafiar">
             Novo desafio
           </Link>
         )}
       </section>
-      {!pair && (
+      {!squad && (
         <p className="text-sm text-ink/70">
-          Forme uma dupla para desafiar e ser desafiado.{" "}
-          <Link className="font-semibold text-pine" href="/atletas">
-            Ver atletas
+          Forme uma dupla, um trio ou um quarteto para desafiar.{" "}
+          <Link className="font-semibold text-pine" href="/dupla">
+            Escolher formato
           </Link>
         </p>
       )}
       <ul className="flex flex-col gap-3">
         {challenges.map((challenge) => {
           const myTurn =
-            (challenge.challengerPairId === pair?.id && challenge.awaiting === "challenger") ||
-            (challenge.challengedPairId === pair?.id && challenge.awaiting === "challenged");
+            (challenge.challengerSquadId === squad?.id && challenge.awaiting === "challenger") ||
+            (challenge.challengedSquadId === squad?.id && challenge.awaiting === "challenged");
           return (
             <li key={challenge.id}>
               <Link href={`/desafios/${challenge.id}`} className="card block hover:border-ink/40">
@@ -64,14 +64,14 @@ export default async function DesafiosPage({
                 </p>
                 <p className="mt-1 text-sm text-ink/70">{formatSlot(challenge.startAt, challenge.endAt)}</p>
                 <p className="mt-2 text-sm">
-                  {pairNames(challenge.challengerPair)} contra {pairNames(challenge.challengedPair)}
+                  {squadNames(challenge.challengerSquad)} contra {squadNames(challenge.challengedSquad)}
                 </p>
               </Link>
             </li>
           );
         })}
       </ul>
-      {pair && challenges.length === 0 && <p className="text-sm text-ink/60">Nenhum desafio ainda.</p>}
+      {squad && challenges.length === 0 && <p className="text-sm text-ink/60">Nenhum desafio ainda.</p>}
     </>
   );
 }

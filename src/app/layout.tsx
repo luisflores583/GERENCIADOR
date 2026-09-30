@@ -7,7 +7,7 @@ const body = Figtree({ subsets: ["latin"], variable: "--font-body" });
 
 export const metadata: Metadata = {
   title: "Ache sua dupla",
-  description: "Encontre um parceiro na arena, forme sua dupla e marque um desafio.",
+  description: "Forme dupla, trio ou quarteto na arena e marque um desafio de vôlei, beach tennis ou futevôlei.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

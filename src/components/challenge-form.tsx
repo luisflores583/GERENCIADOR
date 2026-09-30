@@ -51,7 +51,7 @@ export function ChallengeForm({
         </select>
       </label>
       <label className="flex flex-col gap-2 text-sm font-medium">
-        Horário que cabe nas duas duplas
+        Horário que cabe nas duas equipes
         <select
           className="field"
           value={slot?.id ?? ""}

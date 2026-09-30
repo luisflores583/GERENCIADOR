@@ -7,7 +7,7 @@ import { logoutAction } from "@/actions/auth";
 const LINKS = [
   { href: "/inicio", label: "Início" },
   { href: "/atletas", label: "Atletas" },
-  { href: "/dupla", label: "Dupla", badgeKey: "invites" as const },
+  { href: "/dupla", label: "Equipe", badgeKey: "invites" as const },
   { href: "/desafios", label: "Desafios", badgeKey: "challenges" as const },
   { href: "/agenda", label: "Agenda" },
 ];

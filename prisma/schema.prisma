@@ -15,8 +15,8 @@ model User {
   createdAt    DateTime       @default(now())
   sports       UserSport[]
   availability Availability[]
-  invitesSent  Partnership[]  @relation("InvitesSent")
-  invitesRecv  Partnership[]  @relation("InvitesReceived")
+  squadsCreated Squad[]       @relation("SquadsCreated")
+  memberships  SquadMember[]
 }
 
 model UserSport {
@@ -38,48 +38,60 @@ model Availability {
   @@index([userId])
 }
 
-model Partnership {
-  id           String      @id @default(cuid())
-  inviterId    String
-  inviteeId    String
-  status       String
-  createdAt    DateTime    @default(now())
-  respondedAt  DateTime?
-  inviter      User        @relation("InvitesSent", fields: [inviterId], references: [id])
-  invitee      User        @relation("InvitesReceived", fields: [inviteeId], references: [id])
-  madeChallenges     Challenge[] @relation("ChallengerPair")
-  receivedChallenges Challenge[] @relation("ChallengedPair")
+model Squad {
+  id                 String        @id @default(cuid())
+  kind               String
+  status             String
+  creatorId          String
+  createdAt          DateTime      @default(now())
+  creator            User          @relation("SquadsCreated", fields: [creatorId], references: [id])
+  members            SquadMember[]
+  madeChallenges     Challenge[]   @relation("ChallengerSquad")
+  receivedChallenges Challenge[]   @relation("ChallengedSquad")
 
-  @@index([inviterId])
-  @@index([inviteeId])
+  @@index([creatorId])
   @@index([status])
 }
 
+model SquadMember {
+  id          String    @id @default(cuid())
+  squadId     String
+  userId      String
+  status      String
+  createdAt   DateTime  @default(now())
+  respondedAt DateTime?
+  squad       Squad     @relation(fields: [squadId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([squadId, userId])
+  @@index([userId, status])
+}
+
 model Challenge {
-  id               String       @id @default(cuid())
-  challengerPairId String
-  challengedPairId String
-  sport            String
-  court            String
-  startAt          DateTime
-  endAt            DateTime
-  status           String
-  awaiting         String
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-  challengerPair   Partnership  @relation("ChallengerPair", fields: [challengerPairId], references: [id])
-  challengedPair   Partnership  @relation("ChallengedPair", fields: [challengedPairId], references: [id])
-  proposals        Proposal[]
+  id                String    @id @default(cuid())
+  challengerSquadId String
+  challengedSquadId String
+  sport             String
+  court             String
+  startAt           DateTime
+  endAt             DateTime
+  status            String
+  awaiting          String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  challengerSquad   Squad     @relation("ChallengerSquad", fields: [challengerSquadId], references: [id])
+  challengedSquad   Squad     @relation("ChallengedSquad", fields: [challengedSquadId], references: [id])
+  proposals         Proposal[]
 
   @@index([status])
-  @@index([challengerPairId])
-  @@index([challengedPairId])
+  @@index([challengerSquadId])
+  @@index([challengedSquadId])
 }
 
 model Proposal {
   id          String    @id @default(cuid())
   challengeId String
-  pairId      String
+  squadId     String
   startAt     DateTime
   endAt       DateTime
   createdAt   DateTime  @default(now())

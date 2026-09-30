@@ -16,77 +16,27 @@ function weekly(days: number[], start: string, end: string): AvailabilitySlot[] 
   }));
 }
 
+const nights = weekly([1, 2, 3, 4, 5], "18:00", "22:00");
+const saturday = weekly([6], "08:00", "13:00");
+
 const PEOPLE = [
-  {
-    key: "ana",
-    name: "Ana Souza",
-    email: "ana.souza@arena.local",
-    sports: ["Futebol", "Vôlei"],
-    slots: [...weekly([1, 2, 3, 4, 5], "18:00", "22:00"), ...weekly([6], "08:00", "12:00")],
-  },
-  {
-    key: "bruno",
-    name: "Bruno Lima",
-    email: "bruno.lima@arena.local",
-    sports: ["Futebol", "Futsal"],
-    slots: [...weekly([1, 2, 3, 4, 5], "19:00", "22:00"), ...weekly([6], "08:00", "13:00")],
-  },
-  {
-    key: "carla",
-    name: "Carla Mendes",
-    email: "carla.mendes@arena.local",
-    sports: ["Vôlei", "Tênis"],
-    slots: [...weekly([2, 4], "18:00", "21:00"), ...weekly([6], "09:00", "14:00"), ...weekly([0], "10:00", "13:00")],
-  },
-  {
-    key: "diego",
-    name: "Diego Alves",
-    email: "diego.alves@arena.local",
-    sports: ["Vôlei", "Basquete"],
-    slots: [...weekly([2, 4], "18:00", "21:30"), ...weekly([6], "08:00", "12:00"), ...weekly([0], "09:00", "14:00")],
-  },
-  {
-    key: "elena",
-    name: "Elena Costa",
-    email: "elena.costa@arena.local",
-    sports: ["Futsal", "Basquete"],
-    slots: [...weekly([1, 2, 3, 4, 5], "18:00", "21:00"), ...weekly([0], "09:00", "12:00")],
-  },
-  {
-    key: "felipe",
-    name: "Felipe Rocha",
-    email: "felipe.rocha@arena.local",
-    sports: ["Futsal", "Futebol"],
-    slots: [...weekly([1, 2, 3, 4], "19:00", "22:00"), ...weekly([6], "10:00", "16:00")],
-  },
-  {
-    key: "gabriela",
-    name: "Gabriela Nunes",
-    email: "gabriela.nunes@arena.local",
-    sports: ["Tênis", "Beach tennis"],
-    slots: [...weekly([3, 5], "17:00", "21:00"), ...weekly([0], "08:00", "12:00")],
-  },
-  {
-    key: "henrique",
-    name: "Henrique Dias",
-    email: "henrique.dias@arena.local",
-    sports: ["Basquete", "Handebol"],
-    slots: [...weekly([1, 3, 5], "18:00", "22:00")],
-  },
-  {
-    key: "marina",
-    name: "Marina Teixeira",
-    email: "marina.teixeira@arena.local",
-    sports: ["Beach tennis", "Vôlei"],
-    slots: [...weekly([2, 4], "19:00", "22:00"), ...weekly([6], "09:00", "12:00")],
-  },
-  {
-    key: "otavio",
-    name: "Otávio Pires",
-    email: "otavio.pires@arena.local",
-    sports: ["Futebol", "Handebol"],
-    slots: [...weekly([1, 2, 3, 4, 5], "18:00", "21:00"), ...weekly([0], "08:00", "11:00")],
-  },
+  { key: "ana", name: "Ana Souza", email: "ana.souza@arena.local", sports: ["Vôlei", "Beach tennis"], slots: [...nights, ...saturday] },
+  { key: "bruno", name: "Bruno Lima", email: "bruno.lima@arena.local", sports: ["Vôlei", "Futevôlei"], slots: [...nights, ...saturday] },
+  { key: "paula", name: "Paula Ribeiro", email: "paula.ribeiro@arena.local", sports: ["Vôlei", "Beach tennis"], slots: [...nights, ...saturday] },
+  { key: "ricardo", name: "Ricardo Nunes", email: "ricardo.nunes@arena.local", sports: ["Vôlei", "Futevôlei"], slots: [...nights, ...saturday] },
+  { key: "carla", name: "Carla Mendes", email: "carla.mendes@arena.local", sports: ["Vôlei", "Beach tennis"], slots: nights },
+  { key: "diego", name: "Diego Alves", email: "diego.alves@arena.local", sports: ["Vôlei", "Futevôlei"], slots: nights },
+  { key: "elena", name: "Elena Costa", email: "elena.costa@arena.local", sports: ["Beach tennis", "Futevôlei"], slots: nights },
+  { key: "felipe", name: "Felipe Rocha", email: "felipe.rocha@arena.local", sports: ["Futevôlei", "Vôlei"], slots: nights },
+  { key: "gabriela", name: "Gabriela Nunes", email: "gabriela.nunes@arena.local", sports: ["Beach tennis", "Vôlei"], slots: nights },
+  { key: "henrique", name: "Henrique Dias", email: "henrique.dias@arena.local", sports: ["Vôlei", "Futevôlei"], slots: nights },
+  { key: "marina", name: "Marina Teixeira", email: "marina.teixeira@arena.local", sports: ["Beach tennis", "Futevôlei"], slots: [...weekly([2, 4], "19:00", "22:00"), ...weekly([6], "09:00", "12:00")] },
+  { key: "otavio", name: "Otávio Pires", email: "otavio.pires@arena.local", sports: ["Futevôlei", "Vôlei"], slots: [...weekly([1, 2, 3, 4, 5], "18:00", "21:00"), ...weekly([0], "08:00", "11:00")] },
+  { key: "sofia", name: "Sofia Lima", email: "sofia.lima@arena.local", sports: ["Vôlei", "Beach tennis"], slots: [...weekly([3, 5], "17:00", "21:00"), ...weekly([6], "09:00", "13:00")] },
+  { key: "tiago", name: "Tiago Melo", email: "tiago.melo@arena.local", sports: ["Futevôlei", "Beach tennis"], slots: [...weekly([1, 3, 5], "18:00", "22:00"), ...weekly([0], "09:00", "12:00")] },
+  { key: "lucas", name: "Lucas Mendes", email: "lucas.mendes@arena.local", sports: ["Vôlei", "Futevôlei"], slots: weekly([1, 2, 3, 4, 5], "19:00", "22:00") },
+  { key: "iara", name: "Iara Costa", email: "iara.costa@arena.local", sports: ["Beach tennis", "Vôlei"], slots: [...weekly([2, 4], "18:00", "21:00"), ...weekly([6], "08:00", "12:00")] },
+  { key: "camila", name: "Camila Rocha", email: "camila.rocha@arena.local", sports: ["Vôlei", "Beach tennis", "Futevôlei"], slots: [...nights, ...weekly([0], "09:00", "12:00")] },
 ] as const;
 
 function assertFits(label: string, slots: AvailabilitySlot[], start: Date, end: Date) {
@@ -98,7 +48,8 @@ function assertFits(label: string, slots: AvailabilitySlot[], start: Date, end: 
 async function main() {
   await prisma.proposal.deleteMany();
   await prisma.challenge.deleteMany();
-  await prisma.partnership.deleteMany();
+  await prisma.squadMember.deleteMany();
+  await prisma.squad.deleteMany();
   await prisma.availability.deleteMany();
   await prisma.userSport.deleteMany();
   await prisma.user.deleteMany();
@@ -125,18 +76,42 @@ async function main() {
     return user.id;
   };
 
-  const anaBruno = await prisma.partnership.create({
-    data: { inviterId: id("ana"), inviteeId: id("bruno"), status: "accepted", respondedAt: new Date() },
-  });
-  const carlaDiego = await prisma.partnership.create({
-    data: { inviterId: id("carla"), inviteeId: id("diego"), status: "accepted", respondedAt: new Date() },
-  });
-  const elenaFelipe = await prisma.partnership.create({
-    data: { inviterId: id("elena"), inviteeId: id("felipe"), status: "accepted", respondedAt: new Date() },
-  });
-  await prisma.partnership.create({
-    data: { inviterId: id("henrique"), inviteeId: id("gabriela"), status: "pending" },
-  });
+  async function createSquad(kind: string, status: "active" | "forming", creator: string, others: { key: string; status: "accepted" | "pending" }[]) {
+    return prisma.squad.create({
+      data: {
+        kind,
+        status,
+        creatorId: id(creator),
+        members: {
+          create: [
+            { userId: id(creator), status: "accepted", respondedAt: new Date() },
+            ...others.map((other) => ({
+              userId: id(other.key),
+              status: other.status,
+              respondedAt: other.status === "accepted" ? new Date() : null,
+            })),
+          ],
+        },
+      },
+    });
+  }
+
+  const anaBruno = await createSquad("dupla", "active", "ana", [{ key: "bruno", status: "accepted" }]);
+  const paulaRicardo = await createSquad("dupla", "active", "paula", [{ key: "ricardo", status: "accepted" }]);
+  const carlaTrio = await createSquad("trio", "active", "carla", [
+    { key: "diego", status: "accepted" },
+    { key: "elena", status: "accepted" },
+  ]);
+  const felipeTrio = await createSquad("trio", "active", "felipe", [
+    { key: "gabriela", status: "accepted" },
+    { key: "henrique", status: "accepted" },
+  ]);
+  await createSquad("quarteto", "active", "marina", [
+    { key: "otavio", status: "accepted" },
+    { key: "sofia", status: "accepted" },
+    { key: "tiago", status: "accepted" },
+  ]);
+  await createSquad("dupla", "forming", "lucas", [{ key: "iara", status: "pending" }]);
 
   const confirmedStart = upcomingSaoPaulo(6, 10, 0);
   const confirmedEnd = new Date(confirmedStart.getTime() + 90 * 60_000);
@@ -150,53 +125,52 @@ async function main() {
     throw new Error("Não foi possível calcular a terça às 19h.");
   }
 
-  for (const key of ["ana", "bruno", "carla", "diego"] as const) {
+  for (const key of ["ana", "bruno", "paula", "ricardo"] as const) {
     assertFits(key, users.get(key)!.slots, confirmedStart, confirmedEnd);
   }
-  for (const key of ["ana", "bruno", "elena", "felipe"] as const) {
+  for (const key of ["carla", "diego", "elena", "felipe", "gabriela", "henrique"] as const) {
     assertFits(key, users.get(key)!.slots, pendingStart, pendingEnd);
   }
 
   await prisma.challenge.create({
     data: {
-      challengerPairId: anaBruno.id,
-      challengedPairId: carlaDiego.id,
+      challengerSquadId: anaBruno.id,
+      challengedSquadId: paulaRicardo.id,
       sport: "Vôlei",
       court: "Quadra Central",
       startAt: confirmedStart,
       endAt: confirmedEnd,
       status: "accepted",
       awaiting: "none",
-      proposals: {
-        create: { pairId: anaBruno.id, startAt: confirmedStart, endAt: confirmedEnd },
-      },
+      proposals: { create: { squadId: anaBruno.id, startAt: confirmedStart, endAt: confirmedEnd } },
     },
   });
 
   await prisma.challenge.create({
     data: {
-      challengerPairId: elenaFelipe.id,
-      challengedPairId: anaBruno.id,
-      sport: "Futsal",
-      court: "Quadra 2",
+      challengerSquadId: felipeTrio.id,
+      challengedSquadId: carlaTrio.id,
+      sport: "Beach tennis",
+      court: "Quadra de Areia",
       startAt: pendingStart,
       endAt: pendingEnd,
       status: "pending",
       awaiting: "challenged",
-      proposals: {
-        create: { pairId: elenaFelipe.id, startAt: pendingStart, endAt: pendingEnd },
-      },
+      proposals: { create: { squadId: felipeTrio.id, startAt: pendingStart, endAt: pendingEnd } },
     },
   });
 
-  const pairs = await prisma.partnership.count({ where: { status: "accepted" } });
+  const active = await prisma.squad.count({ where: { status: "active" } });
+  const duplas = await prisma.squad.count({ where: { status: "active", kind: "dupla" } });
+  const trios = await prisma.squad.count({ where: { status: "active", kind: "trio" } });
+  const quartetos = await prisma.squad.count({ where: { status: "active", kind: "quarteto" } });
   const pending = await prisma.challenge.count({ where: { status: "pending" } });
   const accepted = await prisma.challenge.count({ where: { status: "accepted" } });
-  if (pairs < 2 || pending < 1 || accepted < 1) {
-    throw new Error("Seed não criou o cenário de demonstração.");
+  if (active < 5 || duplas < 2 || trios < 2 || quartetos < 1 || pending < 1 || accepted < 1) {
+    throw new Error("Seed não criou dupla, trio e quarteto.");
   }
 
-  console.log(`Duplas ativas: ${pairs}. Desafio pendente: ${formatSlot(pendingStart, pendingEnd)}. Confirmado: ${formatSlot(confirmedStart, confirmedEnd)}.`);
+  console.log(`Equipes ativas: ${active}. Pendente: ${formatSlot(pendingStart, pendingEnd)}. Confirmado: ${formatSlot(confirmedStart, confirmedEnd)}.`);
   console.log(`Senha de demonstração: ${DEMO_PASSWORD}`);
 }
 

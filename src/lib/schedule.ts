@@ -14,8 +14,8 @@ export type BusyChallenge = {
   court: string;
   startAt: Date;
   endAt: Date;
-  challengerPairId: string;
-  challengedPairId: string;
+  challengerSquadId: string;
+  challengedSquadId: string;
   status: string;
 };
 
@@ -95,7 +95,7 @@ export function pairIsBusy(
       challenge.id !== ignoreId &&
       ACTIVE.has(challenge.status) &&
       rangesOverlap(start, end, challenge.startAt, challenge.endAt) &&
-      (pairIds.includes(challenge.challengerPairId) || pairIds.includes(challenge.challengedPairId)),
+      (pairIds.includes(challenge.challengerSquadId) || pairIds.includes(challenge.challengedSquadId)),
   );
 }
 

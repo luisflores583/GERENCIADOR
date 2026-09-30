@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { formatById } from "./constants";
 import { prisma } from "./prisma";
 
 export const publicUserSelect = {
@@ -9,53 +10,79 @@ export const publicUserSelect = {
   availability: { select: { dayOfWeek: true, startMin: true, endMin: true } },
 } satisfies Prisma.UserSelect;
 
-export const pairInclude = {
-  inviter: { select: publicUserSelect },
-  invitee: { select: publicUserSelect },
-} satisfies Prisma.PartnershipInclude;
+export const squadInclude = {
+  creator: { select: { id: true, name: true } },
+  members: { include: { user: { select: publicUserSelect } } },
+} satisfies Prisma.SquadInclude;
 
 export type PublicUser = Prisma.UserGetPayload<{ select: typeof publicUserSelect }>;
-export type PairWithMembers = Prisma.PartnershipGetPayload<{ include: typeof pairInclude }>;
+export type SquadWithMembers = Prisma.SquadGetPayload<{ include: typeof squadInclude }>;
 
 export function sportsOf(user: { sports: { sport: string }[] }): string[] {
   return user.sports.map((item) => item.sport).sort((a, b) => a.localeCompare(b, "pt-BR"));
 }
 
-export function sportsOfPair(pair: PairWithMembers): string[] {
-  return [...new Set([...sportsOf(pair.inviter), ...sportsOf(pair.invitee)])].sort((a, b) =>
+export function roster(squad: SquadWithMembers, statuses: string[] = ["accepted"]): SquadWithMembers["members"] {
+  return squad.members
+    .filter((member) => statuses.includes(member.status))
+    .sort((a, b) => {
+      if (a.userId === squad.creatorId) return -1;
+      if (b.userId === squad.creatorId) return 1;
+      return a.user.name.localeCompare(b.user.name, "pt-BR");
+    });
+}
+
+export function membersOf(squad: SquadWithMembers): PublicUser[] {
+  return roster(squad).map((member) => member.user);
+}
+
+export function sportsOfSquad(squad: SquadWithMembers): string[] {
+  return [...new Set(membersOf(squad).flatMap((user) => sportsOf(user)))].sort((a, b) =>
     a.localeCompare(b, "pt-BR"),
   );
 }
 
-export function commonSports(a: PairWithMembers, b: PairWithMembers): string[] {
-  const theirs = new Set(sportsOfPair(b));
-  return sportsOfPair(a).filter((sport) => theirs.has(sport));
+export function commonSports(a: SquadWithMembers, b: SquadWithMembers): string[] {
+  const theirs = new Set(sportsOfSquad(b));
+  return sportsOfSquad(a).filter((sport) => theirs.has(sport));
 }
 
-export function pairNames(pair: { inviter: { name: string }; invitee: { name: string } }): string {
-  return `${pair.inviter.name} e ${pair.invitee.name}`;
+export function joinNames(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? "";
+  if (names.length === 2) return `${names[0]} e ${names[1]}`;
+  return `${names.slice(0, -1).join(", ")} e ${names[names.length - 1]}`;
 }
 
-export function otherMember(pair: PairWithMembers, userId: string): PublicUser {
-  return pair.inviter.id === userId ? pair.invitee : pair.inviter;
+export function squadNames(squad: SquadWithMembers): string {
+  return joinNames(roster(squad).map((member) => member.user.name));
 }
 
-export function membersOf(pair: PairWithMembers): PublicUser[] {
-  return [pair.inviter, pair.invitee];
+export function squadTitle(squad: { kind: string }): string {
+  return formatById(squad.kind).label;
 }
 
-export async function getActivePair(userId: string): Promise<PairWithMembers | null> {
-  return prisma.partnership.findFirst({
-    where: {
-      status: "accepted",
-      OR: [{ inviterId: userId }, { inviteeId: userId }],
-    },
-    include: pairInclude,
+export function occupiedCount(squad: SquadWithMembers): number {
+  return squad.members.filter((member) => member.status === "accepted" || member.status === "pending").length;
+}
+
+export async function getActiveSquad(userId: string): Promise<SquadWithMembers | null> {
+  const membership = await prisma.squadMember.findFirst({
+    where: { userId, status: "accepted", squad: { status: "active" } },
+    select: { squadId: true },
+  });
+  if (!membership) return null;
+  return prisma.squad.findUnique({ where: { id: membership.squadId }, include: squadInclude });
+}
+
+export async function getFormingSquad(userId: string): Promise<SquadWithMembers | null> {
+  return prisma.squad.findFirst({
+    where: { creatorId: userId, status: "forming" },
+    include: squadInclude,
   });
 }
 
-export async function getPairById(id: string): Promise<PairWithMembers | null> {
-  return prisma.partnership.findUnique({ where: { id }, include: pairInclude });
+export async function getSquadById(id: string): Promise<SquadWithMembers | null> {
+  return prisma.squad.findUnique({ where: { id }, include: squadInclude });
 }
 
 export function availabilityOf(users: PublicUser[]) {
@@ -69,8 +96,8 @@ export function availabilityOf(users: PublicUser[]) {
 }
 
 const challengeInclude = {
-  challengerPair: { include: pairInclude },
-  challengedPair: { include: pairInclude },
+  challengerSquad: { include: squadInclude },
+  challengedSquad: { include: squadInclude },
   proposals: { orderBy: { createdAt: "asc" as const } },
 } satisfies Prisma.ChallengeInclude;
 
@@ -88,8 +115,8 @@ export async function listOpenChallenges() {
       court: true,
       startAt: true,
       endAt: true,
-      challengerPairId: true,
-      challengedPairId: true,
+      challengerSquadId: true,
+      challengedSquadId: true,
       status: true,
     },
   });
@@ -107,7 +134,10 @@ export function statusLabel(status: string): string {
     case "countered":
       return "Contraproposta";
     case "accepted":
+    case "active":
       return "Confirmado";
+    case "forming":
+      return "Formando";
     case "declined":
       return "Recusado";
     case "cancelled":

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
-import { pairNames } from "@/lib/data";
+import { squadInclude, squadNames } from "@/lib/data";
 import { prisma } from "@/lib/prisma";
 import { formatDayHeading, formatTimeRange } from "@/lib/time";
 
@@ -13,8 +13,8 @@ export default async function HomePage() {
     orderBy: { startAt: "asc" },
     take: 3,
     include: {
-      challengerPair: { include: { inviter: true, invitee: true } },
-      challengedPair: { include: { inviter: true, invitee: true } },
+      challengerSquad: { include: squadInclude },
+      challengedSquad: { include: squadInclude },
     },
   });
 
@@ -44,10 +44,10 @@ export default async function HomePage() {
         <section>
           <p className="kicker">Arena esportiva</p>
           <h1 className="mt-3 font-display text-5xl font-semibold leading-[1.05] tracking-tight sm:text-6xl">
-            O jogo começa quando a dupla está formada.
+            O jogo começa quando a equipe está formada.
           </h1>
           <p className="mt-5 max-w-xl text-lg text-ink/75">
-            Cadastre-se, escolha um parceiro e desafie outra dupla. Vocês combinam esporte, quadra e um horário que caiba na agenda de todo mundo.
+            Cadastre-se, monte uma dupla, um trio ou um quarteto e desafie outra equipe. Os esportes da arena são vôlei, beach tennis e futevôlei.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link className="btn-lime px-5 py-3" href={user ? "/inicio" : "/cadastro"}>
@@ -62,8 +62,8 @@ export default async function HomePage() {
           <ol className="mt-10 grid gap-3 sm:grid-cols-3">
             {[
               ["01", "Cadastre-se", "E-mail e senha, só nesta arena."],
-              ["02", "Forme a dupla", "Convide alguém. A pessoa aceita ou recusa."],
-              ["03", "Marque o jogo", "Desafie outra dupla e fechem o horário."],
+              ["02", "Forme a equipe", "Dupla, trio ou quarteto. Quem é convidado aceita ou recusa."],
+              ["03", "Marque o jogo", "Desafie outra equipe do mesmo formato e fechem o horário."],
             ].map(([step, title, text]) => (
               <li key={step} className="card">
                 <p className="font-display text-2xl text-pine">{step}</p>
@@ -85,8 +85,8 @@ export default async function HomePage() {
                 <p className="mt-1 text-sm text-white/80">
                   {match.sport} · {match.court}
                 </p>
-                <p className="mt-3 text-sm">{pairNames(match.challengerPair)}</p>
-                <p className="text-sm text-white/60">contra {pairNames(match.challengedPair)}</p>
+                <p className="mt-3 text-sm">{squadNames(match.challengerSquad)}</p>
+                <p className="text-sm text-white/60">contra {squadNames(match.challengedSquad)}</p>
               </article>
             ))}
           </div>

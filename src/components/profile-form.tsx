@@ -63,7 +63,7 @@ export function ProfileForm({
       </fieldset>
       <fieldset>
         <legend className="text-sm font-medium">Disponibilidade semanal</legend>
-        <p className="mt-1 text-sm text-ink/60">Dias e faixas em que você pode jogar. O desafio só entra se couber nas duas duplas.</p>
+        <p className="mt-1 text-sm text-ink/60">Dias e faixas em que você pode jogar. O desafio só entra se couber em todo mundo da equipe.</p>
         <ul className="mt-3 flex flex-col gap-2">
           {rows.length === 0 && <li className="text-sm text-ink/50">Nenhum horário ainda.</li>}
           {rows.map((slot, index) => (

@@ -1,0 +1,318 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Papel {
+  ADMIN
+  ATLETA
+}
+
+enum StatusTorneio {
+  INSCRICOES_ABERTAS
+  INSCRICOES_ENCERRADAS
+  AGUARDANDO_SORTEIO
+  EM_ANDAMENTO
+  PAUSADO
+  FINALIZADO
+}
+
+enum FormatoEquipe {
+  DUPLA
+  TRIO
+  QUARTETO
+}
+
+enum ModoFormacao {
+  PRE_FORMADAS
+  SORTEADAS
+}
+
+enum StatusInscricao {
+  PENDENTE
+  APROVADA
+  REJEITADA
+  CANCELADA
+}
+
+enum StatusEquipe {
+  PENDENTE
+  CONFIRMADA
+  ELIMINADA
+  CAMPEA
+  VICE
+}
+
+enum StatusPartida {
+  AGUARDANDO
+  PRONTA
+  AGENDADA
+  EM_ANDAMENTO
+  PAUSADA
+  CONCLUIDA
+  BYE
+  VAZIA
+  NAO_NECESSARIA
+}
+
+enum LadoChave {
+  VENCEDORES
+  PERDEDORES
+  FINAL
+  FINAL_EXTRA
+}
+
+enum TipoSorteio {
+  EQUIPES
+  CONFRONTOS
+}
+
+enum StatusSorteio {
+  RASCUNHO
+  CONFIRMADO
+  DESCARTADO
+}
+
+model Usuario {
+  id           String               @id @default(cuid())
+  email        String               @unique
+  senhaHash    String
+  papel        Papel
+  nome         String
+  criadoEm     DateTime             @default(now())
+  atualizadoEm DateTime             @updatedAt
+  atleta       Atleta?
+  sessoes      Sessao[]
+  partidas     Partida[]            @relation("Registrador")
+  historicos   HistoricoResultado[]
+  sorteios     Sorteio[]
+}
+
+model Sessao {
+  id        String   @id @default(cuid())
+  usuarioId String
+  tokenHash String   @unique
+  expiraEm  DateTime
+  criadoEm  DateTime @default(now())
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+}
+
+model Atleta {
+  id             String         @id @default(cuid())
+  usuarioId      String         @unique
+  nomeCompleto   String
+  apelido        String?
+  telefone       String?
+  fotoUrl        String?
+  criadoEm       DateTime       @default(now())
+  atualizadoEm   DateTime       @updatedAt
+  usuario        Usuario        @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  inscricoes     Inscricao[]
+  membros        MembroEquipe[]
+  equipesCapitao Equipe[]       @relation("Capitao")
+}
+
+model Torneio {
+  id                       String          @id @default(cuid())
+  nome                     String
+  slug                     String          @unique
+  descricao                String          @default("")
+  regulamento              String          @default("")
+  inicioEm                 DateTime
+  local                    String
+  modalidade               String          @default("Vôlei de areia")
+  formato                  FormatoEquipe
+  formacao                 ModoFormacao
+  maxAtletas               Int?
+  inscricoesAte            DateTime
+  valorCentavos            Int?
+  status                   StatusTorneio   @default(INSCRICOES_ABERTAS)
+  pontosParaVencer         Int             @default(21)
+  diferencaMinima          Int             @default(2)
+  pontosMaximos            Int?
+  quadrasSimultaneas       Int             @default(1)
+  descansoMinutos          Int             @default(0)
+  permitirEquipeIncompleta Boolean         @default(false)
+  corDestaque              String          @default("#e36a3a")
+  nomeOrganizador          String          @default("")
+  equipesTravadasEm        DateTime?
+  iniciadoEm               DateTime?
+  finalizadoEm             DateTime?
+  campeaoEquipeId          String?
+  viceEquipeId             String?
+  criadoEm                 DateTime        @default(now())
+  atualizadoEm             DateTime        @updatedAt
+  quadras                  TorneioQuadra[]
+  inscricoes               Inscricao[]
+  equipes                  Equipe[]
+  partidas                 Partida[]
+  sorteios                 Sorteio[]
+  historicos               HistoricoResultado[]
+  campeao                  Equipe?         @relation("CampeaoTorneio", fields: [campeaoEquipeId], references: [id])
+  vice                     Equipe?         @relation("ViceTorneio", fields: [viceEquipeId], references: [id])
+
+  @@index([status])
+}
+
+model Quadra {
+  id       String          @id @default(cuid())
+  nome     String          @unique
+  criadoEm DateTime        @default(now())
+  torneios TorneioQuadra[]
+  partidas Partida[]
+}
+
+model TorneioQuadra {
+  id              String    @id @default(cuid())
+  torneioId       String
+  quadraId        String
+  habilitada      Boolean   @default(true)
+  indisponivelAte DateTime?
+  ordem           Int       @default(0)
+  torneio         Torneio   @relation(fields: [torneioId], references: [id], onDelete: Cascade)
+  quadra          Quadra    @relation(fields: [quadraId], references: [id])
+
+  @@unique([torneioId, quadraId])
+  @@index([quadraId])
+}
+
+model Inscricao {
+  id           String          @id @default(cuid())
+  torneioId    String
+  atletaId     String
+  equipeId     String?
+  status       StatusInscricao @default(PENDENTE)
+  criadaEm     DateTime        @default(now())
+  atualizadaEm DateTime        @updatedAt
+  torneio      Torneio         @relation(fields: [torneioId], references: [id], onDelete: Cascade)
+  atleta       Atleta          @relation(fields: [atletaId], references: [id])
+  equipe       Equipe?         @relation(fields: [equipeId], references: [id])
+
+  @@unique([torneioId, atletaId])
+  @@index([torneioId, status])
+  @@index([equipeId])
+}
+
+model Equipe {
+  id              String       @id @default(cuid())
+  torneioId       String
+  nome            String
+  capitaoId       String?
+  status          StatusEquipe @default(PENDENTE)
+  cabeca          Int?
+  incompleta      Boolean      @default(false)
+  vitorias        Int          @default(0)
+  derrotas        Int          @default(0)
+  criadaEm        DateTime     @default(now())
+  torneio         Torneio      @relation(fields: [torneioId], references: [id], onDelete: Cascade)
+  capitao         Atleta?      @relation("Capitao", fields: [capitaoId], references: [id])
+  membros         MembroEquipe[]
+  inscricoes      Inscricao[]
+  partidasA       Partida[]    @relation("EquipeA")
+  partidasB       Partida[]    @relation("EquipeB")
+  vitoriasPartida Partida[]    @relation("Vencedor")
+  derrotasPartida Partida[]    @relation("Perdedor")
+  torneiosCampeao Torneio[]    @relation("CampeaoTorneio")
+  torneiosVice    Torneio[]    @relation("ViceTorneio")
+
+  @@unique([torneioId, nome])
+  @@index([torneioId, status])
+  @@index([capitaoId])
+}
+
+model MembroEquipe {
+  equipeId String
+  atletaId String
+  equipe   Equipe @relation(fields: [equipeId], references: [id], onDelete: Cascade)
+  atleta   Atleta @relation(fields: [atletaId], references: [id])
+
+  @@id([equipeId, atletaId])
+  @@index([atletaId])
+}
+
+model Sorteio {
+  id           String        @id @default(cuid())
+  torneioId    String
+  tipo         TipoSorteio
+  status       StatusSorteio @default(RASCUNHO)
+  semente      Int
+  algoritmo    String
+  resultado    Json
+  criadoPorId  String
+  criadoEm     DateTime      @default(now())
+  confirmadoEm DateTime?
+  torneio      Torneio       @relation(fields: [torneioId], references: [id], onDelete: Cascade)
+  criadoPor    Usuario       @relation(fields: [criadoPorId], references: [id])
+
+  @@index([torneioId, tipo, status])
+}
+
+model Partida {
+  id              String         @id @default(cuid())
+  torneioId       String
+  codigo          String
+  chave           LadoChave
+  rodada          Int
+  posicao         Int
+  origemA         Json
+  origemB         Json
+  equipeAId       String?
+  equipeBId       String?
+  vencedorId      String?
+  perdedorId      String?
+  placarA         Int?
+  placarB         Int?
+  status          StatusPartida
+  quadraId        String?
+  prontaEm        DateTime?
+  inicioEm        DateTime?
+  fimEm           DateTime?
+  ordemConclusao  Int?
+  registradaPorId String?
+  criadaEm        DateTime       @default(now())
+  atualizadaEm    DateTime       @updatedAt
+  torneio         Torneio        @relation(fields: [torneioId], references: [id], onDelete: Cascade)
+  equipeA         Equipe?        @relation("EquipeA", fields: [equipeAId], references: [id])
+  equipeB         Equipe?        @relation("EquipeB", fields: [equipeBId], references: [id])
+  vencedor        Equipe?        @relation("Vencedor", fields: [vencedorId], references: [id])
+  perdedor        Equipe?        @relation("Perdedor", fields: [perdedorId], references: [id])
+  quadra          Quadra?        @relation(fields: [quadraId], references: [id])
+  registradaPor   Usuario?       @relation("Registrador", fields: [registradaPorId], references: [id])
+  historico       HistoricoResultado[]
+
+  @@unique([torneioId, codigo])
+  @@unique([torneioId, chave, rodada, posicao])
+  @@index([torneioId, status])
+  @@index([quadraId])
+  @@index([equipeAId])
+  @@index([equipeBId])
+}
+
+model HistoricoResultado {
+  id                 String   @id @default(cuid())
+  partidaId          String
+  torneioId          String
+  acao               String
+  placarAAnterior    Int?
+  placarBAnterior    Int?
+  vencedorAnteriorId String?
+  placarANovo        Int?
+  placarBNovo        Int?
+  vencedorNovoId     String?
+  motivo             String   @default("")
+  partidasAfetadas   Json
+  adminId            String
+  criadoEm           DateTime @default(now())
+  partida            Partida  @relation(fields: [partidaId], references: [id], onDelete: Cascade)
+  torneio            Torneio  @relation(fields: [torneioId], references: [id], onDelete: Cascade)
+  admin              Usuario  @relation(fields: [adminId], references: [id])
+
+  @@index([partidaId])
+  @@index([torneioId])
+}

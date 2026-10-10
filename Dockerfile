@@ -11,10 +11,12 @@ COPY prisma ./prisma
 RUN npm ci
 
 COPY . .
-RUN npx prisma generate && npx next build
+RUN npx prisma generate && npx next build \
+  && sed -i 's/\r$//' /app/docker-entrypoint.sh \
+  && chmod +x /app/docker-entrypoint.sh \
+  && node -e "const fs=require('fs'); const p=fs.readFileSync('/app/docker-entrypoint.sh'); if (!p.subarray(0,10).equals(Buffer.from('#!/bin/sh\n')) || p.includes(13)) { console.error('entrypoint sem LF ou shebang invalido'); process.exit(1); }"
 
 ENV NODE_ENV=production
 EXPOSE 3000
 
-RUN chmod +x /app/docker-entrypoint.sh
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

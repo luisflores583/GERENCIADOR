@@ -19,4 +19,5 @@ RUN npx prisma generate && npx next build \
 ENV NODE_ENV=production
 EXPOSE 3000
 
-ENTRYPOINT ["/app/docker-entrypoint.sh"]
+# sh existe na imagem. O script pode chegar com CRLF; o kernel não executa o shebang nesse caso.
+ENTRYPOINT ["sh", "-c", "tr -d '\\r' < /app/docker-entrypoint.sh > /tmp/entrada.sh && exec sh /tmp/entrada.sh"]

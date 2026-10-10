@@ -8,11 +8,17 @@ A interface está em português. Datas aparecem como DD/MM/AAAA e horários no f
 
 Requisito: Docker com Compose.
 
+Na pasta do projeto, com a branch `cursor/gerenciador-torneios-cc41` atualizada:
+
 ```bash
+git pull
+docker compose down
 docker compose up --build
 ```
 
-Abra `http://localhost:3000`.
+Espere a linha `Areia Viva disponível em http://localhost:3000` e abra esse endereço. A primeira tela traz o título “O torneio anda sozinho. Você registra o placar.”, com Arena da Orla e Trios da Manhã.
+
+Se a porta 3000 já estiver ocupada por outro container, pare esse outro antes. O comando `docker compose ps` mostra o serviço `app` em execução.
 
 O Compose sobe o PostgreSQL 16 e a aplicação. Na primeira partida ele aplica as migrações e carrega o seed de demonstração.
 

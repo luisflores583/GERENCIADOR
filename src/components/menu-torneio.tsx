@@ -4,7 +4,7 @@ const ITENS = [
   ["", "Visão"],
   ["/inscricoes", "Inscrições"],
   ["/sorteio", "Sorteio"],
-  ["/jogos", "Jogos"],
+  ["/jogos", "Resultados"],
   ["/quadras", "Quadras"],
   ["/encerramento", "Encerramento"],
 ];

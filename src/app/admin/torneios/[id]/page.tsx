@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Botao } from "@/components/botao";
 import { CamposTorneio } from "@/components/campos-torneio";
@@ -34,6 +35,14 @@ export default async function VisaoTorneio({ params }: { params: Promise<{ id: s
       <p className="mt-2 text-navy/70">
         {ROTULO_FORMATO[torneio.formato]} · {torneio._count.inscricoes} inscrições · {torneio._count.equipes} equipes · inscrição {formatarMoeda(torneio.valorCentavos)}
       </p>
+      <div className="mt-6 flex flex-wrap gap-2">
+        <Link className="inline-flex min-h-14 items-center rounded-2xl bg-coral px-5 font-semibold text-white" href={`/admin/torneios/${torneio.id}/jogos`}>
+          Registrar resultado
+        </Link>
+        <Link className="inline-flex min-h-14 items-center rounded-2xl bg-navy px-5 font-semibold text-white" href={`/admin/torneios/${torneio.id}/inscricoes`}>
+          Inscrever atleta
+        </Link>
+      </div>
       <div className="mt-4 flex flex-wrap gap-2">
         {acoes.map(([acao, rotulo]) => (
           <Formulario key={acao} acao={acaoStatus} className="w-auto">

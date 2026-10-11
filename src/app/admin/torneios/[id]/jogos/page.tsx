@@ -6,6 +6,7 @@ import { MenuTorneio } from "@/components/menu-torneio";
 import { SeloPartida } from "@/components/selo";
 import { formatarDataHora } from "@/lib/formatacao";
 import { nomeDaFase, rodadasDaChaveDeVencedores } from "@/engine/dupla-eliminacao";
+import { ROTULO_PARTIDA } from "@/lib/rotulos";
 import {
   acaoConfirmarPlacar,
   acaoCorrigirPlacar,
@@ -41,16 +42,28 @@ export default async function Jogos({ params }: { params: Promise<{ id: string }
   return (
     <div>
       <MenuTorneio id={torneio.id} slug={torneio.slug} />
-      <h1 className="font-display text-4xl text-navy">Jogos e placares</h1>
-      <p className="mt-2 text-navy/70">
+      <h1 id="registrar" className="font-display text-4xl text-navy">Registrar resultado</h1>
+      <p className="mt-2 max-w-3xl text-navy/70">
+        Informe o placar das duas equipes e confirme. O resultado fica gravado e a chave avança na hora.
         Para vencer: {torneio.pontosParaVencer} pontos, diferença mínima {torneio.diferencaMinima}
         {torneio.pontosMaximos ? `, teto ${torneio.pontosMaximos}` : ""}.
       </p>
+      {torneio.status !== "EM_ANDAMENTO" ? (
+        <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-amber-950">
+          O placar só é gravado com o torneio em andamento.
+        </p>
+      ) : null}
+      {partidas.every((partida) => !["PRONTA", "AGENDADA", "EM_ANDAMENTO", "PAUSADA"].includes(partida.status) || !partida.equipeA || !partida.equipeB) ? (
+        <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-navy">
+          Nenhuma partida está pronta para receber placar. A chave precisa ter os dois adversários definidos.
+        </p>
+      ) : null}
       {grupos.map((status) => {
         const lista = partidas.filter((partida) => partida.status === status);
         if (lista.length === 0) return null;
         return (
           <section key={status} className="mt-6 space-y-3">
+            <h2 className="font-display text-2xl text-navy">{ROTULO_PARTIDA[status as keyof typeof ROTULO_PARTIDA] ?? status}</h2>
             {lista.map((partida) => (
               <article key={partida.id} className="rounded-3xl bg-foam p-4 shadow-card">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -68,10 +81,10 @@ export default async function Jogos({ params }: { params: Promise<{ id: string }
                     <input type="hidden" name="partidaId" value={partida.id} />
                     <div className="grid gap-3 sm:grid-cols-2">
                       <Campo id={`a-${partida.id}`} rotulo={partida.equipeA.nome}>
-                        <Entrada id={`a-${partida.id}`} name="placarA" inputMode="numeric" required defaultValue={0} />
+                        <Entrada id={`a-${partida.id}`} name="placarA" inputMode="numeric" required placeholder="0" />
                       </Campo>
                       <Campo id={`b-${partida.id}`} rotulo={partida.equipeB.nome}>
-                        <Entrada id={`b-${partida.id}`} name="placarB" inputMode="numeric" required defaultValue={0} />
+                        <Entrada id={`b-${partida.id}`} name="placarB" inputMode="numeric" required placeholder="0" />
                       </Campo>
                     </div>
                     <div className="flex flex-wrap gap-2">

@@ -33,7 +33,7 @@ export default async function PainelAdmin() {
       </section>
       <section className="mt-8 space-y-3">
         {torneios.map((torneio) => (
-          <Link key={torneio.id} href={`/admin/torneios/${torneio.id}`} className="block rounded-3xl bg-foam p-5 shadow-card">
+          <article key={torneio.id} className="rounded-3xl bg-foam p-5 shadow-card">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-display text-2xl text-navy">{torneio.nome}</h2>
               <SeloStatus status={torneio.status} />
@@ -41,7 +41,18 @@ export default async function PainelAdmin() {
             <p className="mt-2 text-navy/70">
               {formatarData(torneio.inicioEm)} · {torneio._count.equipes} equipes · {torneio._count.partidas} partidas na chave
             </p>
-          </Link>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link className="inline-flex min-h-14 items-center rounded-2xl bg-coral px-4 font-semibold text-white" href={`/admin/torneios/${torneio.id}/jogos`}>
+                Registrar resultado
+              </Link>
+              <Link className="inline-flex min-h-14 items-center rounded-2xl bg-navy px-4 font-semibold text-white" href={`/admin/torneios/${torneio.id}/inscricoes`}>
+                Inscrever atleta
+              </Link>
+              <Link className="inline-flex min-h-14 items-center rounded-2xl bg-white px-4 font-semibold text-navy" href={`/admin/torneios/${torneio.id}`}>
+                Configurar
+              </Link>
+            </div>
+          </article>
         ))}
       </section>
     </div>

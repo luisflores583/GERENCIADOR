@@ -21,6 +21,7 @@ import {
   aprovarTodas,
   criarEquipe,
   inscrever,
+  inscreverAtletaDireto,
   rejeitarEquipe,
   rejeitarInscricao,
   removerMembro,
@@ -73,12 +74,18 @@ function marcar(form: FormData, campo: string): boolean {
   return form.get(campo) === "on" || form.get(campo) === "true";
 }
 
+function revalidarPainel() {
+  revalidatePath("/", "layout");
+  revalidatePath("/admin", "layout");
+  revalidatePath("/atleta", "layout");
+}
+
 function atualizarTelas(torneio: { id?: string; torneioId?: string; slug: string }, tipo: string) {
   const id = torneio.id ?? torneio.torneioId;
   if (!id) return;
+  revalidarPainel();
   publicar(id, tipo);
   revalidatePath("/");
-  revalidatePath("/admin");
   revalidatePath(`/admin/torneios/${id}`);
   for (const sufixo of ["/inscricoes", "/sorteio", "/jogos", "/quadras", "/encerramento"]) {
     revalidatePath(`/admin/torneios/${id}${sufixo}`);
@@ -240,6 +247,61 @@ export async function acaoStatus(_estado: EstadoAcao, form: FormData): Promise<E
   }
 }
 
+export async function acaoInscreverDireto(_estado: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+  try {
+    const admin = await exigirAdmin();
+    const torneioId = texto(form, "torneioId");
+    let atletaId = texto(form, "atletaId");
+    if (!atletaId) {
+      const dados = esquemaCadastro.parse({
+        nome: texto(form, "nome"),
+        apelido: texto(form, "apelido"),
+        telefone: texto(form, "telefone"),
+        email: texto(form, "email"),
+        senha: texto(form, "senha"),
+      });
+      const existente = await prisma.usuario.findUnique({ where: { email: dados.email }, include: { atleta: true } });
+      if (existente?.papel === "ADMIN") return { ok: false, erro: "Este e-mail pertence à organização." };
+      if (existente?.atleta) {
+        atletaId = existente.atleta.id;
+      } else if (existente) {
+        const atleta = await prisma.atleta.create({
+          data: {
+            usuarioId: existente.id,
+            nomeCompleto: dados.nome,
+            apelido: dados.apelido || null,
+            telefone: dados.telefone || null,
+          },
+        });
+        atletaId = atleta.id;
+      } else {
+        const usuario = await prisma.usuario.create({
+          data: {
+            email: dados.email,
+            senhaHash: await gerarHash(dados.senha),
+            papel: "ATLETA",
+            nome: dados.nome,
+            atleta: {
+              create: {
+                nomeCompleto: dados.nome,
+                apelido: dados.apelido || null,
+                telefone: dados.telefone || null,
+              },
+            },
+          },
+          include: { atleta: true },
+        });
+        atletaId = usuario.atleta!.id;
+      }
+    }
+    const resultado = await inscreverAtletaDireto(admin.id, torneioId, atletaId);
+    atualizarTelas(resultado, "inscricao");
+    return { ok: true, mensagem: `${resultado.nome} foi inscrito neste torneio.` };
+  } catch (erro) {
+    return falha(erro);
+  }
+}
+
 export async function acaoInscrever(_estado: EstadoAcao, form: FormData): Promise<EstadoAcao> {
   try {
     const { usuario } = await exigirAtleta();
@@ -257,7 +319,7 @@ export async function acaoCriarEquipe(_estado: EstadoAcao, form: FormData): Prom
     if (!usuario) return { ok: false, erro: "Sessão inválida." };
     const ids = form.getAll("atletaId").map(String);
     const equipe = await criarEquipe(usuario.id, texto(form, "torneioId"), texto(form, "nome"), ids);
-    revalidatePath("/admin");
+    revalidarPainel();
     revalidatePath("/atleta");
     return { ok: true, mensagem: `Equipe ${equipe.nome} criada. Ela entra no sorteio depois da aprovação.` };
   } catch (erro) {
@@ -276,7 +338,7 @@ export async function acaoAdicionarMembro(_estado: EstadoAcao, form: FormData): 
   try {
     const usuario = await exigirAdminOuAtleta();
     await adicionarMembro(usuario.id, texto(form, "equipeId"), texto(form, "atletaId"));
-    revalidatePath("/admin");
+    revalidarPainel();
     revalidatePath("/atleta");
     return { ok: true, mensagem: "Atleta incluído na equipe." };
   } catch (erro) {
@@ -288,7 +350,7 @@ export async function acaoRemoverMembro(_estado: EstadoAcao, form: FormData): Pr
   try {
     const usuario = await exigirAdminOuAtleta();
     await removerMembro(usuario.id, texto(form, "equipeId"), texto(form, "atletaId"));
-    revalidatePath("/admin");
+    revalidarPainel();
     revalidatePath("/atleta");
     return { ok: true, mensagem: "Atleta removido da equipe." };
   } catch (erro) {
@@ -300,7 +362,7 @@ export async function acaoAprovarInscricao(_estado: EstadoAcao, form: FormData):
   try {
     const admin = await exigirAdmin();
     await aprovarInscricao(admin.id, texto(form, "inscricaoId"));
-    revalidatePath("/admin");
+    revalidarPainel();
     return { ok: true, mensagem: "Inscrição aprovada." };
   } catch (erro) {
     return falha(erro);
@@ -311,7 +373,7 @@ export async function acaoRejeitarInscricao(_estado: EstadoAcao, form: FormData)
   try {
     const admin = await exigirAdmin();
     await rejeitarInscricao(admin.id, texto(form, "inscricaoId"));
-    revalidatePath("/admin");
+    revalidarPainel();
     return { ok: true, mensagem: "Inscrição rejeitada." };
   } catch (erro) {
     return falha(erro);
@@ -322,7 +384,7 @@ export async function acaoAprovarEquipe(_estado: EstadoAcao, form: FormData): Pr
   try {
     const admin = await exigirAdmin();
     await aprovarEquipe(admin.id, texto(form, "equipeId"));
-    revalidatePath("/admin");
+    revalidarPainel();
     return { ok: true, mensagem: "Equipe aprovada." };
   } catch (erro) {
     return falha(erro);
@@ -334,7 +396,7 @@ export async function acaoRejeitarEquipe(_estado: EstadoAcao, form: FormData): P
     const admin = await exigirAdmin();
     if (!marcar(form, "confirmo")) return { ok: false, erro: "Confirme a rejeição da equipe." };
     await rejeitarEquipe(admin.id, texto(form, "equipeId"));
-    revalidatePath("/admin");
+    revalidarPainel();
     return { ok: true, mensagem: "Equipe rejeitada." };
   } catch (erro) {
     return falha(erro);
@@ -345,7 +407,7 @@ export async function acaoAprovarTodas(_estado: EstadoAcao, form: FormData): Pro
   try {
     const admin = await exigirAdmin();
     const resultado = await aprovarTodas(admin.id, texto(form, "torneioId"));
-    revalidatePath("/admin");
+    revalidarPainel();
     return { ok: true, mensagem: `${resultado.quantidade} inscrição(ões) aprovada(s).` };
   } catch (erro) {
     return falha(erro);
@@ -356,7 +418,7 @@ export async function acaoGerarEquipes(_estado: EstadoAcao, form: FormData): Pro
   try {
     const admin = await exigirAdmin();
     await gerarSorteioEquipes(admin.id, texto(form, "torneioId"), marcar(form, "autorizarIncompleta"));
-    revalidatePath("/admin");
+    revalidarPainel();
     return { ok: true, mensagem: "Sorteio das equipes gerado. Confira e confirme." };
   } catch (erro) {
     return falha(erro);
@@ -369,7 +431,7 @@ export async function acaoConfirmarEquipes(_estado: EstadoAcao, form: FormData):
     if (!marcar(form, "confirmo")) return { ok: false, erro: "Confirme o sorteio exibido para travar as equipes." };
     const resultado = await confirmarSorteioEquipes(admin.id, texto(form, "sorteioId"));
     if ("slug" in resultado && resultado.slug) atualizarTelas({ id: resultado.torneioId, slug: resultado.slug }, "sorteio");
-    else revalidatePath("/admin");
+    else revalidarPainel();
     return { ok: true, mensagem: resultado.idempotente ? "Este sorteio já estava confirmado." : "Equipes confirmadas." };
   } catch (erro) {
     return falha(erro);
@@ -381,7 +443,7 @@ export async function acaoDesfazerEquipes(_estado: EstadoAcao, form: FormData): 
     const admin = await exigirAdmin();
     if (!marcar(form, "confirmo")) return { ok: false, erro: "Confirme para desfazer o sorteio das equipes." };
     await desfazerSorteioEquipes(admin.id, texto(form, "torneioId"));
-    revalidatePath("/admin");
+    revalidarPainel();
     return { ok: true, mensagem: "Sorteio de equipes desfeito." };
   } catch (erro) {
     return falha(erro);
@@ -392,7 +454,7 @@ export async function acaoGerarConfrontos(_estado: EstadoAcao, form: FormData): 
   try {
     const admin = await exigirAdmin();
     await gerarSorteioConfrontos(admin.id, texto(form, "torneioId"));
-    revalidatePath("/admin");
+    revalidarPainel();
     return { ok: true, mensagem: "Prévia da primeira rodada pronta. Confirme para iniciar." };
   } catch (erro) {
     return falha(erro);

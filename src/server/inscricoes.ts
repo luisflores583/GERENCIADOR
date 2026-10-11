@@ -226,6 +226,34 @@ export async function rejeitarEquipe(adminId: string, equipeId: string) {
   });
 }
 
+export async function inscreverAtletaDireto(adminId: string, torneioId: string, atletaId: string) {
+  await exigirAdministrador(adminId);
+  if (!atletaId) throw new ErroDeRegra("Escolha o atleta que será inscrito.");
+  return trancar(torneioId, async (tx) => {
+    const torneio = await tx.torneio.findUniqueOrThrow({ where: { id: torneioId } });
+    afirmarComposicaoAberta(torneio);
+    if (torneio.status === "FINALIZADO") throw new ErroDeRegra("Torneio finalizado.");
+    const atleta = await tx.atleta.findUnique({ where: { id: atletaId } });
+    if (!atleta) throw new ErroDeRegra("Atleta não encontrado.", 404);
+    const existente = await tx.inscricao.findUnique({
+      where: { torneioId_atletaId: { torneioId, atletaId } },
+    });
+    if (existente && existente.status !== "REJEITADA" && existente.status !== "CANCELADA") {
+      throw new ErroDeRegra("Este atleta já está inscrito neste torneio.");
+    }
+    await afirmarVaga(tx, torneio, existente ? 0 : 1);
+    const inscricao = existente
+      ? await tx.inscricao.update({
+          where: { id: existente.id },
+          data: { status: "APROVADA", equipeId: null },
+        })
+      : await tx.inscricao.create({
+          data: { torneioId, atletaId, status: "APROVADA" },
+        });
+    return { inscricao, torneioId: torneio.id, slug: torneio.slug, nome: atleta.nomeCompleto };
+  });
+}
+
 export async function aprovarTodas(adminId: string, torneioId: string) {
   await exigirAdministrador(adminId);
   return trancar(torneioId, async (tx) => {

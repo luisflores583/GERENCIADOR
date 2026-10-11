@@ -9,6 +9,7 @@ import {
   acaoAprovarInscricao,
   acaoAprovarTodas,
   acaoCriarEquipe,
+  acaoInscreverDireto,
   acaoRejeitarEquipe,
   acaoRejeitarInscricao,
   acaoRemoverMembro,
@@ -28,15 +29,52 @@ export default async function Inscricoes({ params }: { params: Promise<{ id: str
   if (!torneio) notFound();
   const atletas = await prisma.atleta.findMany({ orderBy: { nomeCompleto: "asc" } });
   const tamanho = tamanhoDaEquipe(torneio.formato);
+  const travado = Boolean(torneio.equipesTravadasEm) || ["EM_ANDAMENTO", "PAUSADO", "FINALIZADO"].includes(torneio.status);
+  const ocupados = new Set(
+    torneio.inscricoes.filter((item) => item.status === "PENDENTE" || item.status === "APROVADA").map((item) => item.atletaId),
+  );
+  const disponiveis = atletas.filter((atleta) => !ocupados.has(atleta.id));
   return (
     <div>
       <MenuTorneio id={torneio.id} slug={torneio.slug} />
-      <h1 className="font-display text-4xl text-navy">Inscrições</h1>
+      <h1 className="font-display text-4xl text-navy">Inscrições de {torneio.nome}</h1>
       <p className="mt-2 text-navy/70">
         {torneio.formacao === "SORTEADAS"
-          ? "Atletas entram sozinhos. A equipe só aparece depois do sorteio confirmado."
-          : `Cada equipe precisa de exatamente ${tamanho} atletas para ser aprovada.`}
+          ? "A organização inscreve o atleta neste torneio. A equipe só aparece depois do sorteio confirmado."
+          : `A organização inscreve o atleta e monta a equipe. Cada equipe precisa de exatamente ${tamanho} atletas para ser aprovada.`}
       </p>
+      {travado ? (
+        <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-amber-950">
+          Este torneio já começou ou as equipes foram travadas. Novas inscrições ficam bloqueadas.
+        </p>
+      ) : (
+        <Formulario acao={acaoInscreverDireto} className="mt-6 rounded-3xl bg-foam p-5 shadow-card">
+          <h2 className="font-display text-3xl text-navy">Inscrever atleta neste torneio</h2>
+          <p className="text-navy/70">A inscrição é gravada como aprovada. Vale mesmo depois do prazo, até o início da chave.</p>
+          <input type="hidden" name="torneioId" value={torneio.id} />
+          <Campo id="atletaExistente" rotulo="Atleta já cadastrado" dica="Deixe em branco para cadastrar alguém novo abaixo.">
+            <Selecao id="atletaExistente" name="atletaId" defaultValue="">
+              <option value="">Cadastrar um atleta novo</option>
+              {disponiveis.map((atleta) => (
+                <option key={atleta.id} value={atleta.id}>{atleta.nomeCompleto}</option>
+              ))}
+            </Selecao>
+          </Campo>
+          <Campo id="nomeNovo" rotulo="Nome do atleta novo">
+            <Entrada id="nomeNovo" name="nome" autoComplete="name" />
+          </Campo>
+          <Campo id="emailNovo" rotulo="E-mail">
+            <Entrada id="emailNovo" name="email" type="email" autoComplete="email" />
+          </Campo>
+          <Campo id="telefoneNovo" rotulo="Telefone">
+            <Entrada id="telefoneNovo" name="telefone" autoComplete="tel" />
+          </Campo>
+          <Campo id="senhaNova" rotulo="Senha de acesso" dica="Obrigatória só para um atleta que ainda não tem conta. Mínimo de 8 caracteres.">
+            <Entrada id="senhaNova" name="senha" type="password" autoComplete="new-password" />
+          </Campo>
+          <Botao type="submit">Gravar inscrição</Botao>
+        </Formulario>
+      )}
       {torneio.formacao === "SORTEADAS" ? (
         <Formulario acao={acaoAprovarTodas} className="mt-4 w-auto">
           <input type="hidden" name="torneioId" value={torneio.id} />

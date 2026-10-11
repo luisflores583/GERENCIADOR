@@ -76,7 +76,7 @@ export default async function TorneioDoAtleta({ params }: { params: Promise<{ id
             <input type="hidden" name="torneioId" value={torneio.id} />
             <input type="hidden" name="atletaId" value={atleta.id} />
             <Campo id="nome" rotulo="Nome" dica="Opcional. Uma letra ou um número também vale. Em branco, usamos os nomes de quem joga.">
-              <Entrada id="nome" name="nome" maxLength={80} />
+              <Entrada id="nome" name="nome" maxLength={80} autoComplete="off" />
             </Campo>
             <Campo id="parceiros" rotulo="Parceiros" dica={`A equipe fecha com ${tamanho} pessoas, incluindo você.`}>
               <Selecao id="parceiros" name="atletaId" multiple className="min-h-32">

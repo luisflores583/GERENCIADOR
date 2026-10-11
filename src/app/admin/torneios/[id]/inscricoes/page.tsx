@@ -153,7 +153,7 @@ export default async function Inscricoes({ params }: { params: Promise<{ id: str
               rotulo="Nome da equipe"
               dica="Opcional. Pode ser uma letra ou um número, como A ou 1. Em branco, a equipe fica com o nome dos atletas."
             >
-              <Entrada id="nomeEquipe" name="nome" maxLength={80} />
+              <Entrada id="nomeEquipe" name="nome" maxLength={80} autoComplete="off" />
             </Campo>
             <Campo id="atletas" rotulo="Atletas" dica={`Selecione até ${tamanho}. Segure Ctrl ou Cmd para vários.`}>
               <Selecao id="atletas" name="atletaId" multiple required className="min-h-40">

@@ -55,11 +55,12 @@ export async function gerarSorteioEquipes(adminId: string, torneioId: string, au
     if (pendentes > 0) throw new ErroDeRegra("Ainda há inscrições pendentes. Aprove ou rejeite todas antes do sorteio.");
     const atletas = await tx.inscricao.findMany({
       where: { torneioId, status: "APROVADA" },
-      select: { atletaId: true },
+      select: { atletaId: true, atleta: { select: { nomeCompleto: true } } },
       orderBy: { criadaEm: "asc" },
     });
     const sorteio = sortearEquipes({
       atletaIds: atletas.map((item) => item.atletaId),
+      nomes: Object.fromEntries(atletas.map((item) => [item.atletaId, item.atleta.nomeCompleto])),
       formato: torneio.formato,
       semente: sementeDe(semente),
       autorizarIncompleta: autorizarIncompleta && torneio.permitirEquipeIncompleta,

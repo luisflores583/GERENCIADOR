@@ -1,3 +1,5 @@
+import { desambiguarNome, nomeAutomatico } from "@/engine/nomes";
+
 export const ALGORITMO_SORTEIO = "mulberry32-v1";
 
 export function mulberry32(semente: number): () => number {
@@ -76,6 +78,7 @@ export function sortearEquipes(entrada: {
   formato: FormatoEquipe;
   semente: number;
   autorizarIncompleta: boolean;
+  nomes?: Readonly<Record<string, string>>;
 }): ResultadoSorteioEquipes {
   const unicos = new Set(entrada.atletaIds);
   if (unicos.size !== entrada.atletaIds.length) {
@@ -103,17 +106,24 @@ export function sortearEquipes(entrada: {
 
   const ordem = embaralhar(entrada.atletaIds, entrada.semente);
   const equipes: EquipeSorteada[] = [];
+  const nomeDoGrupo = (ids: string[], indice: number) => {
+    const nomes = ids.map((id) => entrada.nomes?.[id]?.trim() ?? "").filter(Boolean);
+    const base = nomes.length === ids.length ? nomeAutomatico(nomes) : `Equipe ${String(indice).padStart(2, "0")}`;
+    return desambiguarNome(base, equipes.map((equipe) => equipe.nome));
+  };
   for (let i = 0; i < equipesCompletas; i++) {
+    const atletaIds = ordem.slice(i * tamanho, (i + 1) * tamanho);
     equipes.push({
-      nome: `Equipe ${String(i + 1).padStart(2, "0")}`,
-      atletaIds: ordem.slice(i * tamanho, (i + 1) * tamanho),
+      nome: nomeDoGrupo(atletaIds, i + 1),
+      atletaIds,
       incompleta: false,
     });
   }
   if (sobra !== 0 && entrada.autorizarIncompleta) {
+    const atletaIds = ordem.slice(equipesCompletas * tamanho);
     equipes.push({
-      nome: `Equipe ${String(equipesCompletas + 1).padStart(2, "0")}`,
-      atletaIds: ordem.slice(equipesCompletas * tamanho),
+      nome: nomeDoGrupo(atletaIds, equipesCompletas + 1),
+      atletaIds,
       incompleta: true,
     });
   }

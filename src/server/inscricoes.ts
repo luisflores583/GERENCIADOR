@@ -1,4 +1,5 @@
 import type { Torneio } from "@prisma/client";
+import { desambiguarNome, nomeAutomatico, pareceNomeAutomatico, resolverNomeEquipe } from "@/engine/nomes";
 import { tamanhoDaEquipe, validarElenco } from "@/engine/sorteio";
 import { ErroDeRegra } from "@/lib/erros";
 import { carregarUsuario, exigirAdministrador } from "@/server/acesso";
@@ -63,8 +64,6 @@ export async function inscrever(usuarioId: string, torneioId: string) {
 
 export async function criarEquipe(usuarioId: string, torneioId: string, nome: string, atletaIds: string[]) {
   const { usuario, atletaId } = await atletaDoUsuario(usuarioId);
-  const titulo = nome.trim();
-  if (titulo.length < 2) throw new ErroDeRegra("Informe o nome da equipe.");
   const unicos = [...new Set(atletaIds.filter(Boolean))];
   return trancar(torneioId, async (tx) => {
     const torneio = await tx.torneio.findUniqueOrThrow({ where: { id: torneioId } });
@@ -93,6 +92,12 @@ export async function criarEquipe(usuarioId: string, torneioId: string, nome: st
     }
     await afirmarVaga(tx, torneio, novas.length);
 
+    const nomes = await nomesDosAtletas(tx, unicos);
+    const resolvido = resolverNomeEquipe(nome, nomes);
+    if (!resolvido.ok) throw new ErroDeRegra(resolvido.erro);
+    const titulo = await nomeLivre(tx, torneioId, resolvido.nome);
+    const statusInscricao = usuario.papel === "ADMIN" ? "APROVADA" : "PENDENTE";
+
     const equipe = await tx.equipe.create({
       data: {
         torneioId,
@@ -105,8 +110,8 @@ export async function criarEquipe(usuarioId: string, torneioId: string, nome: st
       await tx.membroEquipe.create({ data: { equipeId: equipe.id, atletaId: id } });
       await tx.inscricao.upsert({
         where: { torneioId_atletaId: { torneioId, atletaId: id } },
-        update: { equipeId: equipe.id, status: "PENDENTE" },
-        create: { torneioId, atletaId: id, equipeId: equipe.id, status: "PENDENTE" },
+        update: { equipeId: equipe.id, status: statusInscricao },
+        create: { torneioId, atletaId: id, equipeId: equipe.id, status: statusInscricao },
       });
     }
     return equipe;
@@ -131,12 +136,20 @@ export async function adicionarMembro(usuarioId: string, equipeId: string, atlet
       throw new ErroDeRegra("Este atleta já está em outra equipe deste torneio.");
     }
     if (!inscricao) await afirmarVaga(tx, torneio, 1);
+    const antes = await tx.membroEquipe.findMany({ where: { equipeId }, include: { atleta: true } });
     await tx.membroEquipe.create({ data: { equipeId, atletaId } });
+    const statusInscricao = usuario.papel === "ADMIN" ? "APROVADA" : "PENDENTE";
     await tx.inscricao.upsert({
       where: { torneioId_atletaId: { torneioId: torneio.id, atletaId } },
-      update: { equipeId, status: "PENDENTE" },
-      create: { torneioId: torneio.id, atletaId, equipeId, status: "PENDENTE" },
+      update: { equipeId, status: statusInscricao },
+      create: { torneioId: torneio.id, atletaId, equipeId, status: statusInscricao },
     });
+    const novo = await tx.atleta.findUnique({ where: { id: atletaId } });
+    if (!novo) throw new ErroDeRegra("Atleta não encontrado.", 404);
+    await renomearSeAutomatica(tx, equipe, antes.map((membro) => membro.atleta.nomeCompleto), [
+      ...antes.map((membro) => membro.atleta.nomeCompleto),
+      novo.nomeCompleto,
+    ]);
     return equipe;
   });
 }
@@ -149,6 +162,7 @@ export async function removerMembro(usuarioId: string, equipeId: string, atletaI
     }
     const torneio = await tx.torneio.findUniqueOrThrow({ where: { id: equipe.torneioId } });
     afirmarComposicaoAberta(torneio);
+    const antes = await tx.membroEquipe.findMany({ where: { equipeId }, include: { atleta: true } });
     await tx.membroEquipe.delete({ where: { equipeId_atletaId: { equipeId, atletaId } } });
     await tx.inscricao.updateMany({
       where: { torneioId: torneio.id, atletaId, equipeId },
@@ -157,11 +171,15 @@ export async function removerMembro(usuarioId: string, equipeId: string, atletaI
     const restam = await tx.membroEquipe.count({ where: { equipeId } });
     if (restam === 0) {
       await tx.equipe.delete({ where: { id: equipeId } });
-    } else if (equipe.capitaoId === atletaId) {
-      const proximo = await tx.membroEquipe.findFirst({ where: { equipeId } });
-      await tx.equipe.update({ where: { id: equipeId }, data: { capitaoId: proximo?.atletaId ?? null, status: "PENDENTE" } });
-    } else if (equipe.status === "CONFIRMADA") {
-      await tx.equipe.update({ where: { id: equipeId }, data: { status: "PENDENTE" } });
+    } else {
+      const depois = antes.filter((membro) => membro.atletaId !== atletaId).map((membro) => membro.atleta.nomeCompleto);
+      await renomearSeAutomatica(tx, equipe, antes.map((membro) => membro.atleta.nomeCompleto), depois);
+      if (equipe.capitaoId === atletaId) {
+        const proximo = await tx.membroEquipe.findFirst({ where: { equipeId } });
+        await tx.equipe.update({ where: { id: equipeId }, data: { capitaoId: proximo?.atletaId ?? null, status: "PENDENTE" } });
+      } else if (equipe.status === "CONFIRMADA") {
+        await tx.equipe.update({ where: { id: equipeId }, data: { status: "PENDENTE" } });
+      }
     }
     return { torneioId: torneio.id };
   });
@@ -277,7 +295,42 @@ async function prismaInscricao(inscricaoId: string) {
   return inscricao;
 }
 
-async function trancarEquipe<T>(equipeId: string, fn: (tx: Tx, equipe: { id: string; torneioId: string; capitaoId: string | null; status: string }) => Promise<T>) {
+async function nomesDosAtletas(tx: Tx, ids: string[]) {
+  const atletas = await tx.atleta.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, nomeCompleto: true },
+  });
+  const porId = new Map(atletas.map((atleta) => [atleta.id, atleta.nomeCompleto]));
+  return ids.map((id) => {
+    const nome = porId.get(id);
+    if (!nome) throw new ErroDeRegra("Atleta não encontrado.", 404);
+    return nome;
+  });
+}
+
+async function nomeLivre(tx: Tx, torneioId: string, base: string, ignorarEquipeId?: string) {
+  const equipes = await tx.equipe.findMany({
+    where: { torneioId, ...(ignorarEquipeId ? { id: { not: ignorarEquipeId } } : {}) },
+    select: { nome: true },
+  });
+  return desambiguarNome(base, equipes.map((equipe) => equipe.nome));
+}
+
+async function renomearSeAutomatica(
+  tx: Tx,
+  equipe: { id: string; torneioId: string; nome: string },
+  nomesAntes: string[],
+  nomesDepois: string[],
+) {
+  if (!pareceNomeAutomatico(equipe.nome, nomesAntes)) return;
+  const nome = await nomeLivre(tx, equipe.torneioId, nomeAutomatico(nomesDepois), equipe.id);
+  if (nome !== equipe.nome) {
+    await tx.equipe.update({ where: { id: equipe.id }, data: { nome } });
+    equipe.nome = nome;
+  }
+}
+
+async function trancarEquipe<T>(equipeId: string, fn: (tx: Tx, equipe: { id: string; torneioId: string; capitaoId: string | null; status: string; nome: string }) => Promise<T>) {
   const { prisma } = await import("@/server/db");
   const equipe = await prisma.equipe.findUnique({ where: { id: equipeId } });
   if (!equipe) throw new ErroDeRegra("Equipe não encontrada.", 404);

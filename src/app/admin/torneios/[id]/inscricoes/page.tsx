@@ -148,8 +148,12 @@ export default async function Inscricoes({ params }: { params: Promise<{ id: str
           <Formulario acao={acaoCriarEquipe} className="rounded-3xl bg-foam p-5 shadow-card">
             <h3 className="font-display text-2xl">Montar equipe</h3>
             <input type="hidden" name="torneioId" value={torneio.id} />
-            <Campo id="nomeEquipe" rotulo="Nome da equipe">
-              <Entrada id="nomeEquipe" name="nome" required />
+            <Campo
+              id="nomeEquipe"
+              rotulo="Nome da equipe"
+              dica="Opcional. Pode ser uma letra ou um número, como A ou 1. Em branco, a equipe fica com o nome dos atletas."
+            >
+              <Entrada id="nomeEquipe" name="nome" maxLength={80} />
             </Campo>
             <Campo id="atletas" rotulo="Atletas" dica={`Selecione até ${tamanho}. Segure Ctrl ou Cmd para vários.`}>
               <Selecao id="atletas" name="atletaId" multiple required className="min-h-40">

@@ -326,7 +326,7 @@ export async function acaoInscreverDireto(_estado: EstadoAcao, form: FormData): 
     }
     const resultado = await inscreverAtletaDireto(admin.id, torneioId, atletaId);
     atualizarTelas(resultado, "inscricao");
-    return { ok: true, mensagem: `${resultado.nome} foi inscrito neste torneio.` };
+    return { ok: true, mensagem: `A inscrição de ${resultado.nome} foi gravada neste torneio.` };
   } catch (erro) {
     return falha(erro);
   }

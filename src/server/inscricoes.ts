@@ -1,10 +1,13 @@
+import { randomBytes } from "node:crypto";
 import type { Sexo, Torneio } from "@prisma/client";
 import { validarNaipe } from "@/engine/naipe";
 import { desambiguarNome, nomeAutomatico, pareceNomeAutomatico, resolverNomeEquipe } from "@/engine/nomes";
 import { tamanhoDaEquipe, validarElenco } from "@/engine/sorteio";
 import { ErroDeRegra } from "@/lib/erros";
+import type { IntegranteInformado } from "@/lib/integrantes";
 import { carregarUsuario, exigirAdministrador } from "@/server/acesso";
 import { trancar, type Tx } from "@/server/banco";
+import { gerarHash } from "@/server/senha";
 
 function afirmarInscricoesAbertas(torneio: Torneio) {
   if (torneio.status !== "INSCRICOES_ABERTAS") {
@@ -65,7 +68,13 @@ export async function inscrever(usuarioId: string, torneioId: string) {
   });
 }
 
-export async function criarEquipe(usuarioId: string, torneioId: string, nome: string, atletaIds: string[]) {
+export async function criarEquipe(
+  usuarioId: string,
+  torneioId: string,
+  nome: string,
+  atletaIds: string[],
+  autorizarIncompleta = false,
+) {
   const { usuario, atletaId } = await atletaDoUsuario(usuarioId);
   const unicos = [...new Set(atletaIds.filter(Boolean))];
   return trancar(torneioId, async (tx) => {
@@ -75,52 +84,91 @@ export async function criarEquipe(usuarioId: string, torneioId: string, nome: st
     }
     afirmarComposicaoAberta(torneio);
     if (usuario.papel !== "ADMIN") afirmarInscricoesAbertas(torneio);
-    if (atletaId && !unicos.includes(atletaId)) unicos.unshift(atletaId);
-    const tamanho = tamanhoDaEquipe(torneio.formato);
-    if (unicos.length < 1 || unicos.length > tamanho) {
-      throw new ErroDeRegra(`A equipe de ${torneio.formato.toLowerCase()} aceita de 1 a ${tamanho} atletas até a aprovação.`);
+    if (atletaId && !unicos.includes(atletaId)) {
+      throw new ErroDeRegra("A equipe precisa incluir você.");
     }
-    if (usuario.papel !== "ADMIN" && atletaId && !unicos.includes(atletaId)) {
-      throw new ErroDeRegra("O responsável precisa fazer parte da equipe.");
-    }
-
-    const novas = [];
-    for (const id of unicos) {
-      const inscricao = await tx.inscricao.findUnique({ where: { torneioId_atletaId: { torneioId, atletaId: id } } });
-      if (inscricao?.equipeId) throw new ErroDeRegra("Um dos atletas já está em outra equipe deste torneio.");
-      if (inscricao && !["PENDENTE", "APROVADA", "REJEITADA", "CANCELADA"].includes(inscricao.status)) {
-        throw new ErroDeRegra("Inscrição inválida.");
-      }
-      if (!inscricao || inscricao.status === "REJEITADA" || inscricao.status === "CANCELADA") novas.push(id);
-    }
-    await afirmarVaga(tx, torneio, novas.length);
-
-    const atletas = await atletasNaOrdem(tx, unicos);
-    const nomes = atletas.map((atleta) => atleta.nomeCompleto);
-    afirmarSexoNoTorneio(torneio.naipe, atletas.map((atleta) => atleta.sexo), unicos.length === tamanho);
-    const resolvido = resolverNomeEquipe(nome, nomes);
-    if (!resolvido.ok) throw new ErroDeRegra(resolvido.erro);
-    const titulo = await nomeLivre(tx, torneioId, resolvido.nome);
-    const statusInscricao = usuario.papel === "ADMIN" ? "APROVADA" : "PENDENTE";
-
-    const equipe = await tx.equipe.create({
-      data: {
-        torneioId,
-        nome: titulo,
-        status: "PENDENTE",
-        capitaoId: unicos[0],
-      },
-    });
-    for (const id of unicos) {
-      await tx.membroEquipe.create({ data: { equipeId: equipe.id, atletaId: id } });
-      await tx.inscricao.upsert({
-        where: { torneioId_atletaId: { torneioId, atletaId: id } },
-        update: { equipeId: equipe.id, status: statusInscricao },
-        create: { torneioId, atletaId: id, equipeId: equipe.id, status: statusInscricao },
-      });
-    }
-    return equipe;
+    return persistirEquipe(tx, usuario.papel, torneio, nome, unicos, autorizarIncompleta);
   });
+}
+
+export async function cadastrarEquipePorNomes(
+  usuarioId: string,
+  torneioId: string,
+  nome: string,
+  componentes: IntegranteInformado[],
+  autorizarIncompleta: boolean,
+) {
+  const { usuario, atletaId } = await atletaDoUsuario(usuarioId);
+  return trancar(torneioId, async (tx) => {
+    const torneio = await tx.torneio.findUniqueOrThrow({ where: { id: torneioId } });
+    if (torneio.formacao !== "PRE_FORMADAS") {
+      throw new ErroDeRegra("Neste torneio as equipes serão sorteadas. Inscreva-se individualmente.");
+    }
+    afirmarComposicaoAberta(torneio);
+    if (usuario.papel !== "ADMIN") afirmarInscricoesAbertas(torneio);
+    const ids: string[] = [];
+    for (const componente of componentes) {
+      const id = await resolverIntegrante(tx, torneioId, componente);
+      if (ids.includes(id)) throw new ErroDeRegra("O mesmo atleta foi informado mais de uma vez.");
+      ids.push(id);
+    }
+    if (atletaId && !ids.includes(atletaId)) {
+      throw new ErroDeRegra("A equipe precisa incluir você.");
+    }
+    return persistirEquipe(tx, usuario.papel, torneio, nome, ids, usuario.papel === "ADMIN" && autorizarIncompleta);
+  });
+}
+
+async function persistirEquipe(
+  tx: Tx,
+  papel: "ADMIN" | "ATLETA",
+  torneio: Torneio,
+  nome: string,
+  unicos: string[],
+  autorizarIncompleta: boolean,
+) {
+  const tamanho = tamanhoDaEquipe(torneio.formato);
+  const incompletaAutorizada = papel === "ADMIN" && autorizarIncompleta && torneio.permitirEquipeIncompleta;
+  const elenco = validarElenco(torneio.formato, unicos.length, incompletaAutorizada);
+  if (!elenco.ok) throw new ErroDeRegra(elenco.erro);
+
+  const novas = [];
+  for (const id of unicos) {
+    const inscricao = await tx.inscricao.findUnique({ where: { torneioId_atletaId: { torneioId: torneio.id, atletaId: id } } });
+    if (inscricao?.equipeId) throw new ErroDeRegra("Um dos atletas já está em outra equipe deste torneio.");
+    if (inscricao && !["PENDENTE", "APROVADA", "REJEITADA", "CANCELADA"].includes(inscricao.status)) {
+      throw new ErroDeRegra("Inscrição inválida.");
+    }
+    if (!inscricao || inscricao.status === "REJEITADA" || inscricao.status === "CANCELADA") novas.push(id);
+  }
+  await afirmarVaga(tx, torneio, novas.length);
+
+  const atletas = await atletasNaOrdem(tx, unicos);
+  const nomes = atletas.map((atleta) => atleta.nomeCompleto);
+  afirmarSexoNoTorneio(torneio.naipe, atletas.map((atleta) => atleta.sexo), true);
+  const resolvido = resolverNomeEquipe(nome, nomes);
+  if (!resolvido.ok) throw new ErroDeRegra(resolvido.erro);
+  const titulo = await nomeLivre(tx, torneio.id, resolvido.nome);
+  const statusInscricao = papel === "ADMIN" ? "APROVADA" : "PENDENTE";
+
+  const equipe = await tx.equipe.create({
+    data: {
+      torneioId: torneio.id,
+      nome: titulo,
+      status: "PENDENTE",
+      incompleta: unicos.length < tamanho,
+      capitaoId: unicos[0],
+    },
+  });
+  for (const id of unicos) {
+    await tx.membroEquipe.create({ data: { equipeId: equipe.id, atletaId: id } });
+    await tx.inscricao.upsert({
+      where: { torneioId_atletaId: { torneioId: torneio.id, atletaId: id } },
+      update: { equipeId: equipe.id, status: statusInscricao },
+      create: { torneioId: torneio.id, atletaId: id, equipeId: equipe.id, status: statusInscricao },
+    });
+  }
+  return equipe;
 }
 
 export async function adicionarMembro(usuarioId: string, equipeId: string, atletaId: string) {
@@ -230,7 +278,7 @@ export async function aprovarEquipe(adminId: string, equipeId: string) {
     const torneio = await tx.torneio.findUniqueOrThrow({ where: { id: equipe.torneioId } });
     afirmarComposicaoAberta(torneio);
     const membros = await tx.membroEquipe.findMany({ where: { equipeId }, include: { atleta: true } });
-    const validacao = validarElenco(torneio.formato, membros.length, false);
+    const validacao = validarElenco(torneio.formato, membros.length, equipe.incompleta && torneio.permitirEquipeIncompleta);
     if (!validacao.ok) throw new ErroDeRegra(validacao.erro);
     afirmarSexoNoTorneio(torneio.naipe, membros.map((membro) => membro.atleta.sexo), true);
     await tx.inscricao.updateMany({
@@ -347,7 +395,89 @@ async function renomearSeAutomatica(
   }
 }
 
-async function trancarEquipe<T>(equipeId: string, fn: (tx: Tx, equipe: { id: string; torneioId: string; capitaoId: string | null; status: string; nome: string }) => Promise<T>) {
+async function resolverIntegrante(tx: Tx, torneioId: string, componente: IntegranteInformado) {
+  if (componente.atletaId) {
+    const atleta = await tx.atleta.findUnique({ where: { id: componente.atletaId } });
+    if (!atleta) throw new ErroDeRegra("Atleta não encontrado.", 404);
+    await afirmarAtletaLivre(tx, torneioId, atleta.id, atleta.nomeCompleto);
+    return atleta.id;
+  }
+  if (componente.nome.trim().length < 3) throw new ErroDeRegra("Informe o nome completo de cada integrante.");
+  if (componente.sexo !== "FEMININO" && componente.sexo !== "MASCULINO") {
+    throw new ErroDeRegra("Informe o sexo de cada integrante.");
+  }
+  const email = componente.email.trim().toLowerCase();
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new ErroDeRegra("Informe um e-mail válido ou deixe em branco.");
+  }
+  if (email) {
+    const usuario = await tx.usuario.findUnique({ where: { email }, include: { atleta: true } });
+    if (usuario?.papel === "ADMIN") throw new ErroDeRegra("Este e-mail pertence à organização.");
+    if (usuario?.atleta) {
+      await afirmarAtletaLivre(tx, torneioId, usuario.atleta.id, usuario.atleta.nomeCompleto);
+      return usuario.atleta.id;
+    }
+    if (usuario) {
+      const atleta = await tx.atleta.create({
+        data: {
+          usuarioId: usuario.id,
+          nomeCompleto: componente.nome.trim(),
+          sexo: componente.sexo,
+          telefone: telefoneNovo(componente.telefone),
+        },
+      });
+      return atleta.id;
+    }
+  } else {
+    const iguais = await tx.atleta.findMany({
+      where: { nomeCompleto: { equals: componente.nome.trim(), mode: "insensitive" } },
+    });
+    if (iguais.length > 1) {
+      throw new ErroDeRegra(`Há mais de um atleta chamado ${componente.nome.trim()}. Informe o e-mail para distinguir.`);
+    }
+    if (iguais.length === 1) {
+      const atleta = iguais[0]!;
+      await afirmarAtletaLivre(tx, torneioId, atleta.id, atleta.nomeCompleto);
+      return atleta.id;
+    }
+  }
+  const criado = await tx.usuario.create({
+    data: {
+      email: email || null,
+      senhaHash: await gerarHash(randomBytes(24).toString("hex")),
+      papel: "ATLETA",
+      nome: componente.nome.trim(),
+      atleta: {
+        create: {
+          nomeCompleto: componente.nome.trim(),
+          sexo: componente.sexo,
+          telefone: telefoneNovo(componente.telefone),
+        },
+      },
+    },
+    include: { atleta: true },
+  });
+  return criado.atleta!.id;
+}
+
+function telefoneNovo(telefone: string) {
+  const valor = telefone.trim();
+  if (!valor) throw new ErroDeRegra("Informe o telefone de cada integrante novo.");
+  if (valor.length > 20) throw new ErroDeRegra("O telefone pode ter no máximo 20 caracteres.");
+  return valor;
+}
+
+async function afirmarAtletaLivre(tx: Tx, torneioId: string, atletaId: string, nome: string) {
+  const inscricao = await tx.inscricao.findUnique({
+    where: { torneioId_atletaId: { torneioId, atletaId } },
+  });
+  if (inscricao?.equipeId) throw new ErroDeRegra(`${nome} já está em outra equipe deste torneio.`);
+  if (inscricao && inscricao.status !== "REJEITADA" && inscricao.status !== "CANCELADA" && inscricao.status !== "PENDENTE" && inscricao.status !== "APROVADA") {
+    throw new ErroDeRegra("Inscrição inválida.");
+  }
+}
+
+async function trancarEquipe<T>(equipeId: string, fn: (tx: Tx, equipe: { id: string; torneioId: string; capitaoId: string | null; status: string; nome: string; incompleta: boolean }) => Promise<T>) {
   const { prisma } = await import("@/server/db");
   const equipe = await prisma.equipe.findUnique({ where: { id: equipeId } });
   if (!equipe) throw new ErroDeRegra("Equipe não encontrada.", 404);

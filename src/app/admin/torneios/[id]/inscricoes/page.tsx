@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Botao } from "@/components/botao";
 import { Campo, Entrada, Selecao } from "@/components/campo";
+import { CamposEquipe } from "@/components/campos-equipe";
 import { Formulario } from "@/components/formulario";
 import { MenuTorneio } from "@/components/menu-torneio";
 import { ROTULO_INSCRICAO, ROTULO_NAIPE, ROTULO_SEXO } from "@/lib/rotulos";
@@ -8,7 +9,7 @@ import {
   acaoAprovarEquipe,
   acaoAprovarInscricao,
   acaoAprovarTodas,
-  acaoCriarEquipe,
+  acaoCadastrarEquipe,
   acaoInscreverDireto,
   acaoRejeitarEquipe,
   acaoRejeitarInscricao,
@@ -41,7 +42,7 @@ export default async function Inscricoes({ params }: { params: Promise<{ id: str
       <p className="mt-2 text-navy/70">
         {torneio.formacao === "SORTEADAS"
           ? "A organização inscreve o atleta neste torneio. A equipe só aparece depois do sorteio confirmado."
-          : `A organização inscreve o atleta e monta a equipe. Cada equipe precisa de exatamente ${tamanho} atletas para ser aprovada.`}
+          : `Cadastre a equipe com ${tamanho} integrantes. O nome da equipe é opcional.`}
       </p>
       {travado ? (
         <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-amber-950">
@@ -132,46 +133,42 @@ export default async function Inscricoes({ params }: { params: Promise<{ id: str
                 {equipe.membros.map((membro) => (
                   <li key={membro.atletaId} className="flex items-center justify-between gap-2 py-1">
                     <span>{membro.atleta.nomeCompleto}{equipe.capitaoId === membro.atletaId ? " · responsável" : ""}</span>
-                    <Formulario acao={acaoRemoverMembro} className="w-auto">
-                      <input type="hidden" name="equipeId" value={equipe.id} />
-                      <input type="hidden" name="atletaId" value={membro.atletaId} />
-                      <Botao type="submit" variante="fantasma">Remover</Botao>
-                    </Formulario>
+                    {travado ? null : (
+                      <Formulario acao={acaoRemoverMembro} className="w-auto">
+                        <input type="hidden" name="equipeId" value={equipe.id} />
+                        <input type="hidden" name="atletaId" value={membro.atletaId} />
+                        <Botao type="submit" variante="fantasma">Remover</Botao>
+                      </Formulario>
+                    )}
                   </li>
                 ))}
               </ul>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Formulario acao={acaoAprovarEquipe} className="w-auto">
-                  <input type="hidden" name="equipeId" value={equipe.id} />
-                  <Botao type="submit">Aprovar equipe</Botao>
-                </Formulario>
-                <Formulario acao={acaoRejeitarEquipe} className="w-auto">
-                  <input type="hidden" name="equipeId" value={equipe.id} />
-                  <label className="mr-2 text-sm"><input type="checkbox" name="confirmo" className="mr-2" />Confirmo</label>
-                  <Botao type="submit" variante="perigo">Rejeitar</Botao>
-                </Formulario>
-              </div>
+              {travado ? null : (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Formulario acao={acaoAprovarEquipe} className="w-auto">
+                    <input type="hidden" name="equipeId" value={equipe.id} />
+                    <Botao type="submit">Aprovar equipe</Botao>
+                  </Formulario>
+                  <Formulario acao={acaoRejeitarEquipe} className="w-auto">
+                    <input type="hidden" name="equipeId" value={equipe.id} />
+                    <label className="mr-2 text-sm"><input type="checkbox" name="confirmo" className="mr-2" />Confirmo</label>
+                    <Botao type="submit" variante="perigo">Rejeitar</Botao>
+                  </Formulario>
+                </div>
+              )}
             </article>
           ))}
-          <Formulario acao={acaoCriarEquipe} className="rounded-3xl bg-foam p-5 shadow-card">
-            <h3 className="font-display text-2xl">Montar equipe</h3>
-            <input type="hidden" name="torneioId" value={torneio.id} />
-            <Campo
-              id="nomeEquipe"
-              rotulo="Nome da equipe"
-              dica="Opcional. Pode ser uma letra ou um número, como A ou 1. Em branco, a equipe fica com o nome dos atletas."
-            >
-              <Entrada id="nomeEquipe" name="nome" maxLength={80} autoComplete="off" />
-            </Campo>
-            <Campo id="atletas" rotulo="Atletas" dica={`Selecione até ${tamanho}. Segure Ctrl ou Cmd para vários.`}>
-              <Selecao id="atletas" name="atletaId" multiple required className="min-h-40">
-                {atletas.map((atleta) => (
-                  <option key={atleta.id} value={atleta.id}>{atleta.nomeCompleto} · {ROTULO_SEXO[atleta.sexo]}</option>
-                ))}
-              </Selecao>
-            </Campo>
-            <Botao type="submit">Criar equipe</Botao>
-          </Formulario>
+          {travado ? null : (
+            <Formulario acao={acaoCadastrarEquipe} className="rounded-3xl bg-foam p-5 shadow-card">
+              <h3 className="font-display text-2xl">Cadastrar equipe</h3>
+              <p className="text-navy/70">
+                Preencha o nome, o sexo e o telefone de cada integrante. O e-mail é opcional. Quem já existe entra na equipe; quem não existe é cadastrado.
+              </p>
+              <input type="hidden" name="torneioId" value={torneio.id} />
+              <CamposEquipe tamanho={tamanho} permitirIncompleta={torneio.permitirEquipeIncompleta} />
+              <Botao type="submit">Gravar equipe</Botao>
+            </Formulario>
+          )}
         </section>
       ) : null}
     </div>

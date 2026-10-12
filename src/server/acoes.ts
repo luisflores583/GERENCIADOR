@@ -10,6 +10,7 @@ import { ZodError } from "zod";
 import { publicar } from "@/engine/tempo-real";
 import { ErroDeRegra } from "@/lib/erros";
 import { interpretarDataHoraLocal } from "@/lib/formatacao";
+import { integrantesDoFormulario } from "@/lib/integrantes";
 import { erroZod, esquemaCadastro, esquemaInscricaoDireta, esquemaLogin, esquemaPerfil } from "@/lib/schemas";
 import { conferirSenha, gerarHash } from "@/server/senha";
 import { criarSessao, encerrarSessao, exigirAdmin, exigirAtleta } from "@/server/sessao";
@@ -20,6 +21,7 @@ import {
   aprovarEquipe,
   aprovarInscricao,
   aprovarTodas,
+  cadastrarEquipePorNomes,
   criarEquipe,
   inscrever,
   inscreverAtletaDireto,
@@ -338,6 +340,25 @@ export async function acaoInscrever(_estado: EstadoAcao, form: FormData): Promis
     await inscrever(usuario.id, texto(form, "torneioId"));
     revalidatePath("/atleta");
     return { ok: true, mensagem: "Inscrição enviada. Aguarde a aprovação da organização." };
+  } catch (erro) {
+    return falha(erro);
+  }
+}
+
+export async function acaoCadastrarEquipe(_estado: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+  try {
+    const usuario = await exigirAdminOuAtleta();
+    const componentes = integrantesDoFormulario((campo) => texto(form, campo), 4);
+    const equipe = await cadastrarEquipePorNomes(
+      usuario.id,
+      texto(form, "torneioId"),
+      texto(form, "nome"),
+      componentes,
+      marcar(form, "autorizarIncompleta"),
+    );
+    revalidarPainel();
+    revalidatePath("/atleta");
+    return { ok: true, mensagem: `Equipe ${equipe.nome} gravada. Ela entra no sorteio depois da aprovação.` };
   } catch (erro) {
     return falha(erro);
   }

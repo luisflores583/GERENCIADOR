@@ -68,7 +68,9 @@ export default async function InicioAtleta() {
           {abertos.map((torneio) => (
             <Link key={torneio.id} href={`/atleta/torneios/${torneio.id}`} className="rounded-3xl bg-white p-4 shadow-card">
               <h3 className="text-xl font-bold">{torneio.nome}</h3>
+              <p>{ROTULO_FORMATO[torneio.formato]} · {ROTULO_NAIPE[torneio.naipe]}</p>
               <p>{formatarDataHora(torneio.inicioEm)} · {torneio.local}</p>
+              <p className="mt-2 font-semibold text-ocean">{torneio.formacao === "PRE_FORMADAS" ? "Cadastrar equipe" : "Inscrever-me"}</p>
             </Link>
           ))}
         </div>

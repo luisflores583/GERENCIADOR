@@ -1,4 +1,6 @@
 import type { StatusTorneio } from "@prisma/client";
+import { validarNaipe } from "@/engine/naipe";
+import { tamanhoDaEquipe } from "@/engine/sorteio";
 import { centavosDeReais, interpretarDataHoraLocal, slugificar } from "@/lib/formatacao";
 import { ErroDeRegra } from "@/lib/erros";
 import { erroZod, esquemaTorneio } from "@/lib/schemas";
@@ -41,6 +43,7 @@ function dadosDoFormulario(entrada: unknown) {
     local: dados.local,
     formato: dados.formato,
     formacao: dados.formacao,
+    naipe: dados.naipe,
     maxAtletas: numeroOpcional(dados.maxAtletas),
     inscricoesAte: interpretarDataHoraLocal(dados.inscricoesAte),
     valorCentavos: centavosDeReais(dados.valorReais),
@@ -75,8 +78,31 @@ export async function atualizarTorneio(adminId: string, torneioId: string, entra
     const atual = await tx.torneio.findUniqueOrThrow({ where: { id: torneioId } });
     if (atual.status === "FINALIZADO") throw new ErroDeRegra("Torneio finalizado não pode ser alterado.");
     const travado = Boolean(atual.equipesTravadasEm) || ["EM_ANDAMENTO", "PAUSADO"].includes(atual.status);
-    if (travado && (dados.formato !== atual.formato || dados.formacao !== atual.formacao)) {
-      throw new ErroDeRegra("Formato e formação ficam travados depois que as equipes são confirmadas.");
+    if (travado && (dados.formato !== atual.formato || dados.formacao !== atual.formacao || dados.naipe !== atual.naipe)) {
+      throw new ErroDeRegra("Formato, formação e naipe ficam travados depois que as equipes são confirmadas.");
+    }
+    if (dados.naipe !== atual.naipe) {
+      const inscricoes = await tx.inscricao.findMany({
+        where: { torneioId, status: { in: ["PENDENTE", "APROVADA"] } },
+        include: { atleta: true },
+      });
+      for (const item of inscricoes) {
+        const individual = validarNaipe(dados.naipe, [item.atleta.sexo], false);
+        if (!individual.ok) throw new ErroDeRegra(`${item.atleta.nomeCompleto}: ${individual.erro}`);
+      }
+      const equipes = await tx.equipe.findMany({
+        where: { torneioId },
+        include: { membros: { include: { atleta: true } } },
+      });
+      const tamanho = tamanhoDaEquipe(dados.formato);
+      for (const equipe of equipes) {
+        const naipeOk = validarNaipe(
+          dados.naipe,
+          equipe.membros.map((membro) => membro.atleta.sexo),
+          equipe.membros.length === tamanho,
+        );
+        if (!naipeOk.ok) throw new ErroDeRegra(`${equipe.nome}: ${naipeOk.erro}`);
+      }
     }
     const jaTemPlacar = await tx.partida.count({ where: { torneioId, status: "CONCLUIDA" } });
     if (jaTemPlacar > 0) {

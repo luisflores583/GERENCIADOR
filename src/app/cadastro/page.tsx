@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { Botao } from "@/components/botao";
 import { Casco } from "@/components/cabecalho";
-import { Campo, Entrada } from "@/components/campo";
+import { Campo, Entrada, Selecao } from "@/components/campo";
 import { Formulario } from "@/components/formulario";
 import { acaoCadastrar } from "@/server/acoes";
 import { obterUsuario } from "@/server/sessao";
@@ -24,6 +24,12 @@ export default async function Cadastro() {
           </Campo>
           <Campo id="telefone" rotulo="Telefone / WhatsApp">
             <Entrada id="telefone" name="telefone" autoComplete="tel" />
+          </Campo>
+          <Campo id="sexo" rotulo="Sexo">
+            <Selecao id="sexo" name="sexo" defaultValue="FEMININO">
+              <option value="FEMININO">Feminino</option>
+              <option value="MASCULINO">Masculino</option>
+            </Selecao>
           </Campo>
           <Campo id="email" rotulo="E-mail">
             <Entrada id="email" name="email" type="email" required autoComplete="email" />

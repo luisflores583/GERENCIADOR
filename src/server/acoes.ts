@@ -1,5 +1,6 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Prisma } from "@prisma/client";
@@ -9,7 +10,7 @@ import { ZodError } from "zod";
 import { publicar } from "@/engine/tempo-real";
 import { ErroDeRegra } from "@/lib/erros";
 import { interpretarDataHoraLocal } from "@/lib/formatacao";
-import { erroZod, esquemaCadastro, esquemaLogin, esquemaPerfil } from "@/lib/schemas";
+import { erroZod, esquemaCadastro, esquemaInscricaoDireta, esquemaLogin, esquemaPerfil } from "@/lib/schemas";
 import { conferirSenha, gerarHash } from "@/server/senha";
 import { criarSessao, encerrarSessao, exigirAdmin, exigirAtleta } from "@/server/sessao";
 import { prisma } from "@/server/db";
@@ -105,6 +106,7 @@ function dadosTorneio(form: FormData) {
     local: texto(form, "local"),
     formato: texto(form, "formato"),
     formacao: texto(form, "formacao"),
+    naipe: texto(form, "naipe") || "MISTO",
     maxAtletas: texto(form, "maxAtletas"),
     inscricoesAte: texto(form, "inscricoesAte"),
     valorReais: texto(form, "valorReais"),
@@ -144,6 +146,7 @@ export async function acaoCadastrar(_estado: EstadoAcao, form: FormData): Promis
       nome: texto(form, "nome"),
       apelido: texto(form, "apelido"),
       telefone: texto(form, "telefone"),
+      sexo: texto(form, "sexo"),
       email: texto(form, "email"),
       senha: texto(form, "senha"),
     });
@@ -158,6 +161,7 @@ export async function acaoCadastrar(_estado: EstadoAcao, form: FormData): Promis
         atleta: {
           create: {
             nomeCompleto: dados.nome,
+            sexo: dados.sexo,
             apelido: dados.apelido || null,
             telefone: dados.telefone || null,
           },
@@ -178,10 +182,11 @@ export async function acaoPerfil(_estado: EstadoAcao, form: FormData): Promise<E
       nome: texto(form, "nome"),
       apelido: texto(form, "apelido"),
       telefone: texto(form, "telefone"),
+      sexo: texto(form, "sexo"),
     });
     await prisma.atleta.update({
       where: { id: atleta.id },
-      data: { nomeCompleto: dados.nome, apelido: dados.apelido || null, telefone: dados.telefone || null },
+      data: { nomeCompleto: dados.nome, sexo: dados.sexo, apelido: dados.apelido || null, telefone: dados.telefone || null },
     });
     await prisma.usuario.update({ where: { id: usuario.id }, data: { nome: dados.nome } });
     revalidatePath("/atleta/perfil");
@@ -253,37 +258,62 @@ export async function acaoInscreverDireto(_estado: EstadoAcao, form: FormData): 
     const torneioId = texto(form, "torneioId");
     let atletaId = texto(form, "atletaId");
     if (!atletaId) {
-      const dados = esquemaCadastro.parse({
+      const dados = esquemaInscricaoDireta.parse({
         nome: texto(form, "nome"),
         apelido: texto(form, "apelido"),
         telefone: texto(form, "telefone"),
+        sexo: texto(form, "sexo"),
         email: texto(form, "email"),
         senha: texto(form, "senha"),
       });
-      const existente = await prisma.usuario.findUnique({ where: { email: dados.email }, include: { atleta: true } });
-      if (existente?.papel === "ADMIN") return { ok: false, erro: "Este e-mail pertence à organização." };
-      if (existente?.atleta) {
-        atletaId = existente.atleta.id;
-      } else if (existente) {
-        const atleta = await prisma.atleta.create({
-          data: {
-            usuarioId: existente.id,
-            nomeCompleto: dados.nome,
-            apelido: dados.apelido || null,
-            telefone: dados.telefone || null,
-          },
-        });
-        atletaId = atleta.id;
+      const email = dados.email.trim().toLowerCase();
+      if (email) {
+        const existente = await prisma.usuario.findUnique({ where: { email }, include: { atleta: true } });
+        if (existente?.papel === "ADMIN") return { ok: false, erro: "Este e-mail pertence à organização." };
+        if (existente?.atleta) {
+          atletaId = existente.atleta.id;
+        } else if (existente) {
+          const atleta = await prisma.atleta.create({
+            data: {
+              usuarioId: existente.id,
+              nomeCompleto: dados.nome,
+              sexo: dados.sexo,
+              apelido: dados.apelido || null,
+              telefone: dados.telefone || null,
+            },
+          });
+          atletaId = atleta.id;
+        } else {
+          const usuario = await prisma.usuario.create({
+            data: {
+              email,
+              senhaHash: await gerarHash(dados.senha),
+              papel: "ATLETA",
+              nome: dados.nome,
+              atleta: {
+                create: {
+                  nomeCompleto: dados.nome,
+                  sexo: dados.sexo,
+                  apelido: dados.apelido || null,
+                  telefone: dados.telefone || null,
+                },
+              },
+            },
+            include: { atleta: true },
+          });
+          atletaId = usuario.atleta!.id;
+        }
       } else {
         const usuario = await prisma.usuario.create({
           data: {
-            email: dados.email,
-            senhaHash: await gerarHash(dados.senha),
+            email: null,
+            senhaHash: await gerarHash(randomBytes(24).toString("hex")),
             papel: "ATLETA",
             nome: dados.nome,
             atleta: {
               create: {
                 nomeCompleto: dados.nome,
+                sexo: dados.sexo,
                 apelido: dados.apelido || null,
                 telefone: dados.telefone || null,
               },

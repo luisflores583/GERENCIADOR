@@ -11,6 +11,7 @@ export function CamposTorneio({
     local?: string;
     formato?: string;
     formacao?: string;
+    naipe?: string;
     maxAtletas?: number | null;
     inscricoesAte?: string;
     valorReais?: string;
@@ -60,6 +61,14 @@ export function CamposTorneio({
           <option value="SORTEADAS">Sorteadas após as inscrições</option>
         </Selecao>
         {v.travado ? <input type="hidden" name="formacao" value={v.formacao} /> : null}
+      </Campo>
+      <Campo id="naipe" rotulo="Naipe" dica="No misto, cada equipe precisa de pelo menos uma atleta feminina.">
+        <Selecao id="naipe" name="naipe" defaultValue={v.naipe ?? "MISTO"} disabled={v.travado}>
+          <option value="FEMININO">Feminino</option>
+          <option value="MASCULINO">Masculino</option>
+          <option value="MISTO">Misto</option>
+        </Selecao>
+        {v.travado ? <input type="hidden" name="naipe" value={v.naipe} /> : null}
       </Campo>
       <Campo id="maxAtletas" rotulo="Limite de atletas" dica="Deixe vazio para não limitar.">
         <Entrada id="maxAtletas" name="maxAtletas" inputMode="numeric" defaultValue={v.maxAtletas ?? ""} />

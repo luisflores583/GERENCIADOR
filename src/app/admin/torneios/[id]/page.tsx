@@ -6,7 +6,7 @@ import { Formulario } from "@/components/formulario";
 import { MenuTorneio } from "@/components/menu-torneio";
 import { SeloStatus } from "@/components/selo";
 import { formatarMoeda, paraCampoDataHora } from "@/lib/formatacao";
-import { ROTULO_FORMATO } from "@/lib/rotulos";
+import { ROTULO_FORMATO, ROTULO_NAIPE } from "@/lib/rotulos";
 import { acaoAtualizarTorneio, acaoStatus } from "@/server/acoes";
 import { prisma } from "@/server/db";
 
@@ -33,7 +33,7 @@ export default async function VisaoTorneio({ params }: { params: Promise<{ id: s
         <SeloStatus status={torneio.status} />
       </div>
       <p className="mt-2 text-navy/70">
-        {ROTULO_FORMATO[torneio.formato]} · {torneio._count.inscricoes} inscrições · {torneio._count.equipes} equipes · inscrição {formatarMoeda(torneio.valorCentavos)}
+        {ROTULO_FORMATO[torneio.formato]} · {ROTULO_NAIPE[torneio.naipe]} · {torneio._count.inscricoes} inscrições · {torneio._count.equipes} equipes · inscrição {formatarMoeda(torneio.valorCentavos)}
       </p>
       <div className="mt-6 flex flex-wrap gap-2">
         <Link className="inline-flex min-h-14 items-center rounded-2xl bg-coral px-5 font-semibold text-white" href={`/admin/torneios/${torneio.id}/jogos`}>
@@ -64,6 +64,7 @@ export default async function VisaoTorneio({ params }: { params: Promise<{ id: s
             local: torneio.local,
             formato: torneio.formato,
             formacao: torneio.formacao,
+            naipe: torneio.naipe,
             maxAtletas: torneio.maxAtletas,
             inscricoesAte: paraCampoDataHora(torneio.inscricoesAte),
             valorReais: valor,

@@ -32,6 +32,17 @@ enum ModoFormacao {
   SORTEADAS
 }
 
+enum Naipe {
+  FEMININO
+  MASCULINO
+  MISTO
+}
+
+enum Sexo {
+  FEMININO
+  MASCULINO
+}
+
 enum StatusInscricao {
   PENDENTE
   APROVADA
@@ -79,7 +90,7 @@ enum StatusSorteio {
 
 model Usuario {
   id           String               @id @default(cuid())
-  email        String               @unique
+  email        String?              @unique
   senhaHash    String
   papel        Papel
   nome         String
@@ -107,6 +118,7 @@ model Atleta {
   id             String         @id @default(cuid())
   usuarioId      String         @unique
   nomeCompleto   String
+  sexo           Sexo
   apelido        String?
   telefone       String?
   fotoUrl        String?
@@ -129,6 +141,7 @@ model Torneio {
   modalidade               String          @default("Vôlei de areia")
   formato                  FormatoEquipe
   formacao                 ModoFormacao
+  naipe                    Naipe           @default(MISTO)
   maxAtletas               Int?
   inscricoesAte            DateTime
   valorCentavos            Int?

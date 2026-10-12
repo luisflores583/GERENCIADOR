@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Casco } from "@/components/cabecalho";
 import { SeloStatus } from "@/components/selo";
 import { formatarDataHora, formatarMoeda } from "@/lib/formatacao";
-import { ROTULO_FORMATO, ROTULO_FORMACAO } from "@/lib/rotulos";
+import { ROTULO_FORMATO, ROTULO_FORMACAO, ROTULO_NAIPE } from "@/lib/rotulos";
 import { prisma } from "@/server/db";
 import { obterUsuario } from "@/server/sessao";
 
@@ -31,7 +31,7 @@ export default async function PaginaInicial() {
               <SeloStatus status={torneio.status} />
             </div>
             <p className="mt-2 text-navy/75">
-              {ROTULO_FORMATO[torneio.formato]} · {ROTULO_FORMACAO[torneio.formacao]}
+              {ROTULO_FORMATO[torneio.formato]} · {ROTULO_NAIPE[torneio.naipe]} · {ROTULO_FORMACAO[torneio.formacao]}
             </p>
             <p className="mt-1">{torneio.local}</p>
             <p className="mt-1">{formatarDataHora(torneio.inicioEm)}</p>

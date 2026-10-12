@@ -14,6 +14,7 @@ function painel(): PainelDTO {
       modalidade: "Vôlei de areia",
       formato: "DUPLA",
       formacao: "PRE_FORMADAS",
+      naipe: "MISTO",
       status: "EM_ANDAMENTO",
       inicioEm: "2026-11-15T12:00:00.000Z",
       inscricoesAte: "2026-11-14T21:00:00.000Z",

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ChaveVisual } from "@/components/chave-visual";
 import { SeloPartida, SeloSituacao, SeloStatus } from "@/components/selo";
 import { formatarDataHora } from "@/lib/formatacao";
-import { ROTULO_FORMATO, ROTULO_FORMACAO } from "@/lib/rotulos";
+import { ROTULO_FORMATO, ROTULO_FORMACAO, ROTULO_NAIPE } from "@/lib/rotulos";
 import type { PainelDTO, PartidaResumo } from "@/tipos";
 
 export function PainelAoVivo({ inicial }: { inicial: PainelDTO }) {
@@ -48,7 +48,7 @@ export function PainelAoVivo({ inicial }: { inicial: PainelDTO }) {
             <p className="text-sm uppercase tracking-[0.2em] text-white/70">{painel.torneio.nomeOrganizador || "Arena"}</p>
             <h1 className="mt-2 font-display text-4xl leading-tight sm:text-5xl lg:text-6xl">{painel.torneio.nome}</h1>
             <p className="mt-3 max-w-2xl text-white/80">
-              {painel.torneio.modalidade} · {ROTULO_FORMATO[painel.torneio.formato]} · {ROTULO_FORMACAO[painel.torneio.formacao]}
+              {painel.torneio.modalidade} · {ROTULO_FORMATO[painel.torneio.formato]} · {ROTULO_NAIPE[painel.torneio.naipe]} · {ROTULO_FORMACAO[painel.torneio.formacao]}
             </p>
             <p className="mt-2 text-white/80">
               {painel.torneio.local} · {formatarDataHora(painel.torneio.inicioEm)}

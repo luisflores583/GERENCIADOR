@@ -18,6 +18,17 @@ export const ROTULO_FORMACAO = {
   SORTEADAS: "Equipes sorteadas",
 } as const;
 
+export const ROTULO_NAIPE = {
+  FEMININO: "Feminino",
+  MASCULINO: "Masculino",
+  MISTO: "Misto",
+} as const;
+
+export const ROTULO_SEXO = {
+  FEMININO: "Feminino",
+  MASCULINO: "Masculino",
+} as const;
+
 export const ROTULO_INSCRICAO = {
   PENDENTE: "Pendente",
   APROVADA: "Aprovada",

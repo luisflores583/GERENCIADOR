@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { SeloStatus } from "@/components/selo";
 import { formatarDataHora } from "@/lib/formatacao";
-import { ROTULO_FORMATO } from "@/lib/rotulos";
+import { ROTULO_FORMATO, ROTULO_NAIPE } from "@/lib/rotulos";
 import { prisma } from "@/server/db";
 import { exigirAtleta } from "@/server/sessao";
 
@@ -56,7 +56,7 @@ export default async function InicioAtleta() {
                 <h3 className="text-xl font-bold">{inscricao.torneio.nome}</h3>
                 <SeloStatus status={inscricao.torneio.status} />
               </div>
-              <p className="mt-1">{ROTULO_FORMATO[inscricao.torneio.formato]} · {inscricao.equipe?.nome ?? "Sem equipe ainda"}</p>
+              <p className="mt-1">{ROTULO_FORMATO[inscricao.torneio.formato]} · {ROTULO_NAIPE[inscricao.torneio.naipe]} · {inscricao.equipe?.nome ?? "Sem equipe ainda"}</p>
               {inscricao.equipe ? <p>Vitórias {inscricao.equipe.vitorias} · Derrotas {inscricao.equipe.derrotas}</p> : null}
             </Link>
           ))}

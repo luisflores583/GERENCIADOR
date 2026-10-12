@@ -1,5 +1,5 @@
 import { Botao } from "@/components/botao";
-import { Campo, Entrada } from "@/components/campo";
+import { Campo, Entrada, Selecao } from "@/components/campo";
 import { Formulario } from "@/components/formulario";
 import { acaoFoto, acaoPerfil } from "@/server/acoes";
 import { exigirAtleta } from "@/server/sessao";
@@ -20,6 +20,12 @@ export default async function Perfil() {
           </Campo>
           <Campo id="telefone" rotulo="Telefone / WhatsApp">
             <Entrada id="telefone" name="telefone" defaultValue={atleta.telefone ?? ""} />
+          </Campo>
+          <Campo id="sexo" rotulo="Sexo">
+            <Selecao id="sexo" name="sexo" defaultValue={atleta.sexo}>
+              <option value="FEMININO">Feminino</option>
+              <option value="MASCULINO">Masculino</option>
+            </Selecao>
           </Campo>
           <Botao type="submit">Salvar</Botao>
         </Formulario>

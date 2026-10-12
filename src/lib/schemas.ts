@@ -9,18 +9,45 @@ export const esquemaLogin = z.object({
   senha: z.string().min(8, "A senha precisa ter pelo menos 8 caracteres."),
 });
 
+const sexo = z.enum(["FEMININO", "MASCULINO"], { message: "Informe se a atleta é mulher ou homem." });
+
 export const esquemaCadastro = z.object({
   nome: z.string().trim().min(3, "Informe o nome completo.").max(120),
   apelido: z.string().trim().max(40).optional().default(""),
   telefone: z.string().trim().max(20).optional().default(""),
+  sexo,
   email: z.string().trim().email("Informe um e-mail válido.").transform((valor) => valor.toLowerCase()),
   senha: z.string().min(8, "A senha precisa ter pelo menos 8 caracteres.").max(80),
 });
+
+export const esquemaInscricaoDireta = z
+  .object({
+    nome: z.string().trim().min(3, "Informe o nome completo.").max(120),
+    apelido: z.string().trim().max(40).optional().default(""),
+    telefone: z.string().trim().max(20).optional().default(""),
+    sexo,
+    email: z.string().trim().optional().default(""),
+    senha: z.string().optional().default(""),
+  })
+  .superRefine((dados, ctx) => {
+    const email = dados.email.trim().toLowerCase();
+    if (email && !z.string().email().safeParse(email).success) {
+      ctx.addIssue({ code: "custom", path: ["email"], message: "Informe um e-mail válido ou deixe em branco." });
+    }
+    if (email && dados.senha.length < 8) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["senha"],
+        message: "Com e-mail, a senha precisa ter pelo menos 8 caracteres.",
+      });
+    }
+  });
 
 export const esquemaPerfil = z.object({
   nome: z.string().trim().min(3, "Informe o nome completo.").max(120),
   apelido: z.string().trim().max(40).optional().default(""),
   telefone: z.string().trim().max(20).optional().default(""),
+  sexo,
 });
 
 export const esquemaTorneio = z
@@ -32,6 +59,7 @@ export const esquemaTorneio = z
     local: z.string().trim().min(2, "Informe o local.").max(200),
     formato: z.enum(["DUPLA", "TRIO", "QUARTETO"], { message: "Escolha duplas, trios ou quartetos." }),
     formacao: z.enum(["PRE_FORMADAS", "SORTEADAS"], { message: "Escolha como as equipes serão formadas." }),
+    naipe: z.enum(["FEMININO", "MASCULINO", "MISTO"], { message: "Escolha feminino, masculino ou misto." }).default("MISTO"),
     maxAtletas: z.string().trim().optional().default(""),
     inscricoesAte: dataHora,
     valorReais: z.string().trim().optional().default(""),

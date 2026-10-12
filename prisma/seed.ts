@@ -24,19 +24,19 @@ function carregarEnv() {
 carregarEnv();
 
 const ATLETAS = [
-  { email: "ana@arena.local", nome: "Ana Lima", apelido: "Ana" },
-  { email: "bia@arena.local", nome: "Bia Costa", apelido: "Bia" },
-  { email: "caio@arena.local", nome: "Caio Nunes", apelido: "Caio" },
-  { email: "davi@arena.local", nome: "Davi Rocha", apelido: "Davi" },
-  { email: "eva@arena.local", nome: "Eva Martins", apelido: "Eva" },
-  { email: "felipe@arena.local", nome: "Felipe Dias", apelido: "Felipe" },
-  { email: "gabi@arena.local", nome: "Gabi Alves", apelido: "Gabi" },
-  { email: "hugo@arena.local", nome: "Hugo Pires", apelido: "Hugo" },
+  { email: "ana@arena.local", nome: "Ana Lima", apelido: "Ana", sexo: "FEMININO" },
+  { email: "bia@arena.local", nome: "Bia Costa", apelido: "Bia", sexo: "FEMININO" },
+  { email: "caio@arena.local", nome: "Caio Nunes", apelido: "Caio", sexo: "MASCULINO" },
+  { email: "davi@arena.local", nome: "Davi Rocha", apelido: "Davi", sexo: "MASCULINO" },
+  { email: "eva@arena.local", nome: "Eva Martins", apelido: "Eva", sexo: "FEMININO" },
+  { email: "felipe@arena.local", nome: "Felipe Dias", apelido: "Felipe", sexo: "MASCULINO" },
+  { email: "gabi@arena.local", nome: "Gabi Alves", apelido: "Gabi", sexo: "FEMININO" },
+  { email: "hugo@arena.local", nome: "Hugo Pires", apelido: "Hugo", sexo: "MASCULINO" },
 ] as const;
 
 const DUPLAS = [
-  ["Maré Alta", "ana@arena.local", "bia@arena.local"],
-  ["Vento Sul", "caio@arena.local", "davi@arena.local"],
+  ["Maré Alta", "ana@arena.local", "caio@arena.local"],
+  ["Vento Sul", "bia@arena.local", "davi@arena.local"],
   ["Sol a Pino", "eva@arena.local", "felipe@arena.local"],
   ["Areia Quente", "gabi@arena.local", "hugo@arena.local"],
 ] as const;
@@ -61,13 +61,22 @@ async function principal() {
     "../src/server/competicao"
   );
 
-  async function garantirUsuario(email: string, nome: string, papel: "ADMIN" | "ATLETA", senha: string, apelido?: string) {
+  async function garantirUsuario(
+    email: string,
+    nome: string,
+    papel: "ADMIN" | "ATLETA",
+    senha: string,
+    apelido?: string,
+    sexo?: "FEMININO" | "MASCULINO",
+  ) {
     const existente = await prisma.usuario.findUnique({ where: { email }, include: { atleta: true } });
     if (existente) {
       if (papel === "ATLETA" && !existente.atleta) {
         await prisma.atleta.create({
-          data: { usuarioId: existente.id, nomeCompleto: nome, apelido: apelido ?? null },
+          data: { usuarioId: existente.id, nomeCompleto: nome, apelido: apelido ?? null, sexo: sexo ?? "FEMININO" },
         });
+      } else if (papel === "ATLETA" && existente.atleta && sexo) {
+        await prisma.atleta.update({ where: { id: existente.atleta.id }, data: { sexo } });
       }
       return prisma.usuario.findUniqueOrThrow({ where: { email }, include: { atleta: true } });
     }
@@ -77,7 +86,7 @@ async function principal() {
         nome,
         papel,
         senhaHash: await gerarHash(senha),
-        atleta: papel === "ATLETA" ? { create: { nomeCompleto: nome, apelido: apelido ?? null } } : undefined,
+        atleta: papel === "ATLETA" ? { create: { nomeCompleto: nome, apelido: apelido ?? null, sexo: sexo ?? "FEMININO" } } : undefined,
       },
       include: { atleta: true },
     });
@@ -86,7 +95,7 @@ async function principal() {
   const admin = await garantirUsuario(emailAdmin, "Organização da arena", "ADMIN", senhaAdmin);
   const atletas = new Map<string, { id: string; usuarioId: string }>();
   for (const item of ATLETAS) {
-    const usuario = await garantirUsuario(item.email, item.nome, "ATLETA", senhaAtleta, item.apelido);
+    const usuario = await garantirUsuario(item.email, item.nome, "ATLETA", senhaAtleta, item.apelido, item.sexo);
     if (!usuario.atleta) throw new Error(`Atleta ausente: ${item.email}`);
     atletas.set(item.email, { id: usuario.atleta.id, usuarioId: usuario.id });
   }
@@ -106,6 +115,7 @@ async function principal() {
       local: "Orla de Copacabana",
       formato: "DUPLA",
       formacao: "PRE_FORMADAS",
+      naipe: "MISTO",
       maxAtletas: "16",
       inscricoesAte: "2026-11-14T18:00",
       valorReais: "50,00",
@@ -144,6 +154,7 @@ async function principal() {
       local: "Quadra da praia",
       formato: "TRIO",
       formacao: "SORTEADAS",
+      naipe: "MISTO",
       maxAtletas: "",
       inscricoesAte: "2026-12-20T18:00",
       valorReais: "",

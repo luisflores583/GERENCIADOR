@@ -1,3 +1,4 @@
+import type { Naipe, Sexo } from "@/engine/naipe";
 import { desambiguarNome, nomeAutomatico } from "@/engine/nomes";
 
 export const ALGORITMO_SORTEIO = "mulberry32-v1";
@@ -79,6 +80,8 @@ export function sortearEquipes(entrada: {
   semente: number;
   autorizarIncompleta: boolean;
   nomes?: Readonly<Record<string, string>>;
+  naipe?: Naipe;
+  sexos?: Readonly<Record<string, Sexo>>;
 }): ResultadoSorteioEquipes {
   const unicos = new Set(entrada.atletaIds);
   if (unicos.size !== entrada.atletaIds.length) {
@@ -104,7 +107,20 @@ export function sortearEquipes(entrada: {
     };
   }
 
-  const ordem = embaralhar(entrada.atletaIds, entrada.semente);
+  const equipesPrevistas = equipesCompletas + (sobra !== 0 && entrada.autorizarIncompleta ? 1 : 0);
+  const mulheres = entrada.atletaIds.filter((id) => entrada.sexos?.[id] === "FEMININO");
+  if (entrada.naipe === "MISTO" && entrada.sexos && mulheres.length < equipesPrevistas) {
+    return {
+      ok: false,
+      sobra: equipesPrevistas - mulheres.length,
+      mensagem: `O misto precisa de pelo menos uma atleta feminina em cada equipe. Há ${mulheres.length} mulher(es) para ${equipesPrevistas} equipe(s). Ninguém foi excluído e o sorteio não foi iniciado.`,
+      alternativas: ALTERNATIVAS_SOBRA,
+    };
+  }
+
+  const ordem = entrada.naipe === "MISTO" && entrada.sexos
+    ? ordemMista(entrada.atletaIds, entrada.sexos, entrada.semente, tamanho, equipesCompletas, sobra)
+    : embaralhar(entrada.atletaIds, entrada.semente);
   const equipes: EquipeSorteada[] = [];
   const nomeDoGrupo = (ids: string[], indice: number) => {
     const nomes = ids.map((id) => entrada.nomes?.[id]?.trim() ?? "").filter(Boolean);
@@ -135,4 +151,26 @@ export function sortearEquipes(entrada: {
     equipes,
     sobra,
   };
+}
+
+function ordemMista(
+  atletaIds: readonly string[],
+  sexos: Readonly<Record<string, Sexo>>,
+  semente: number,
+  tamanho: number,
+  equipesCompletas: number,
+  sobra: number,
+): string[] {
+  const mulheres = embaralhar(atletaIds.filter((id) => sexos[id] === "FEMININO"), semente);
+  const demais = embaralhar(atletaIds.filter((id) => sexos[id] !== "FEMININO"), semente + 1);
+  const times = equipesCompletas + (sobra !== 0 ? 1 : 0);
+  const grupos = Array.from({ length: times }, () => [] as string[]);
+  for (let indice = 0; indice < times; indice++) grupos[indice]!.push(mulheres[indice]!);
+  const fila = [...mulheres.slice(times), ...demais];
+  let cursor = 0;
+  for (let indice = 0; indice < times; indice++) {
+    const alvo = indice < equipesCompletas ? tamanho : sobra;
+    while (grupos[indice]!.length < alvo) grupos[indice]!.push(fila[cursor++]!);
+  }
+  return grupos.flat();
 }

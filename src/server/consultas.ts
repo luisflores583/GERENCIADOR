@@ -109,6 +109,7 @@ export async function montarPainel(slug: string): Promise<PainelDTO | null> {
       modalidade: torneio.modalidade,
       formato: torneio.formato,
       formacao: torneio.formacao,
+      naipe: torneio.naipe,
       status: torneio.status,
       inicioEm: torneio.inicioEm.toISOString(),
       inscricoesAte: torneio.inscricoesAte.toISOString(),

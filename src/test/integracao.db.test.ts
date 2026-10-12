@@ -29,7 +29,7 @@ describe.skipIf(!rodar)("integração com o banco", () => {
         nome,
         papel,
         senhaHash: await gerarHash("senha-integracao-123"),
-        atleta: papel === "ATLETA" ? { create: { nomeCompleto: nome } } : undefined,
+        atleta: papel === "ATLETA" ? { create: { nomeCompleto: nome, sexo: "MASCULINO" } } : undefined,
       },
       include: { atleta: true },
     });
@@ -64,6 +64,7 @@ describe.skipIf(!rodar)("integração com o banco", () => {
       quadrasSimultaneas: "1",
       descansoMinutos: "0",
       permitirEquipeIncompleta: false,
+      naipe: "MASCULINO",
       corDestaque: "#e36a3a",
       nomeOrganizador: "Teste",
     };

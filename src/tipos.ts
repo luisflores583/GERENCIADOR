@@ -42,6 +42,7 @@ export type PainelDTO = {
     modalidade: string;
     formato: "DUPLA" | "TRIO" | "QUARTETO";
     formacao: "PRE_FORMADAS" | "SORTEADAS";
+    naipe: "FEMININO" | "MASCULINO" | "MISTO";
     status: string;
     inicioEm: string;
     inscricoesAte: string;

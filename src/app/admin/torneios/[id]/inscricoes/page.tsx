@@ -3,7 +3,7 @@ import { Botao } from "@/components/botao";
 import { Campo, Entrada, Selecao } from "@/components/campo";
 import { Formulario } from "@/components/formulario";
 import { MenuTorneio } from "@/components/menu-torneio";
-import { ROTULO_INSCRICAO } from "@/lib/rotulos";
+import { ROTULO_INSCRICAO, ROTULO_NAIPE, ROTULO_SEXO } from "@/lib/rotulos";
 import {
   acaoAprovarEquipe,
   acaoAprovarInscricao,
@@ -50,26 +50,35 @@ export default async function Inscricoes({ params }: { params: Promise<{ id: str
       ) : (
         <Formulario acao={acaoInscreverDireto} className="mt-6 rounded-3xl bg-foam p-5 shadow-card">
           <h2 className="font-display text-3xl text-navy">Inscrever atleta neste torneio</h2>
-          <p className="text-navy/70">A inscrição é gravada como aprovada. Vale mesmo depois do prazo, até o início da chave.</p>
+          <p className="text-navy/70">
+            A inscrição é gravada como aprovada. O e-mail não é obrigatório. Naipe deste torneio: {ROTULO_NAIPE[torneio.naipe]}.
+            {torneio.naipe === "MISTO" ? " Cada equipe precisa de pelo menos uma atleta feminina." : ""}
+          </p>
           <input type="hidden" name="torneioId" value={torneio.id} />
           <Campo id="atletaExistente" rotulo="Atleta já cadastrado" dica="Deixe em branco para cadastrar alguém novo abaixo.">
             <Selecao id="atletaExistente" name="atletaId" defaultValue="">
               <option value="">Cadastrar um atleta novo</option>
               {disponiveis.map((atleta) => (
-                <option key={atleta.id} value={atleta.id}>{atleta.nomeCompleto}</option>
+                <option key={atleta.id} value={atleta.id}>{atleta.nomeCompleto} · {ROTULO_SEXO[atleta.sexo]}</option>
               ))}
             </Selecao>
           </Campo>
           <Campo id="nomeNovo" rotulo="Nome do atleta novo">
             <Entrada id="nomeNovo" name="nome" autoComplete="name" />
           </Campo>
-          <Campo id="emailNovo" rotulo="E-mail">
-            <Entrada id="emailNovo" name="email" type="email" autoComplete="email" />
+          <Campo id="sexoNovo" rotulo="Sexo">
+            <Selecao id="sexoNovo" name="sexo" defaultValue="FEMININO">
+              <option value="FEMININO">Feminino</option>
+              <option value="MASCULINO">Masculino</option>
+            </Selecao>
           </Campo>
           <Campo id="telefoneNovo" rotulo="Telefone">
             <Entrada id="telefoneNovo" name="telefone" autoComplete="tel" />
           </Campo>
-          <Campo id="senhaNova" rotulo="Senha de acesso" dica="Obrigatória só para um atleta que ainda não tem conta. Mínimo de 8 caracteres.">
+          <Campo id="emailNovo" rotulo="E-mail" dica="Opcional. A inscrição não exige e-mail.">
+            <Entrada id="emailNovo" name="email" type="email" autoComplete="off" />
+          </Campo>
+          <Campo id="senhaNova" rotulo="Senha de acesso" dica="Só é necessária se você informar um e-mail para a atleta entrar depois.">
             <Entrada id="senhaNova" name="senha" type="password" autoComplete="new-password" />
           </Campo>
           <Botao type="submit">Gravar inscrição</Botao>
@@ -89,8 +98,7 @@ export default async function Inscricoes({ params }: { params: Promise<{ id: str
               <div>
                 <p className="text-lg font-bold">{inscricao.atleta.nomeCompleto}</p>
                 <p className="text-sm text-navy/70">
-                  {inscricao.atleta.apelido ? `${inscricao.atleta.apelido} · ` : ""}
-                  {inscricao.atleta.telefone ?? "sem telefone"} · {ROTULO_INSCRICAO[inscricao.status]}
+                  {ROTULO_SEXO[inscricao.atleta.sexo]} · {inscricao.atleta.telefone ?? "sem telefone"} · {ROTULO_INSCRICAO[inscricao.status]}
                   {inscricao.equipe ? ` · ${inscricao.equipe.nome}` : ""}
                 </p>
               </div>
@@ -158,7 +166,7 @@ export default async function Inscricoes({ params }: { params: Promise<{ id: str
             <Campo id="atletas" rotulo="Atletas" dica={`Selecione até ${tamanho}. Segure Ctrl ou Cmd para vários.`}>
               <Selecao id="atletas" name="atletaId" multiple required className="min-h-40">
                 {atletas.map((atleta) => (
-                  <option key={atleta.id} value={atleta.id}>{atleta.nomeCompleto}</option>
+                  <option key={atleta.id} value={atleta.id}>{atleta.nomeCompleto} · {ROTULO_SEXO[atleta.sexo]}</option>
                 ))}
               </Selecao>
             </Campo>

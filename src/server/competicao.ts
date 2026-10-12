@@ -8,6 +8,7 @@ import {
 } from "@/engine/dupla-eliminacao";
 import { validarPlacar } from "@/engine/placar";
 import { validarTrocaDeQuadra, type PartidaOperacional, type QuadraOperacional } from "@/engine/quadras";
+import { validarNaipe } from "@/engine/naipe";
 import { ALGORITMO_SORTEIO, sortearEquipes, validarElenco } from "@/engine/sorteio";
 import { ErroDeRegra } from "@/lib/erros";
 import { exigirAdministrador } from "@/server/acesso";
@@ -55,12 +56,18 @@ export async function gerarSorteioEquipes(adminId: string, torneioId: string, au
     if (pendentes > 0) throw new ErroDeRegra("Ainda há inscrições pendentes. Aprove ou rejeite todas antes do sorteio.");
     const atletas = await tx.inscricao.findMany({
       where: { torneioId, status: "APROVADA" },
-      select: { atletaId: true, atleta: { select: { nomeCompleto: true } } },
+      select: { atletaId: true, atleta: { select: { nomeCompleto: true, sexo: true } } },
       orderBy: { criadaEm: "asc" },
     });
+    for (const item of atletas) {
+      const individual = validarNaipe(torneio.naipe, [item.atleta.sexo], false);
+      if (!individual.ok) throw new ErroDeRegra(individual.erro);
+    }
     const sorteio = sortearEquipes({
       atletaIds: atletas.map((item) => item.atletaId),
       nomes: Object.fromEntries(atletas.map((item) => [item.atletaId, item.atleta.nomeCompleto])),
+      sexos: Object.fromEntries(atletas.map((item) => [item.atletaId, item.atleta.sexo])),
+      naipe: torneio.naipe,
       formato: torneio.formato,
       semente: sementeDe(semente),
       autorizarIncompleta: autorizarIncompleta && torneio.permitirEquipeIncompleta,
@@ -175,7 +182,7 @@ export async function gerarSorteioConfrontos(adminId: string, torneioId: string,
     if (await tx.partida.count({ where: { torneioId } })) {
       throw new ErroDeRegra("Os confrontos deste torneio já foram gerados.");
     }
-    await validarEquipesParaChave(tx, torneio.id, torneio.formato, torneio.formacao, torneio.permitirEquipeIncompleta);
+    await validarEquipesParaChave(tx, torneio.id, torneio.formato, torneio.formacao, torneio.naipe, torneio.permitirEquipeIncompleta);
     const quadras = await tx.torneioQuadra.count({ where: { torneioId, habilitada: true } });
     if (quadras < 1) throw new ErroDeRegra("Habilite pelo menos uma quadra antes do sorteio.");
     const equipes = await tx.equipe.findMany({
@@ -210,6 +217,7 @@ async function validarEquipesParaChave(
   torneioId: string,
   formato: "DUPLA" | "TRIO" | "QUARTETO",
   formacao: "PRE_FORMADAS" | "SORTEADAS",
+  naipe: "FEMININO" | "MASCULINO" | "MISTO",
   permitirIncompleta: boolean,
 ) {
   const pendentesInscricao = await tx.inscricao.count({ where: { torneioId, status: "PENDENTE" } });
@@ -222,11 +230,13 @@ async function validarEquipesParaChave(
   }
   const equipes = await tx.equipe.findMany({
     where: { torneioId, status: "CONFIRMADA" },
-    include: { membros: true },
+    include: { membros: { include: { atleta: true } } },
   });
   for (const equipe of equipes) {
     const validacao = validarElenco(formato, equipe.membros.length, equipe.incompleta && permitirIncompleta);
     if (!validacao.ok) throw new ErroDeRegra(`${equipe.nome}: ${validacao.erro}`);
+    const naipeOk = validarNaipe(naipe, equipe.membros.map((membro) => membro.atleta.sexo), true);
+    if (!naipeOk.ok) throw new ErroDeRegra(`${equipe.nome}: ${naipeOk.erro}`);
   }
 }
 
@@ -246,7 +256,7 @@ export async function confirmarSorteioConfrontos(adminId: string, sorteioId: str
       throw new ErroDeRegra("Os confrontos já foram gerados.");
     }
     const torneio = await tx.torneio.findUniqueOrThrow({ where: { id: atual.torneioId } });
-    await validarEquipesParaChave(tx, torneio.id, torneio.formato, torneio.formacao, torneio.permitirEquipeIncompleta);
+    await validarEquipesParaChave(tx, torneio.id, torneio.formato, torneio.formacao, torneio.naipe, torneio.permitirEquipeIncompleta);
     const ordem = (atual.resultado as { equipes: string[] }).equipes;
     const confirmadas = await tx.equipe.findMany({ where: { torneioId: torneio.id, status: "CONFIRMADA" } });
     if (ordem.length !== confirmadas.length || confirmadas.some((equipe) => !ordem.includes(equipe.id))) {

@@ -1,4 +1,5 @@
-import type { Torneio } from "@prisma/client";
+import type { Sexo, Torneio } from "@prisma/client";
+import { validarNaipe } from "@/engine/naipe";
 import { desambiguarNome, nomeAutomatico, pareceNomeAutomatico, resolverNomeEquipe } from "@/engine/nomes";
 import { tamanhoDaEquipe, validarElenco } from "@/engine/sorteio";
 import { ErroDeRegra } from "@/lib/erros";
@@ -50,6 +51,8 @@ export async function inscrever(usuarioId: string, torneioId: string) {
       throw new ErroDeRegra("Você já está inscrito neste torneio.");
     }
     await afirmarVaga(tx, torneio, existente ? 0 : 1);
+    const atleta = await tx.atleta.findUniqueOrThrow({ where: { id: atletaId } });
+    afirmarSexoNoTorneio(torneio.naipe, [atleta.sexo], false);
     if (existente) {
       return tx.inscricao.update({
         where: { id: existente.id },
@@ -92,7 +95,9 @@ export async function criarEquipe(usuarioId: string, torneioId: string, nome: st
     }
     await afirmarVaga(tx, torneio, novas.length);
 
-    const nomes = await nomesDosAtletas(tx, unicos);
+    const atletas = await atletasNaOrdem(tx, unicos);
+    const nomes = atletas.map((atleta) => atleta.nomeCompleto);
+    afirmarSexoNoTorneio(torneio.naipe, atletas.map((atleta) => atleta.sexo), unicos.length === tamanho);
     const resolvido = resolverNomeEquipe(nome, nomes);
     if (!resolvido.ok) throw new ErroDeRegra(resolvido.erro);
     const titulo = await nomeLivre(tx, torneioId, resolvido.nome);
@@ -146,6 +151,11 @@ export async function adicionarMembro(usuarioId: string, equipeId: string, atlet
     });
     const novo = await tx.atleta.findUnique({ where: { id: atletaId } });
     if (!novo) throw new ErroDeRegra("Atleta não encontrado.", 404);
+    afirmarSexoNoTorneio(
+      torneio.naipe,
+      [...antes.map((membro) => membro.atleta.sexo), novo.sexo],
+      membros + 1 === tamanho,
+    );
     await renomearSeAutomatica(tx, equipe, antes.map((membro) => membro.atleta.nomeCompleto), [
       ...antes.map((membro) => membro.atleta.nomeCompleto),
       novo.nomeCompleto,
@@ -219,9 +229,10 @@ export async function aprovarEquipe(adminId: string, equipeId: string) {
   return trancarEquipe(equipeId, async (tx, equipe) => {
     const torneio = await tx.torneio.findUniqueOrThrow({ where: { id: equipe.torneioId } });
     afirmarComposicaoAberta(torneio);
-    const membros = await tx.membroEquipe.findMany({ where: { equipeId } });
+    const membros = await tx.membroEquipe.findMany({ where: { equipeId }, include: { atleta: true } });
     const validacao = validarElenco(torneio.formato, membros.length, false);
     if (!validacao.ok) throw new ErroDeRegra(validacao.erro);
+    afirmarSexoNoTorneio(torneio.naipe, membros.map((membro) => membro.atleta.sexo), true);
     await tx.inscricao.updateMany({
       where: { equipeId },
       data: { status: "APROVADA" },
@@ -253,6 +264,7 @@ export async function inscreverAtletaDireto(adminId: string, torneioId: string, 
     if (torneio.status === "FINALIZADO") throw new ErroDeRegra("Torneio finalizado.");
     const atleta = await tx.atleta.findUnique({ where: { id: atletaId } });
     if (!atleta) throw new ErroDeRegra("Atleta não encontrado.", 404);
+    afirmarSexoNoTorneio(torneio.naipe, [atleta.sexo], false);
     const existente = await tx.inscricao.findUnique({
       where: { torneioId_atletaId: { torneioId, atletaId } },
     });
@@ -295,16 +307,21 @@ async function prismaInscricao(inscricaoId: string) {
   return inscricao;
 }
 
-async function nomesDosAtletas(tx: Tx, ids: string[]) {
+function afirmarSexoNoTorneio(naipe: Torneio["naipe"], sexos: Sexo[], exigirParticipanteFeminina: boolean) {
+  const validacao = validarNaipe(naipe, sexos, exigirParticipanteFeminina);
+  if (!validacao.ok) throw new ErroDeRegra(validacao.erro);
+}
+
+async function atletasNaOrdem(tx: Tx, ids: string[]) {
   const atletas = await tx.atleta.findMany({
     where: { id: { in: ids } },
-    select: { id: true, nomeCompleto: true },
+    select: { id: true, nomeCompleto: true, sexo: true },
   });
-  const porId = new Map(atletas.map((atleta) => [atleta.id, atleta.nomeCompleto]));
+  const porId = new Map(atletas.map((atleta) => [atleta.id, atleta]));
   return ids.map((id) => {
-    const nome = porId.get(id);
-    if (!nome) throw new ErroDeRegra("Atleta não encontrado.", 404);
-    return nome;
+    const atleta = porId.get(id);
+    if (!atleta) throw new ErroDeRegra("Atleta não encontrado.", 404);
+    return atleta;
   });
 }
 

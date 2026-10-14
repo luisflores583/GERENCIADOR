@@ -29,14 +29,22 @@ export default async function Sorteio({ params }: { params: Promise<{ id: string
   if (rascunhoConfrontos) {
     const ordem = (rascunhoConfrontos.resultado as { equipes: string[] }).equipes;
     const porId = new Map(torneio.equipes.map((equipe) => [equipe.id, equipe.nome]));
-    const estado = criarEstadoInicial(ordem);
-    previaChave = estado.partidas
-      .filter((partida) => partida.chave === "VENCEDORES" && partida.rodada === 1 && partida.status !== "VAZIA")
-      .map((partida) => ({
-        codigo: partida.id,
-        a: partida.equipeAId ? (porId.get(partida.equipeAId) ?? "Folga") : "Folga",
-        b: partida.equipeBId ? (porId.get(partida.equipeBId) ?? "Folga") : "Folga",
-      }));
+    if (torneio.modeloChave === "FOLHA_16" && ordem.length > 16) {
+      previaChave = [];
+    } else {
+      const estado = criarEstadoInicial(ordem, torneio.modeloChave);
+      previaChave = estado.partidas
+        .filter((partida) =>
+          torneio.modeloChave === "FOLHA_16"
+            ? Number(partida.id) >= 1 && Number(partida.id) <= 8
+            : partida.chave === "VENCEDORES" && partida.rodada === 1 && partida.status !== "VAZIA",
+        )
+        .map((partida) => ({
+          codigo: torneio.modeloChave === "FOLHA_16" ? `Jogo ${partida.id}` : partida.id,
+          a: partida.equipeAId ? (porId.get(partida.equipeAId) ?? "Folga") : "Folga",
+          b: partida.equipeBId ? (porId.get(partida.equipeBId) ?? "Folga") : "Folga",
+        }));
+    }
   }
 
   return (
@@ -87,6 +95,11 @@ export default async function Sorteio({ params }: { params: Promise<{ id: string
 
       <section className="mt-6 rounded-3xl bg-foam p-5 shadow-card">
         <h2 className="font-display text-2xl">{torneio.formacao === "SORTEADAS" ? "2. " : ""}Confrontos da primeira rodada</h2>
+        {torneio.modeloChave === "FOLHA_16" ? (
+          <p className="mt-2 text-navy/75">
+            Este torneio usa a tabela de até 16 times. Os jogos 1 a 8 recebem as cabeças 1 a 16 na ordem do sorteio.
+          </p>
+        ) : null}
         <Formulario acao={acaoGerarConfrontos}>
           <input type="hidden" name="torneioId" value={torneio.id} />
           <Botao type="submit">Sortear confrontos</Botao>
@@ -96,7 +109,7 @@ export default async function Sorteio({ params }: { params: Promise<{ id: string
             <p className="text-sm">Semente {rascunhoConfrontos?.semente} · {rascunhoConfrontos?.algoritmo} · por {rascunhoConfrontos?.criadoPor.nome}</p>
             <ul className="mt-2 space-y-2">
               {previaChave.map((jogo) => (
-                <li key={jogo.codigo} className="rounded-2xl bg-white p-3">{jogo.a} x {jogo.b}</li>
+                <li key={jogo.codigo} className="rounded-2xl bg-white p-3">{jogo.codigo}: {jogo.a} x {jogo.b}</li>
               ))}
             </ul>
             <Formulario acao={acaoConfirmarConfrontos} className="mt-3">

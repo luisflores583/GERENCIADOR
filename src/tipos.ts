@@ -1,6 +1,16 @@
-export type SituacaoVisual = "INVICTA" | "UMA_DERROTA" | "ELIMINADA" | "CAMPEA" | "VICE";
+export type SituacaoVisual = "INVICTA" | "UMA_DERROTA" | "ELIMINADA" | "CAMPEA" | "VICE" | "CAMPEA_OURO" | "CAMPEA_PRATA";
 
-export type LadoChaveDto = "VENCEDORES" | "PERDEDORES" | "FINAL" | "FINAL_EXTRA";
+export type LadoChaveDto =
+  | "VENCEDORES"
+  | "PERDEDORES"
+  | "FINAL"
+  | "FINAL_EXTRA"
+  | "SEMIFINALISTA_A"
+  | "SEMIFINALISTA_B"
+  | "SEMIFINALISTA_C"
+  | "SEMIFINALISTA_D"
+  | "SEMIFINAL"
+  | "SEM_REGIAO";
 
 export type EquipeResumo = {
   id: string;
@@ -70,6 +80,9 @@ export type PainelDTO = {
   classificacao: Array<EquipeResumo & { posicao: number }>;
   campeao: string | null;
   vice: string | null;
+  modeloChave: "GENERICA" | "FOLHA_16";
+  campeaoOuro: string | null;
+  campeaoPrata: string | null;
   atualizadoEm: string;
 };
 

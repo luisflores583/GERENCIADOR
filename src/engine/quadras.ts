@@ -35,6 +35,9 @@ const OCUPANDO = new Set<StatusOperacional>(["AGENDADA", "EM_ANDAMENTO", "PAUSAD
 function prioridade(partida: PartidaOperacional): number {
   if (partida.chave === "FINAL_EXTRA") return 1000;
   if (partida.chave === "FINAL") return 900;
+  if (partida.chave === "SEMIFINAL") return 850;
+  if (partida.chave.startsWith("SEMIFINALISTA")) return 800;
+  if (partida.chave === "SEM_REGIAO") return 600 - partida.rodada;
   if (partida.chave === "VENCEDORES") return 500 - partida.rodada;
   return 400 - partida.rodada;
 }

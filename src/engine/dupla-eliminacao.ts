@@ -1,7 +1,20 @@
 import { ErroDeRegra } from "@/lib/erros";
+import { construirFolha16, LIMITE_FOLHA_16 } from "@/engine/folha-16";
 import { validarPlacar, type RegrasPlacar } from "@/engine/placar";
 
-export type LadoChave = "VENCEDORES" | "PERDEDORES" | "FINAL" | "FINAL_EXTRA";
+export type ModeloChave = "GENERICA" | "FOLHA_16";
+
+export type LadoChave =
+  | "VENCEDORES"
+  | "PERDEDORES"
+  | "FINAL"
+  | "FINAL_EXTRA"
+  | "SEMIFINALISTA_A"
+  | "SEMIFINALISTA_B"
+  | "SEMIFINALISTA_C"
+  | "SEMIFINALISTA_D"
+  | "SEMIFINAL"
+  | "SEM_REGIAO";
 
 export type StatusPartidaMotor =
   | "AGUARDANDO"
@@ -35,6 +48,7 @@ export interface PartidaMotor {
 }
 
 export interface EstadoChave {
+  modelo: ModeloChave;
   equipesIds: string[];
   partidas: PartidaMotor[];
   vitorias: Record<string, number>;
@@ -42,6 +56,8 @@ export interface EstadoChave {
   completa: boolean;
   campeaoId: string | null;
   viceId: string | null;
+  campeaoOuroId: string | null;
+  campeaoPrataId: string | null;
   sequencia: number;
 }
 
@@ -309,6 +325,19 @@ function recomputar(estado: EstadoChave): void {
 }
 
 function atualizarCampeao(estado: EstadoChave): void {
+  if (estado.modelo === "FOLHA_16") {
+    const prata = estado.partidas.find((partida) => partida.id === "29");
+    const ouro = estado.partidas.find((partida) => partida.id === "30");
+    estado.campeaoId = null;
+    estado.viceId = null;
+    estado.campeaoPrataId = prata?.status === "CONCLUIDA" ? prata.vencedorId : null;
+    estado.campeaoOuroId = ouro?.status === "CONCLUIDA" ? ouro.vencedorId : null;
+    estado.completa = Boolean(estado.campeaoPrataId && estado.campeaoOuroId);
+    return;
+  }
+
+  estado.campeaoOuroId = null;
+  estado.campeaoPrataId = null;
   const final = estado.partidas.find((partida) => partida.id === "F1");
   const extra = estado.partidas.find((partida) => partida.id === "F2");
   if (extra?.status === "CONCLUIDA" && extra.vencedorId && extra.perdedorId) {
@@ -385,12 +414,14 @@ export function auditarEstado(estado: EstadoChave): void {
     throw new ErroDeRegra(`As derrotas (${somaDerrotas}) não correspondem às partidas concluídas (${concluidas}).`);
   }
 
-  for (const equipeId of estado.equipesIds) {
-    const derrotas = estado.derrotas[equipeId] ?? 0;
-    if (derrotas >= 2 && abertas.has(equipeId)) {
-      throw new ErroDeRegra(
-        `A equipe eliminada ${equipeId} foi escalada em ${abertas.get(equipeId)!.join(", ")}.`,
-      );
+  if (estado.modelo !== "FOLHA_16") {
+    for (const equipeId of estado.equipesIds) {
+      const derrotas = estado.derrotas[equipeId] ?? 0;
+      if (derrotas >= 2 && abertas.has(equipeId)) {
+        throw new ErroDeRegra(
+          `A equipe eliminada ${equipeId} foi escalada em ${abertas.get(equipeId)!.join(", ")}.`,
+        );
+      }
     }
   }
 
@@ -399,6 +430,8 @@ export function auditarEstado(estado: EstadoChave): void {
       throw new ErroDeRegra(`A equipe ${equipeId} está em mais de uma partida ao mesmo tempo: ${partidas.join(", ")}.`);
     }
   }
+
+  if (estado.modelo === "FOLHA_16") return;
 
   const final = estado.partidas.find((partida) => partida.id === "F1");
   const extra = estado.partidas.find((partida) => partida.id === "F2");
@@ -498,11 +531,14 @@ function propagar(estado: EstadoChave): void {
   }
 }
 
-export function criarEstadoInicial(equipesIds: readonly string[]): EstadoChave {
+export function criarEstadoInicial(equipesIds: readonly string[], modelo: ModeloChave = "GENERICA"): EstadoChave {
   if (equipesIds.length < 2) {
     throw new ErroDeRegra("São necessárias pelo menos duas equipes confirmadas para o sorteio.");
   }
-  if (equipesIds.length > 128) {
+  if (modelo === "FOLHA_16" && equipesIds.length > LIMITE_FOLHA_16) {
+    throw new ErroDeRegra("A tabela de até 16 times aceita no máximo 16 equipes. A tabela de 32 times não entra neste torneio.");
+  }
+  if (modelo === "GENERICA" && equipesIds.length > 128) {
     throw new ErroDeRegra("Este chaveamento aceita no máximo 128 equipes.");
   }
   if (new Set(equipesIds).size !== equipesIds.length) {
@@ -510,13 +546,16 @@ export function criarEstadoInicial(equipesIds: readonly string[]): EstadoChave {
   }
 
   const estado: EstadoChave = {
+    modelo,
     equipesIds: [...equipesIds],
-    partidas: construirPartidas(equipesIds.length),
+    partidas: modelo === "FOLHA_16" ? construirFolha16() : construirPartidas(equipesIds.length),
     vitorias: {},
     derrotas: {},
     completa: false,
     campeaoId: null,
     viceId: null,
+    campeaoOuroId: null,
+    campeaoPrataId: null,
     sequencia: 0,
   };
   propagar(estado);
@@ -564,9 +603,9 @@ export function reexecutar(
   equipesIds: readonly string[],
   resultados: readonly ResultadoRegistrado[],
   regras: RegrasPlacar,
-  opcoes?: { estrito?: boolean },
+  opcoes?: { estrito?: boolean; modelo?: ModeloChave },
 ): { estado: EstadoChave; aplicados: ResultadoRegistrado[]; invalidados: ResultadoRegistrado[] } {
-  let estado = criarEstadoInicial(equipesIds);
+  let estado = criarEstadoInicial(equipesIds, opcoes?.modelo ?? "GENERICA");
   const aplicados: ResultadoRegistrado[] = [];
   const invalidados: ResultadoRegistrado[] = [];
 
@@ -597,6 +636,7 @@ export function planejarCorrecao(
   placarA: number,
   placarB: number,
   regras: RegrasPlacar,
+  modelo: ModeloChave = "GENERICA",
 ):
   | { idempotente: true; precisaConfirmacao: false; invalidados: ResultadoRegistrado[]; estado: null }
   | { idempotente: false; precisaConfirmacao: boolean; invalidados: ResultadoRegistrado[]; estado: EstadoChave } {
@@ -612,7 +652,7 @@ export function planejarCorrecao(
   const alterados = resultados.map((resultado, posicao) =>
     posicao === indice ? { ...resultado, placarA, placarB } : resultado,
   );
-  const replay = reexecutar(equipesIds, alterados, regras);
+  const replay = reexecutar(equipesIds, alterados, regras, { modelo });
   return {
     idempotente: false,
     precisaConfirmacao: replay.invalidados.length > 0,

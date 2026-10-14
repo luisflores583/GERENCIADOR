@@ -65,6 +65,9 @@ function painel(): PainelDTO {
     ],
     campeao: null,
     vice: null,
+    modeloChave: "GENERICA",
+    campeaoOuro: null,
+    campeaoPrata: null,
     atualizadoEm: "2026-11-15T12:40:00.000Z",
   };
 }

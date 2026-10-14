@@ -109,6 +109,7 @@ function dadosTorneio(form: FormData) {
     formato: texto(form, "formato"),
     formacao: texto(form, "formacao"),
     naipe: texto(form, "naipe") || "MISTO",
+    modeloChave: texto(form, "modeloChave") || "GENERICA",
     maxAtletas: texto(form, "maxAtletas"),
     inscricoesAte: texto(form, "inscricoesAte"),
     valorReais: texto(form, "valorReais"),

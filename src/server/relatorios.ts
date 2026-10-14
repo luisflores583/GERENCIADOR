@@ -18,6 +18,12 @@ export function gerarCsv(painel: PainelDTO): string {
     ["Status", ROTULO_STATUS[painel.torneio.status as keyof typeof ROTULO_STATUS] ?? painel.torneio.status],
     ["Campeão", painel.campeao ?? ""],
     ["Vice-campeão", painel.vice ?? ""],
+    ...(painel.modeloChave === "FOLHA_16"
+      ? [
+          ["Campeão da série Ouro", painel.campeaoOuro ?? ""],
+          ["Campeã da série Prata", painel.campeaoPrata ?? ""],
+        ]
+      : []),
     ["Partidas concluídas", String(painel.partidas.filter((partida) => partida.status === "CONCLUIDA").length)],
     [],
     ["Posição", "Equipe", "Integrantes", "Vitórias", "Derrotas", "Situação"],
@@ -94,6 +100,8 @@ export async function gerarPdf(painel: PainelDTO): Promise<Uint8Array> {
   escrever(`Início: ${formatarDataHora(painel.torneio.inicioEm)}`);
   if (painel.campeao) escrever(`Campeão: ${painel.campeao}`, 13, true);
   if (painel.vice) escrever(`Vice-campeão: ${painel.vice}`, 12);
+  if (painel.modeloChave === "FOLHA_16" && painel.campeaoOuro) escrever(`Campeão da série Ouro: ${painel.campeaoOuro}`, 13, true);
+  if (painel.modeloChave === "FOLHA_16" && painel.campeaoPrata) escrever(`Campeã da série Prata: ${painel.campeaoPrata}`, 12);
   escrever(
     `Partidas concluídas: ${painel.partidas.filter((partida) => partida.status === "CONCLUIDA").length}`,
   );

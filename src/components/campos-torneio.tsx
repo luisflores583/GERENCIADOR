@@ -12,6 +12,7 @@ export function CamposTorneio({
     formato?: string;
     formacao?: string;
     naipe?: string;
+    modeloChave?: string;
     maxAtletas?: number | null;
     inscricoesAte?: string;
     valorReais?: string;
@@ -69,6 +70,13 @@ export function CamposTorneio({
           <option value="MISTO">Misto</option>
         </Selecao>
         {v.travado ? <input type="hidden" name="naipe" value={v.naipe} /> : null}
+      </Campo>
+      <Campo id="modeloChave" rotulo="Tabela" dica="A tabela de até 16 times usa os jogos 1 a 30. A chave automática vale para os outros torneios.">
+        <Selecao id="modeloChave" name="modeloChave" defaultValue={v.modeloChave ?? "FOLHA_16"} disabled={v.travado}>
+          <option value="FOLHA_16">Tabela de até 16 times</option>
+          <option value="GENERICA">Chave automática</option>
+        </Selecao>
+        {v.travado ? <input type="hidden" name="modeloChave" value={v.modeloChave ?? "GENERICA"} /> : null}
       </Campo>
       <Campo id="maxAtletas" rotulo="Limite de atletas" dica="Deixe vazio para não limitar.">
         <Entrada id="maxAtletas" name="maxAtletas" inputMode="numeric" defaultValue={v.maxAtletas ?? ""} />

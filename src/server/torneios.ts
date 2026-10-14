@@ -44,6 +44,7 @@ function dadosDoFormulario(entrada: unknown) {
     formato: dados.formato,
     formacao: dados.formacao,
     naipe: dados.naipe,
+    modeloChave: dados.modeloChave,
     maxAtletas: numeroOpcional(dados.maxAtletas),
     inscricoesAte: interpretarDataHoraLocal(dados.inscricoesAte),
     valorCentavos: centavosDeReais(dados.valorReais),
@@ -78,8 +79,8 @@ export async function atualizarTorneio(adminId: string, torneioId: string, entra
     const atual = await tx.torneio.findUniqueOrThrow({ where: { id: torneioId } });
     if (atual.status === "FINALIZADO") throw new ErroDeRegra("Torneio finalizado não pode ser alterado.");
     const travado = Boolean(atual.equipesTravadasEm) || ["EM_ANDAMENTO", "PAUSADO"].includes(atual.status);
-    if (travado && (dados.formato !== atual.formato || dados.formacao !== atual.formacao || dados.naipe !== atual.naipe)) {
-      throw new ErroDeRegra("Formato, formação e naipe ficam travados depois que as equipes são confirmadas.");
+    if (travado && (dados.formato !== atual.formato || dados.formacao !== atual.formacao || dados.naipe !== atual.naipe || dados.modeloChave !== atual.modeloChave)) {
+      throw new ErroDeRegra("Formato, formação, naipe e tabela ficam travados depois que as equipes são confirmadas.");
     }
     if (dados.naipe !== atual.naipe) {
       const inscricoes = await tx.inscricao.findMany({
@@ -109,6 +110,7 @@ export async function atualizarTorneio(adminId: string, torneioId: string, entra
       dados.pontosParaVencer = atual.pontosParaVencer;
       dados.diferencaMinima = atual.diferencaMinima;
       dados.pontosMaximos = atual.pontosMaximos;
+      dados.modeloChave = atual.modeloChave;
     }
     const slug = atual.nome === dados.nome ? atual.slug : await slugLivre(dados.nome, atual.id);
     const torneio = await tx.torneio.update({ where: { id: torneioId }, data: { ...dados, slug } });
@@ -147,7 +149,11 @@ async function finalizar(tx: Parameters<Parameters<typeof trancar>[1]>[0], torne
     throw new ErroDeRegra("Só é possível encerrar um torneio que já começou.");
   }
   const torneio = await tx.torneio.findUniqueOrThrow({ where: { id: torneioId } });
-  if (!torneio.campeaoEquipeId || !torneio.viceEquipeId) {
+  if (torneio.modeloChave === "FOLHA_16") {
+    if (!torneio.campeaoOuroEquipeId || !torneio.campeaoPrataEquipeId) {
+      throw new ErroDeRegra("O torneio só pode ser encerrado quando a série Ouro e a série Prata tiverem campeão.");
+    }
+  } else if (!torneio.campeaoEquipeId || !torneio.viceEquipeId) {
     throw new ErroDeRegra("O torneio só pode ser encerrado quando o campeão estiver definido.");
   }
   const pendentes = await tx.partida.count({

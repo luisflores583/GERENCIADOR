@@ -60,6 +60,7 @@ export const esquemaTorneio = z
     formato: z.enum(["DUPLA", "TRIO", "QUARTETO"], { message: "Escolha duplas, trios ou quartetos." }),
     formacao: z.enum(["PRE_FORMADAS", "SORTEADAS"], { message: "Escolha como as equipes serão formadas." }),
     naipe: z.enum(["FEMININO", "MASCULINO", "MISTO"], { message: "Escolha feminino, masculino ou misto." }).default("MISTO"),
+    modeloChave: z.enum(["GENERICA", "FOLHA_16"], { message: "Escolha a tabela da chave." }).default("GENERICA"),
     maxAtletas: z.string().trim().optional().default(""),
     inscricoesAte: dataHora,
     valorReais: z.string().trim().optional().default(""),

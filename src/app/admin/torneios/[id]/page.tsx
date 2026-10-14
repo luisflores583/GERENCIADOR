@@ -65,6 +65,7 @@ export default async function VisaoTorneio({ params }: { params: Promise<{ id: s
             formato: torneio.formato,
             formacao: torneio.formacao,
             naipe: torneio.naipe,
+            modeloChave: torneio.modeloChave,
             maxAtletas: torneio.maxAtletas,
             inscricoesAte: paraCampoDataHora(torneio.inscricoesAte),
             valorReais: valor,

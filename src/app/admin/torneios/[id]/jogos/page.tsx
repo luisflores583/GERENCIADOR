@@ -6,6 +6,7 @@ import { MenuTorneio } from "@/components/menu-torneio";
 import { SeloPartida } from "@/components/selo";
 import { formatarDataHora } from "@/lib/formatacao";
 import { nomeDaFase, rodadasDaChaveDeVencedores } from "@/engine/dupla-eliminacao";
+import { rotuloDaPartida } from "@/engine/folha-16";
 import { ROTULO_PARTIDA } from "@/lib/rotulos";
 import {
   acaoConfirmarPlacar,
@@ -68,7 +69,11 @@ export default async function Jogos({ params }: { params: Promise<{ id: string }
               <article key={partida.id} className="rounded-3xl bg-foam p-4 shadow-card">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p className="text-sm font-semibold text-ocean">{nomeDaFase(partida.chave, partida.rodada, rodadas)} · {partida.codigo}</p>
+                    <p className="text-sm font-semibold text-ocean">
+                      {torneio.modeloChave === "FOLHA_16"
+                        ? rotuloDaPartida(partida.codigo, partida.chave)
+                        : `${nomeDaFase(partida.chave, partida.rodada, rodadas)} · ${partida.codigo}`}
+                    </p>
                     <h2 className="text-2xl font-bold">
                       {partida.equipeA?.nome ?? "Aguardando adversário"} x {partida.equipeB?.nome ?? "Aguardando adversário"}
                     </h2>

@@ -80,7 +80,20 @@ export function PainelAoVivo({ inicial }: { inicial: PainelDTO }) {
         </button>
       </div>
 
-      {painel.campeao ? (
+      {painel.modeloChave === "FOLHA_16" ? (
+        <div className="mt-6 space-y-3">
+          {painel.campeaoOuro ? (
+            <p className="rounded-3xl bg-yellow-100 px-5 py-4 text-xl font-semibold text-yellow-950">
+              Campeão da série Ouro: {painel.campeaoOuro}
+            </p>
+          ) : null}
+          {painel.campeaoPrata ? (
+            <p className="rounded-3xl bg-zinc-100 px-5 py-4 text-xl font-semibold text-zinc-900">
+              Campeã da série Prata: {painel.campeaoPrata}
+            </p>
+          ) : null}
+        </div>
+      ) : painel.campeao ? (
         <p className="mt-6 rounded-3xl bg-yellow-100 px-5 py-4 text-xl font-semibold text-yellow-950">
           Campeã: {painel.campeao}
           {painel.vice ? ` · Vice: ${painel.vice}` : ""}

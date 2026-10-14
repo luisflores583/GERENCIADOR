@@ -119,14 +119,23 @@ export async function sincronizarChave(tx: Tx, torneioId: string, estado: Estado
   for (const equipeId of estado.equipesIds) {
     const derrotas = estado.derrotas[equipeId] ?? 0;
     const vitorias = estado.vitorias[equipeId] ?? 0;
+    const segueNaTabela = estado.partidas.some(
+      (partida) =>
+        (partida.status === "AGUARDANDO" || partida.status === "PRONTA") &&
+        (partida.equipeAId === equipeId || partida.equipeBId === equipeId),
+    );
     const status =
-      equipeId === estado.campeaoId
-        ? "CAMPEA"
-        : equipeId === estado.viceId
-          ? "VICE"
-          : derrotas >= 2
-            ? "ELIMINADA"
-            : "CONFIRMADA";
+      equipeId === estado.campeaoOuroId
+        ? "CAMPEA_OURO"
+        : equipeId === estado.campeaoPrataId
+          ? "CAMPEA_PRATA"
+          : equipeId === estado.campeaoId
+            ? "CAMPEA"
+            : equipeId === estado.viceId
+              ? "VICE"
+              : derrotas >= 2 && !segueNaTabela
+                ? "ELIMINADA"
+                : "CONFIRMADA";
     await tx.equipe.update({
       where: { id: equipeId },
       data: { vitorias, derrotas, status },
@@ -138,6 +147,8 @@ export async function sincronizarChave(tx: Tx, torneioId: string, estado: Estado
     data: {
       campeaoEquipeId: estado.campeaoId,
       viceEquipeId: estado.viceId,
+      campeaoOuroEquipeId: estado.campeaoOuroId,
+      campeaoPrataEquipeId: estado.campeaoPrataId,
     },
   });
 }

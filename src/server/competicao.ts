@@ -16,6 +16,7 @@ import { distribuirTorneio, regrasDoTorneio, sincronizarChave, trancar, type Tx 
 import { prisma } from "@/server/db";
 
 const ALGORITMO_CHAVE = `${ALGORITMO_SORTEIO}+dupla-eliminacao-v1`;
+const ALGORITMO_FOLHA_16 = `${ALGORITMO_SORTEIO}+folha-16-v1`;
 
 function extrairResultados(partidas: Partida[]): ResultadoRegistrado[] {
   return partidas
@@ -190,6 +191,9 @@ export async function gerarSorteioConfrontos(adminId: string, torneioId: string,
       orderBy: { criadaEm: "asc" },
     });
     if (equipes.length < 2) throw new ErroDeRegra("São necessárias pelo menos duas equipes confirmadas.");
+    if (torneio.modeloChave === "FOLHA_16" && equipes.length > 16) {
+      throw new ErroDeRegra("A tabela de até 16 times aceita no máximo 16 equipes. A tabela de 32 times não entra neste torneio.");
+    }
     const valor = sementeDe(semente);
     const { embaralhar } = await import("@/engine/sorteio");
     const ordem = embaralhar(equipes.map((equipe) => equipe.id), valor);
@@ -203,7 +207,7 @@ export async function gerarSorteioConfrontos(adminId: string, torneioId: string,
         tipo: "CONFRONTOS",
         status: "RASCUNHO",
         semente: valor,
-        algoritmo: ALGORITMO_CHAVE,
+        algoritmo: torneio.modeloChave === "FOLHA_16" ? ALGORITMO_FOLHA_16 : ALGORITMO_CHAVE,
         resultado: { equipes: ordem },
         criadoPorId: adminId,
       },
@@ -265,7 +269,10 @@ export async function confirmarSorteioConfrontos(adminId: string, sorteioId: str
     for (let indice = 0; indice < ordem.length; indice++) {
       await tx.equipe.update({ where: { id: ordem[indice] }, data: { cabeca: indice + 1 } });
     }
-    const estado = criarEstadoInicial(ordem);
+    if (torneio.modeloChave === "FOLHA_16" && ordem.length > 16) {
+      throw new ErroDeRegra("A tabela de até 16 times aceita no máximo 16 equipes. A tabela de 32 times não entra neste torneio.");
+    }
+    const estado = criarEstadoInicial(ordem, torneio.modeloChave);
     await sincronizarChave(tx, torneio.id, estado);
     await tx.sorteio.update({
       where: { id: atual.id },
@@ -319,7 +326,7 @@ export async function confirmarResultado(adminId: string, partidaId: string, pla
       equipes.map((equipe) => equipe.id),
       resultados,
       regras,
-      { estrito: true },
+      { estrito: true, modelo: torneio.modeloChave },
     );
     await sincronizarChave(tx, torneio.id, replay.estado);
     const salva = await tx.partida.update({
@@ -380,6 +387,7 @@ export async function corrigirResultado(
       placarA,
       placarB,
       regras,
+      torneio.modeloChave,
     );
     const nomes = new Map(equipes.map((equipe) => [equipe.id, equipe.nome]));
     const afetadas = plano.invalidados.map((item) => ({

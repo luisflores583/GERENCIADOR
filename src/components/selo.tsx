@@ -7,6 +7,8 @@ const CORES: Record<SituacaoVisual, string> = {
   ELIMINADA: "bg-stone-200 text-stone-700",
   CAMPEA: "bg-yellow-200 text-yellow-950",
   VICE: "bg-sky-100 text-sky-950",
+  CAMPEA_OURO: "bg-yellow-200 text-yellow-950",
+  CAMPEA_PRATA: "bg-zinc-200 text-zinc-900",
 };
 
 export function SeloSituacao({ situacao }: { situacao: SituacaoVisual }) {

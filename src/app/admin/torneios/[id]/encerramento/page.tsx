@@ -18,7 +18,16 @@ export default async function Encerramento({ params }: { params: Promise<{ id: s
     <div>
       <MenuTorneio id={torneio.id} slug={torneio.slug} />
       <h1 className="font-display text-4xl text-navy">Encerramento</h1>
-      {painel.campeao ? <p className="mt-3 text-2xl">Campeã: {painel.campeao}. Vice: {painel.vice}.</p> : <p className="mt-3">O campeão ainda não está definido.</p>}
+      {painel.modeloChave === "FOLHA_16" ? (
+        <div className="mt-3 space-y-2 text-2xl">
+          <p>{painel.campeaoOuro ? `Campeão da série Ouro: ${painel.campeaoOuro}.` : "A série Ouro ainda não tem campeão."}</p>
+          <p>{painel.campeaoPrata ? `Campeã da série Prata: ${painel.campeaoPrata}.` : "A série Prata ainda não tem campeã."}</p>
+        </div>
+      ) : painel.campeao ? (
+        <p className="mt-3 text-2xl">Campeã: {painel.campeao}. Vice: {painel.vice}.</p>
+      ) : (
+        <p className="mt-3">O campeão ainda não está definido.</p>
+      )}
       <ol className="mt-4 space-y-2">
         {painel.classificacao.map((equipe) => (
           <li key={equipe.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-foam px-4 py-3">

@@ -1,9 +1,21 @@
 import { situacaoDaEquipe, type SituacaoEquipe } from "@/engine/classificacao";
 import { nomeDaFase, rodadasDaChaveDeVencedores } from "@/engine/dupla-eliminacao";
+import { rotuloDaPartida } from "@/engine/folha-16";
 import { prisma } from "@/server/db";
 import type { EquipeResumo, PainelDTO, PartidaResumo } from "@/tipos";
 
-const ORDEM_CHAVE = ["VENCEDORES", "PERDEDORES", "FINAL", "FINAL_EXTRA"];
+const ORDEM_CHAVE = [
+  "SEM_REGIAO",
+  "VENCEDORES",
+  "PERDEDORES",
+  "SEMIFINALISTA_A",
+  "SEMIFINALISTA_B",
+  "SEMIFINALISTA_C",
+  "SEMIFINALISTA_D",
+  "SEMIFINAL",
+  "FINAL",
+  "FINAL_EXTRA",
+];
 
 export async function montarPainel(slug: string): Promise<PainelDTO | null> {
   const torneio = await prisma.torneio.findUnique({
@@ -20,8 +32,22 @@ export async function montarPainel(slug: string): Promise<PainelDTO | null> {
   if (!torneio) return null;
 
   const rodadas = rodadasDaChaveDeVencedores(Math.max(2, torneio.equipes.length || 2));
+  const segueNaTabela = (equipeId: string) =>
+    torneio.partidas.some(
+      (partida) =>
+        ["AGUARDANDO", "PRONTA", "AGENDADA", "EM_ANDAMENTO", "PAUSADA"].includes(partida.status) &&
+        (partida.equipeAId === equipeId || partida.equipeBId === equipeId),
+    );
   const situacao = (equipeId: string, derrotas: number): SituacaoEquipe =>
-    situacaoDaEquipe(equipeId, derrotas, torneio.campeaoEquipeId, torneio.viceEquipeId);
+    situacaoDaEquipe(
+      equipeId,
+      derrotas,
+      torneio.campeaoEquipeId,
+      torneio.viceEquipeId,
+      torneio.campeaoOuroEquipeId,
+      torneio.campeaoPrataEquipeId,
+      segueNaTabela(equipeId),
+    );
 
   const equipes: EquipeResumo[] = torneio.equipes
     .map((equipe) => ({
@@ -51,7 +77,10 @@ export async function montarPainel(slug: string): Promise<PainelDTO | null> {
       chave: partida.chave,
       rodada: partida.rodada,
       posicao: partida.posicao,
-      fase: nomeDaFase(partida.chave, partida.rodada, rodadas),
+      fase:
+        torneio.modeloChave === "FOLHA_16"
+          ? rotuloDaPartida(partida.codigo, partida.chave)
+          : nomeDaFase(partida.chave, partida.rodada, rodadas),
       equipeA: resumoEquipe(partida.equipeAId),
       equipeB: resumoEquipe(partida.equipeBId),
       placarA: partida.placarA,
@@ -65,7 +94,10 @@ export async function montarPainel(slug: string): Promise<PainelDTO | null> {
     }))
     .sort(
       (a, b) =>
-        ORDEM_CHAVE.indexOf(a.chave) - ORDEM_CHAVE.indexOf(b.chave) || a.rodada - b.rodada || a.posicao - b.posicao,
+        ORDEM_CHAVE.indexOf(a.chave) - ORDEM_CHAVE.indexOf(b.chave) ||
+        a.rodada - b.rodada ||
+        Number(a.codigo) - Number(b.codigo) ||
+        a.posicao - b.posicao,
     );
 
   const ocupacao = new Map(
@@ -83,6 +115,10 @@ export async function montarPainel(slug: string): Promise<PainelDTO | null> {
   }
   const classificacao = [...equipes]
     .sort((a, b) => {
+      if (a.id === torneio.campeaoOuroEquipeId) return -1;
+      if (b.id === torneio.campeaoOuroEquipeId) return 1;
+      if (a.id === torneio.campeaoPrataEquipeId) return -1;
+      if (b.id === torneio.campeaoPrataEquipeId) return 1;
       if (a.id === torneio.campeaoEquipeId) return -1;
       if (b.id === torneio.campeaoEquipeId) return 1;
       if (a.id === torneio.viceEquipeId) return -1;
@@ -141,6 +177,9 @@ export async function montarPainel(slug: string): Promise<PainelDTO | null> {
     classificacao,
     campeao: torneio.campeaoEquipeId ? (nomes.get(torneio.campeaoEquipeId) ?? null) : null,
     vice: torneio.viceEquipeId ? (nomes.get(torneio.viceEquipeId) ?? null) : null,
+    modeloChave: torneio.modeloChave,
+    campeaoOuro: torneio.campeaoOuroEquipeId ? (nomes.get(torneio.campeaoOuroEquipeId) ?? null) : null,
+    campeaoPrata: torneio.campeaoPrataEquipeId ? (nomes.get(torneio.campeaoPrataEquipeId) ?? null) : null,
     atualizadoEm: new Date().toISOString(),
   };
 }

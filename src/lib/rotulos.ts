@@ -54,6 +54,8 @@ export const ROTULO_SITUACAO = {
   ELIMINADA: "Eliminada",
   CAMPEA: "Campeã",
   VICE: "Vice-campeã",
+  CAMPEA_OURO: "Campeão da série Ouro",
+  CAMPEA_PRATA: "Campeã da série Prata",
 } as const;
 
 export const ROTULO_EQUIPE = {
@@ -62,4 +64,11 @@ export const ROTULO_EQUIPE = {
   ELIMINADA: "Eliminada",
   CAMPEA: "Campeã",
   VICE: "Vice",
+  CAMPEA_OURO: "Campeão da série Ouro",
+  CAMPEA_PRATA: "Campeã da série Prata",
+} as const;
+
+export const ROTULO_MODELO = {
+  GENERICA: "Chave automática",
+  FOLHA_16: "Tabela de até 16 times",
 } as const;

@@ -7,6 +7,19 @@ const GRUPOS = [
   { chave: "FINAL", titulo: "Finais" },
 ] as const;
 
+const GRUPOS_FOLHA = [
+  { chave: "SEM_REGIAO", titulo: "Jogos", apenasIniciais: true },
+  { chave: "VENCEDORES", titulo: "Vencedores" },
+  { chave: "PERDEDORES", titulo: "Perdedores" },
+  { chave: "SEM_REGIAO", titulo: "Jogos", apenasIniciais: false },
+  { chave: "SEMIFINALISTA_A", titulo: "Semifinalista A" },
+  { chave: "SEMIFINALISTA_B", titulo: "Semifinalista B" },
+  { chave: "SEMIFINALISTA_C", titulo: "Semifinalista C" },
+  { chave: "SEMIFINALISTA_D", titulo: "Semifinalista D" },
+  { chave: "SEMIFINAL", titulo: "Semifinais" },
+  { chave: "FINAL", titulo: "Finais" },
+] as const;
+
 function Cartao({ partida }: { partida: PartidaResumo }) {
   return (
     <article className="w-64 rounded-3xl border border-navy/10 bg-foam p-3 shadow-card">
@@ -38,16 +51,23 @@ function Cartao({ partida }: { partida: PartidaResumo }) {
 }
 
 export function ChaveVisual({ partidas }: { partidas: PartidaResumo[] }) {
+  const folha = partidas.some((partida) => partida.codigo === "30");
+  const grupos = folha ? GRUPOS_FOLHA : GRUPOS;
   return (
     <div className="space-y-8">
-      {GRUPOS.map((grupo) => {
-        const doGrupo = partidas.filter((partida) =>
-          grupo.chave === "FINAL" ? partida.chave === "FINAL" || partida.chave === "FINAL_EXTRA" : partida.chave === grupo.chave,
-        );
+      {grupos.map((grupo) => {
+        const doGrupo = partidas.filter((partida) => {
+          if (!folha && grupo.chave === "FINAL") return partida.chave === "FINAL" || partida.chave === "FINAL_EXTRA";
+          if (partida.chave !== grupo.chave) return false;
+          if (!folha || grupo.chave !== "SEM_REGIAO") return true;
+          const numero = Number(partida.codigo);
+          const iniciais = "apenasIniciais" in grupo && grupo.apenasIniciais;
+          return iniciais ? numero <= 8 : numero > 8;
+        });
         if (doGrupo.length === 0) return null;
         const rodadas = [...new Set(doGrupo.map((partida) => `${partida.chave}-${partida.rodada}`))];
         return (
-          <section key={grupo.chave}>
+          <section key={`${grupo.chave}-${grupo.titulo}-${"apenasIniciais" in grupo ? String(grupo.apenasIniciais) : "grupo"}`}>
             <h3 className="mb-3 font-display text-2xl text-navy">{grupo.titulo}</h3>
             <div className="overflow-x-auto pb-2">
               <div className="flex min-w-max gap-4">

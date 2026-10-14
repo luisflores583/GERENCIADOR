@@ -56,6 +56,8 @@ enum StatusEquipe {
   ELIMINADA
   CAMPEA
   VICE
+  CAMPEA_OURO
+  CAMPEA_PRATA
 }
 
 enum StatusPartida {
@@ -75,6 +77,17 @@ enum LadoChave {
   PERDEDORES
   FINAL
   FINAL_EXTRA
+  SEMIFINALISTA_A
+  SEMIFINALISTA_B
+  SEMIFINALISTA_C
+  SEMIFINALISTA_D
+  SEMIFINAL
+  SEM_REGIAO
+}
+
+enum ModeloChave {
+  GENERICA
+  FOLHA_16
 }
 
 enum TipoSorteio {
@@ -152,6 +165,7 @@ model Torneio {
   quadrasSimultaneas       Int             @default(1)
   descansoMinutos          Int             @default(0)
   permitirEquipeIncompleta Boolean         @default(false)
+  modeloChave              ModeloChave     @default(GENERICA)
   corDestaque              String          @default("#e36a3a")
   nomeOrganizador          String          @default("")
   equipesTravadasEm        DateTime?
@@ -159,6 +173,8 @@ model Torneio {
   finalizadoEm             DateTime?
   campeaoEquipeId          String?
   viceEquipeId             String?
+  campeaoOuroEquipeId      String?
+  campeaoPrataEquipeId     String?
   criadoEm                 DateTime        @default(now())
   atualizadoEm             DateTime        @updatedAt
   quadras                  TorneioQuadra[]

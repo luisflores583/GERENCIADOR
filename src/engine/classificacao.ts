@@ -1,6 +1,6 @@
 import type { EstadoChave, PartidaMotor } from "@/engine/dupla-eliminacao";
 
-export type SituacaoEquipe = "INVICTA" | "UMA_DERROTA" | "ELIMINADA" | "CAMPEA" | "VICE";
+export type SituacaoEquipe = "INVICTA" | "UMA_DERROTA" | "ELIMINADA" | "CAMPEA" | "VICE" | "CAMPEA_OURO" | "CAMPEA_PRATA";
 
 export interface LinhaClassificacao {
   equipeId: string;
@@ -16,11 +16,16 @@ export function situacaoDaEquipe(
   derrotas: number,
   campeaoId: string | null,
   viceId: string | null,
+  campeaoOuroId: string | null = null,
+  campeaoPrataId: string | null = null,
+  segueNaTabela = false,
 ): SituacaoEquipe {
+  if (campeaoOuroId && equipeId === campeaoOuroId) return "CAMPEA_OURO";
+  if (campeaoPrataId && equipeId === campeaoPrataId) return "CAMPEA_PRATA";
   if (campeaoId && equipeId === campeaoId) return "CAMPEA";
   if (viceId && equipeId === viceId) return "VICE";
-  if (derrotas >= 2) return "ELIMINADA";
-  if (derrotas === 1) return "UMA_DERROTA";
+  if (derrotas >= 2 && !segueNaTabela) return "ELIMINADA";
+  if (derrotas >= 1) return "UMA_DERROTA";
   return "INVICTA";
 }
 
@@ -40,17 +45,34 @@ export function classificar(estado: EstadoChave): LinhaClassificacao[] {
   const linhas = estado.equipesIds.map((equipeId) => {
     const derrotas = estado.derrotas[equipeId] ?? 0;
     const vitorias = estado.vitorias[equipeId] ?? 0;
+    const segueNaTabela = estado.partidas.some(
+      (partida) =>
+        (partida.status === "AGUARDANDO" || partida.status === "PRONTA") &&
+        (partida.equipeAId === equipeId || partida.equipeBId === equipeId),
+    );
     return {
       equipeId,
       posicao: 0,
       vitorias,
       derrotas,
-      situacao: situacaoDaEquipe(equipeId, derrotas, estado.campeaoId, estado.viceId),
+      situacao: situacaoDaEquipe(
+        equipeId,
+        derrotas,
+        estado.campeaoId,
+        estado.viceId,
+        estado.campeaoOuroId,
+        estado.campeaoPrataId,
+        segueNaTabela,
+      ),
       ordemEliminacao: eliminacao.get(equipeId) ?? null,
     };
   });
 
   linhas.sort((a, b) => {
+    if (a.equipeId === estado.campeaoOuroId) return -1;
+    if (b.equipeId === estado.campeaoOuroId) return 1;
+    if (a.equipeId === estado.campeaoPrataId) return -1;
+    if (b.equipeId === estado.campeaoPrataId) return 1;
     if (a.equipeId === estado.campeaoId) return -1;
     if (b.equipeId === estado.campeaoId) return 1;
     if (a.equipeId === estado.viceId) return -1;

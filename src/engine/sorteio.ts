@@ -25,6 +25,16 @@ export function embaralhar<T>(itens: readonly T[], semente: number): T[] {
   return lista;
 }
 
+export function ordemDasCabecas(
+  equipesNaOrdemDeConfirmacao: readonly { id: string }[],
+  modelo: "GENERICA" | "FOLHA_16",
+  semente: number,
+): string[] {
+  const ids = equipesNaOrdemDeConfirmacao.map((equipe) => equipe.id);
+  if (modelo === "FOLHA_16") return ids;
+  return embaralhar(ids, semente);
+}
+
 export type FormatoEquipe = "DUPLA" | "TRIO" | "QUARTETO";
 
 export function tamanhoDaEquipe(formato: FormatoEquipe): number {

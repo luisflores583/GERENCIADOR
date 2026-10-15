@@ -5,6 +5,7 @@ import {
   JOGOS_SEM_DESTINO_DE_VENCEDOR,
   construirFolha16,
 } from "@/engine/folha-16";
+import { embaralhar, ordemDasCabecas } from "@/engine/sorteio";
 
 const REGRAS = { pontosParaVencer: 21, diferencaMinima: 2, pontosMaximos: null };
 
@@ -108,6 +109,37 @@ describe("tabela de até 16 times", () => {
     for (const id of JOGOS_SEM_DESTINO_DE_VENCEDOR) {
       expect(citados.some((origem) => origem.tipo === "VENCEDOR" && origem.partidaId === id)).toBe(false);
     }
+  });
+
+  it("coloca Dupla 01 na cabeça 1 e mantém a ordem recebida", () => {
+    const duplas = Array.from({ length: 16 }, (_, indice) => `Dupla ${String(indice + 1).padStart(2, "0")}`);
+    const estado = criarEstadoInicial(duplas, "FOLHA_16");
+    const esperados: Record<string, [string, string]> = {
+      "1": ["Dupla 01", "Dupla 16"],
+      "2": ["Dupla 09", "Dupla 08"],
+      "3": ["Dupla 05", "Dupla 12"],
+      "4": ["Dupla 04", "Dupla 13"],
+      "5": ["Dupla 03", "Dupla 14"],
+      "6": ["Dupla 06", "Dupla 11"],
+      "7": ["Dupla 07", "Dupla 10"],
+      "8": ["Dupla 15", "Dupla 02"],
+    };
+    for (const [id, [ladoA, ladoB]] of Object.entries(esperados)) {
+      const partida = jogo(estado.partidas, id);
+      expect(partida.equipeAId).toBe(ladoA);
+      expect(partida.equipeBId).toBe(ladoB);
+    }
+
+    const foraDeOrdem = [
+      { id: "z-dupla-12", nome: "Dupla 01" },
+      { id: "a-dupla-04", nome: "Dupla 16" },
+      { id: "m-dupla-09", nome: "Dupla 02" },
+    ];
+    const ordem = ordemDasCabecas(foraDeOrdem, "FOLHA_16", 20261014);
+    expect(ordem).toEqual(["z-dupla-12", "a-dupla-04", "m-dupla-09"]);
+    expect(ordem).not.toEqual([...foraDeOrdem].sort((a, b) => a.id.localeCompare(b.id)).map((equipe) => equipe.id));
+    expect(ordem).not.toEqual([...foraDeOrdem].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")).map((equipe) => equipe.id));
+    expect(ordemDasCabecas(foraDeOrdem, "GENERICA", 99)).toEqual(embaralhar(ordem, 99));
   });
 
   it("move vencedor e perdedor só para os destinos transcritos e a correção usa a mesma tabela", () => {

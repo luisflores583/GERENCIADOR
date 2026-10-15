@@ -9,14 +9,14 @@ import {
 import { validarPlacar } from "@/engine/placar";
 import { validarTrocaDeQuadra, type PartidaOperacional, type QuadraOperacional } from "@/engine/quadras";
 import { validarNaipe } from "@/engine/naipe";
-import { ALGORITMO_SORTEIO, sortearEquipes, validarElenco } from "@/engine/sorteio";
+import { ALGORITMO_SORTEIO, ordemDasCabecas, sortearEquipes, validarElenco } from "@/engine/sorteio";
 import { ErroDeRegra } from "@/lib/erros";
 import { exigirAdministrador } from "@/server/acesso";
 import { distribuirTorneio, regrasDoTorneio, sincronizarChave, trancar, type Tx } from "@/server/banco";
 import { prisma } from "@/server/db";
 
 const ALGORITMO_CHAVE = `${ALGORITMO_SORTEIO}+dupla-eliminacao-v1`;
-const ALGORITMO_FOLHA_16 = `${ALGORITMO_SORTEIO}+folha-16-v1`;
+const ALGORITMO_FOLHA_16 = "ordem-de-confirmacao+folha-16-v1";
 
 function extrairResultados(partidas: Partida[]): ResultadoRegistrado[] {
   return partidas
@@ -195,8 +195,7 @@ export async function gerarSorteioConfrontos(adminId: string, torneioId: string,
       throw new ErroDeRegra("A tabela de até 16 times aceita no máximo 16 equipes. A tabela de 32 times não entra neste torneio.");
     }
     const valor = sementeDe(semente);
-    const { embaralhar } = await import("@/engine/sorteio");
-    const ordem = embaralhar(equipes.map((equipe) => equipe.id), valor);
+    const ordem = ordemDasCabecas(equipes, torneio.modeloChave, valor);
     await tx.sorteio.updateMany({
       where: { torneioId, tipo: "CONFRONTOS", status: "RASCUNHO" },
       data: { status: "DESCARTADO" },

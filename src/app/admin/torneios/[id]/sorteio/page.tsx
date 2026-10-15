@@ -97,7 +97,7 @@ export default async function Sorteio({ params }: { params: Promise<{ id: string
         <h2 className="font-display text-2xl">{torneio.formacao === "SORTEADAS" ? "2. " : ""}Confrontos da primeira rodada</h2>
         {torneio.modeloChave === "FOLHA_16" ? (
           <p className="mt-2 text-navy/75">
-            Este torneio usa a tabela de até 16 times. Os jogos 1 a 8 recebem as cabeças 1 a 16 na ordem do sorteio.
+            Este torneio usa a tabela de até 16 times. A primeira equipe confirmada é a cabeça 1 e a décima sexta é a cabeça 16. O jogo 1 é a cabeça 1 contra a cabeça 16.
           </p>
         ) : null}
         <Formulario acao={acaoGerarConfrontos}>

@@ -5,7 +5,7 @@ import {
   JOGOS_SEM_DESTINO_DE_VENCEDOR,
   construirFolha16,
 } from "@/engine/folha-16";
-import { embaralhar, ordemDasCabecas } from "@/engine/sorteio";
+import { embaralhar, ordenarRanking, ordemDasVagas } from "@/engine/sorteio";
 
 const REGRAS = { pontosParaVencer: 21, diferencaMinima: 2, pontosMaximos: null };
 
@@ -135,11 +135,35 @@ describe("tabela de até 16 times", () => {
       { id: "a-dupla-04", nome: "Dupla 16" },
       { id: "m-dupla-09", nome: "Dupla 02" },
     ];
-    const ordem = ordemDasCabecas(foraDeOrdem, "FOLHA_16", 20261014);
+    const ordem = ordenarRanking(foraDeOrdem, {});
     expect(ordem).toEqual(["z-dupla-12", "a-dupla-04", "m-dupla-09"]);
     expect(ordem).not.toEqual([...foraDeOrdem].sort((a, b) => a.id.localeCompare(b.id)).map((equipe) => equipe.id));
     expect(ordem).not.toEqual([...foraDeOrdem].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")).map((equipe) => equipe.id));
-    expect(ordemDasCabecas(foraDeOrdem, "GENERICA", 99)).toEqual(embaralhar(ordem, 99));
+    expect(ordemDasVagas(foraDeOrdem, "ALEATORIO", 99)).toEqual(embaralhar(ordem, 99));
+    expect(ordemDasVagas(foraDeOrdem, "RANKING", 99)).toEqual(ordem);
+  });
+
+  it("preenche as vagas pelo ranking e embaralha no modo aleatório", () => {
+    const equipes = Array.from({ length: 16 }, (_, indice) => ({ id: `Dupla ${String(indice + 1).padStart(2, "0")}` }));
+    expect(ordenarRanking(equipes, {})).toEqual(equipes.map((equipe) => equipe.id));
+
+    const posicoes: Record<string, number | null> = {};
+    posicoes["Dupla 16"] = 1;
+    const ranking = ordenarRanking(equipes, posicoes);
+    expect(ranking[0]).toBe("Dupla 16");
+    expect(ranking.slice(1)).toEqual(equipes.slice(0, 15).map((equipe) => equipe.id));
+
+    const estado = criarEstadoInicial(ranking, "FOLHA_16");
+    expect(jogo(estado.partidas, "1").equipeAId).toBe("Dupla 16");
+    expect(jogo(estado.partidas, "1").equipeBId).toBe("Dupla 15");
+    expect(jogo(estado.partidas, "2").equipeAId).toBe("Dupla 08");
+    expect(jogo(estado.partidas, "2").equipeBId).toBe("Dupla 07");
+
+    const aleatorio = ordemDasVagas(equipes, "ALEATORIO", 99);
+    expect(aleatorio).toEqual(embaralhar(equipes.map((equipe) => equipe.id), 99));
+    expect(new Set(aleatorio)).toEqual(new Set(equipes.map((equipe) => equipe.id)));
+    expect(() => ordenarRanking(equipes, { "Dupla 01": 1, "Dupla 02": 1 })).toThrow(/repetida/);
+    expect(() => ordenarRanking(equipes, { "Dupla 01": 17 })).toThrow(/fora da lista/);
   });
 
   it("move vencedor e perdedor só para os destinos transcritos e a correção usa a mesma tabela", () => {

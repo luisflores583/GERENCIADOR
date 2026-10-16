@@ -2,9 +2,16 @@ import { notFound } from "next/navigation";
 import { criarEstadoInicial } from "@/engine/dupla-eliminacao";
 import { Botao } from "@/components/botao";
 import { Formulario } from "@/components/formulario";
+import { ListaRanking } from "@/components/lista-ranking";
 import { MenuTorneio } from "@/components/menu-torneio";
 import { acaoConfirmarConfrontos, acaoConfirmarEquipes, acaoDesfazerEquipes, acaoGerarConfrontos, acaoGerarEquipes } from "@/server/acoes";
 import { prisma } from "@/server/db";
+
+type ResultadoConfrontos = {
+  modo?: "ALEATORIO" | "RANKING";
+  equipes?: string[];
+  posicoes?: { equipeId: string; posicao: number | null }[] | null;
+};
 
 export default async function Sorteio({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -25,10 +32,14 @@ export default async function Sorteio({ params }: { params: Promise<{ id: string
       atleta.apelido || atleta.nomeCompleto,
     ]),
   );
+  const confirmadas = torneio.equipes
+    .filter((equipe) => equipe.status === "CONFIRMADA")
+    .sort((a, b) => a.criadaEm.getTime() - b.criadaEm.getTime());
+  const porId = new Map(torneio.equipes.map((equipe) => [equipe.id, equipe.nome]));
+  const resultadoConfrontos = (rascunhoConfrontos?.resultado ?? null) as ResultadoConfrontos | null;
   let previaChave: { codigo: string; a: string; b: string }[] = [];
-  if (rascunhoConfrontos) {
-    const ordem = (rascunhoConfrontos.resultado as { equipes: string[] }).equipes;
-    const porId = new Map(torneio.equipes.map((equipe) => [equipe.id, equipe.nome]));
+  const ordem = resultadoConfrontos?.equipes;
+  if (rascunhoConfrontos && ordem) {
     if (torneio.modeloChave === "FOLHA_16" && ordem.length > 16) {
       previaChave = [];
     } else {
@@ -46,6 +57,7 @@ export default async function Sorteio({ params }: { params: Promise<{ id: string
         }));
     }
   }
+  const prontoParaConfrontos = torneio.status === "AGUARDANDO_SORTEIO";
 
   return (
     <div>
@@ -97,16 +109,50 @@ export default async function Sorteio({ params }: { params: Promise<{ id: string
         <h2 className="font-display text-2xl">{torneio.formacao === "SORTEADAS" ? "2. " : ""}Confrontos da primeira rodada</h2>
         {torneio.modeloChave === "FOLHA_16" ? (
           <p className="mt-2 text-navy/75">
-            Este torneio usa a tabela de até 16 times. A primeira equipe confirmada é a cabeça 1 e a décima sexta é a cabeça 16. O jogo 1 é a cabeça 1 contra a cabeça 16.
+            Este torneio usa a tabela de até 16 times. A posição 1 do ranking é a cabeça 1 e a posição 16 é a cabeça 16. O jogo 1 é 1 contra 16, o jogo 2 é 9 contra 8, o jogo 3 é 5 contra 12, o jogo 4 é 4 contra 13, o jogo 5 é 3 contra 14, o jogo 6 é 6 contra 11, o jogo 7 é 7 contra 10 e o jogo 8 é 15 contra 2.
           </p>
-        ) : null}
-        <Formulario acao={acaoGerarConfrontos}>
-          <input type="hidden" name="torneioId" value={torneio.id} />
-          <Botao type="submit">Sortear confrontos</Botao>
-        </Formulario>
-        {previaChave.length > 0 ? (
+        ) : (
+          <p className="mt-2 text-navy/75">
+            As duas opções definem quem ocupa cada vaga da primeira rodada da chave automática.
+          </p>
+        )}
+        {prontoParaConfrontos ? (
+          <div className="mt-4 space-y-6">
+            <Formulario acao={acaoGerarConfrontos}>
+              <input type="hidden" name="torneioId" value={torneio.id} />
+              <input type="hidden" name="modo" value="ALEATORIO" />
+              <p className="text-navy/75">O sorteio aleatório embaralha as vagas e grava a semente.</p>
+              <Botao type="submit">Sortear aleatoriamente</Botao>
+            </Formulario>
+            <Formulario acao={acaoGerarConfrontos}>
+              <input type="hidden" name="torneioId" value={torneio.id} />
+              <input type="hidden" name="modo" value="RANKING" />
+              <h3 className="font-display text-xl">Ranking</h3>
+              <p className="text-navy/75">
+                Numere ou reordene as equipes confirmadas. Sem número, a ordem da lista vale. A posição 1 é a cabeça 1.
+              </p>
+              <ListaRanking equipes={confirmadas.map((equipe) => ({ id: equipe.id, nome: equipe.nome }))} />
+              <Botao type="submit" variante="navy">Usar este ranking</Botao>
+            </Formulario>
+          </div>
+        ) : (
+          <p className="mt-2 text-navy/75">Os confrontos deste torneio já foram definidos.</p>
+        )}
+        {previaChave.length > 0 && ordem ? (
           <div className="mt-4">
-            <p className="text-sm">Semente {rascunhoConfrontos?.semente} · {rascunhoConfrontos?.algoritmo} · por {rascunhoConfrontos?.criadoPor.nome}</p>
+            <p className="text-sm">
+              {resultadoConfrontos?.modo === "RANKING" ? "Ranking" : "Aleatório"}
+              {resultadoConfrontos?.modo === "ALEATORIO" || !resultadoConfrontos?.modo ? ` · semente ${rascunhoConfrontos?.semente}` : ""}
+              {" · "}
+              {rascunhoConfrontos?.algoritmo} · por {rascunhoConfrontos?.criadoPor.nome}
+            </p>
+            {resultadoConfrontos?.modo === "RANKING" ? (
+              <ol className="mt-2 space-y-1 text-sm">
+                {ordem.map((equipeId, indice) => (
+                  <li key={equipeId}>{indice + 1}. {porId.get(equipeId) ?? equipeId}</li>
+                ))}
+              </ol>
+            ) : null}
             <ul className="mt-2 space-y-2">
               {previaChave.map((jogo) => (
                 <li key={jogo.codigo} className="rounded-2xl bg-white p-3">{jogo.codigo}: {jogo.a} x {jogo.b}</li>
@@ -124,11 +170,35 @@ export default async function Sorteio({ params }: { params: Promise<{ id: string
       <section className="mt-6">
         <h2 className="font-display text-2xl">Auditoria</h2>
         <ul className="mt-3 space-y-2">
-          {torneio.sorteios.map((sorteio) => (
-            <li key={sorteio.id} className="rounded-2xl bg-white p-3 text-sm">
-              {sorteio.tipo === "EQUIPES" ? "Equipes" : "Confrontos"} · {sorteio.status} · semente {sorteio.semente} · {sorteio.algoritmo} · {sorteio.criadoPor.nome}
-            </li>
-          ))}
+          {torneio.sorteios.map((sorteio) => {
+            const resultado = sorteio.resultado as ResultadoConfrontos;
+            const modo =
+              sorteio.tipo === "CONFRONTOS"
+                ? resultado.modo === "RANKING"
+                  ? "Ranking"
+                  : resultado.modo === "ALEATORIO"
+                    ? "Aleatório"
+                    : null
+                : null;
+            return (
+              <li key={sorteio.id} className="rounded-2xl bg-white p-3 text-sm">
+                {sorteio.tipo === "EQUIPES" ? "Equipes" : "Confrontos"}
+                {modo ? ` · ${modo}` : ""}
+                {" · "}
+                {sorteio.status}
+                {sorteio.tipo === "CONFRONTOS" && resultado.modo === "RANKING" ? "" : ` · semente ${sorteio.semente}`}
+                {" · "}
+                {sorteio.algoritmo} · {sorteio.criadoPor.nome}
+                {sorteio.tipo === "CONFRONTOS" && resultado.modo === "RANKING" && resultado.equipes ? (
+                  <ol className="mt-2 space-y-1">
+                    {resultado.equipes.map((equipeId, indice) => (
+                      <li key={equipeId}>{indice + 1}. {porId.get(equipeId) ?? equipeId}</li>
+                    ))}
+                  </ol>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       </section>
     </div>

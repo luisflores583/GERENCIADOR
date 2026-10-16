@@ -505,9 +505,30 @@ export async function acaoDesfazerEquipes(_estado: EstadoAcao, form: FormData): 
 export async function acaoGerarConfrontos(_estado: EstadoAcao, form: FormData): Promise<EstadoAcao> {
   try {
     const admin = await exigirAdmin();
-    await gerarSorteioConfrontos(admin.id, texto(form, "torneioId"));
+    const modo = texto(form, "modo") === "RANKING" ? "RANKING" : "ALEATORIO";
+    const ordemLista = form.getAll("equipeId").map((valor) => String(valor));
+    const posicoes: Record<string, number | null> = {};
+    for (const id of ordemLista) {
+      const bruto = texto(form, `posicao-${id}`).trim();
+      if (!bruto) {
+        posicoes[id] = null;
+        continue;
+      }
+      if (!/^\d+$/.test(bruto)) {
+        return { ok: false, erro: "A posição do ranking precisa ser um número inteiro." };
+      }
+      posicoes[id] = Number(bruto);
+    }
+    await gerarSorteioConfrontos(admin.id, texto(form, "torneioId"), undefined, {
+      modo,
+      ordemLista,
+      posicoes,
+    });
     revalidarPainel();
-    return { ok: true, mensagem: "Prévia da primeira rodada pronta. Confirme para iniciar." };
+    return {
+      ok: true,
+      mensagem: modo === "RANKING" ? "Ranking montado. Confirme para iniciar." : "Prévia da primeira rodada pronta. Confirme para iniciar.",
+    };
   } catch (erro) {
     return falha(erro);
   }

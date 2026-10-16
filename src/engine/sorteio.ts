@@ -1,5 +1,6 @@
 import type { Naipe, Sexo } from "@/engine/naipe";
 import { desambiguarNome, nomeAutomatico } from "@/engine/nomes";
+import { ErroDeRegra } from "@/lib/erros";
 
 export const ALGORITMO_SORTEIO = "mulberry32-v1";
 
@@ -25,14 +26,52 @@ export function embaralhar<T>(itens: readonly T[], semente: number): T[] {
   return lista;
 }
 
-export function ordemDasCabecas(
-  equipesNaOrdemDeConfirmacao: readonly { id: string }[],
-  modelo: "GENERICA" | "FOLHA_16",
-  semente: number,
+export type ModoVagas = "ALEATORIO" | "RANKING";
+
+export function ordenarRanking(
+  equipesNaOrdemDaLista: readonly { id: string }[],
+  posicoes: Readonly<Record<string, number | null | undefined>> = {},
 ): string[] {
-  const ids = equipesNaOrdemDeConfirmacao.map((equipe) => equipe.id);
-  if (modelo === "FOLHA_16") return ids;
-  return embaralhar(ids, semente);
+  const quantidade = equipesNaOrdemDaLista.length;
+  const vagas: Array<string | null> = Array.from({ length: quantidade }, () => null);
+  const semNumero: string[] = [];
+
+  for (const equipe of equipesNaOrdemDaLista) {
+    const posicao = posicoes[equipe.id];
+    if (posicao == null) {
+      semNumero.push(equipe.id);
+      continue;
+    }
+    if (!Number.isInteger(posicao) || posicao < 1 || posicao > quantidade) {
+      throw new ErroDeRegra(`A posição ${posicao} fica fora da lista. Use um número de 1 a ${quantidade}.`);
+    }
+    if (vagas[posicao - 1]) {
+      throw new ErroDeRegra(`A posição ${posicao} está repetida.`);
+    }
+    vagas[posicao - 1] = equipe.id;
+  }
+
+  let proximo = 0;
+  for (let indice = 0; indice < vagas.length; indice++) {
+    if (vagas[indice]) continue;
+    vagas[indice] = semNumero[proximo] ?? null;
+    proximo += 1;
+  }
+
+  return vagas.map((id) => {
+    if (!id) throw new ErroDeRegra("O ranking ficou incompleto.");
+    return id;
+  });
+}
+
+export function ordemDasVagas(
+  equipesNaOrdemDaLista: readonly { id: string }[],
+  modo: ModoVagas,
+  semente: number,
+  posicoes: Readonly<Record<string, number | null | undefined>> = {},
+): string[] {
+  if (modo === "ALEATORIO") return embaralhar(equipesNaOrdemDaLista.map((equipe) => equipe.id), semente);
+  return ordenarRanking(equipesNaOrdemDaLista, posicoes);
 }
 
 export type FormatoEquipe = "DUPLA" | "TRIO" | "QUARTETO";

@@ -103,9 +103,9 @@ As fotos de perfil ficam em `public/uploads`. Inclua essa pasta no backup se ela
 - Perfis de administrador e atleta, com sessão em cookie `httpOnly`.
 - Torneios isolados entre si, em dupla, trio ou quarteto.
 - Inscrição individual ou equipe já formada, com aprovação e rejeição.
-- Sorteio auditável de equipes e da primeira rodada. Sobra de atleta não é descartada. Equipe incompleta só entra com autorização explícita do administrador e com a regra ligada no torneio.
+- Sorteio auditável de equipes e da primeira rodada. Na hora dos confrontos, o administrador sorteia as equipes aleatoriamente ou monta um ranking numerado. Sobra de atleta não é descartada. Equipe incompleta só entra com autorização explícita do administrador e com a regra ligada no torneio.
 - Dupla eliminação: chave de vencedores, chave de perdedores, folga quando o número de equipes não é potência de 2, final e final extra.
-- Tabela de até 16 times: jogos 1 a 30 da folha, com campeão da série Ouro no jogo 30 e campeã da série Prata no jogo 29. A chave automática continua disponível para os outros torneios.
+- Tabela de até 16 times: jogos 1 a 30 da folha, com campeão da série Ouro no jogo 30 e campeã da série Prata no jogo 29. A posição 1 do ranking é a cabeça 1. A chave automática continua disponível para os outros torneios, também com sorteio aleatório ou ranking.
 - Quadras, fila, indisponibilidade temporária e troca manual com validação.
 - Placar configurável por torneio e correção com histórico.
 - Painel público ao vivo, exportação do resumo em CSV e PDF.

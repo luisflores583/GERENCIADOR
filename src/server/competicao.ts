@@ -9,14 +9,21 @@ import {
 import { validarPlacar } from "@/engine/placar";
 import { validarTrocaDeQuadra, type PartidaOperacional, type QuadraOperacional } from "@/engine/quadras";
 import { validarNaipe } from "@/engine/naipe";
-import { ALGORITMO_SORTEIO, ordemDasCabecas, sortearEquipes, validarElenco } from "@/engine/sorteio";
+import { ALGORITMO_SORTEIO, ordemDasVagas, sortearEquipes, validarElenco, type ModoVagas } from "@/engine/sorteio";
 import { ErroDeRegra } from "@/lib/erros";
 import { exigirAdministrador } from "@/server/acesso";
 import { distribuirTorneio, regrasDoTorneio, sincronizarChave, trancar, type Tx } from "@/server/banco";
 import { prisma } from "@/server/db";
 
 const ALGORITMO_CHAVE = `${ALGORITMO_SORTEIO}+dupla-eliminacao-v1`;
-const ALGORITMO_FOLHA_16 = "ordem-de-confirmacao+folha-16-v1";
+const ALGORITMO_FOLHA_16 = `${ALGORITMO_SORTEIO}+folha-16-v1`;
+const ALGORITMO_RANKING_CHAVE = "ranking-v1+dupla-eliminacao-v1";
+const ALGORITMO_RANKING_FOLHA_16 = "ranking-v1+folha-16-v1";
+
+function algoritmoDasVagas(modelo: "GENERICA" | "FOLHA_16", modo: ModoVagas): string {
+  if (modo === "RANKING") return modelo === "FOLHA_16" ? ALGORITMO_RANKING_FOLHA_16 : ALGORITMO_RANKING_CHAVE;
+  return modelo === "FOLHA_16" ? ALGORITMO_FOLHA_16 : ALGORITMO_CHAVE;
+}
 
 function extrairResultados(partidas: Partida[]): ResultadoRegistrado[] {
   return partidas
@@ -173,7 +180,16 @@ export async function desfazerSorteioEquipes(adminId: string, torneioId: string)
   });
 }
 
-export async function gerarSorteioConfrontos(adminId: string, torneioId: string, semente?: number) {
+export async function gerarSorteioConfrontos(
+  adminId: string,
+  torneioId: string,
+  semente?: number,
+  pedido?: {
+    modo?: ModoVagas;
+    ordemLista?: string[];
+    posicoes?: Record<string, number | null>;
+  },
+) {
   await exigirAdministrador(adminId);
   return trancar(torneioId, async (tx) => {
     const torneio = await tx.torneio.findUniqueOrThrow({ where: { id: torneioId } });
@@ -194,8 +210,26 @@ export async function gerarSorteioConfrontos(adminId: string, torneioId: string,
     if (torneio.modeloChave === "FOLHA_16" && equipes.length > 16) {
       throw new ErroDeRegra("A tabela de até 16 times aceita no máximo 16 equipes. A tabela de 32 times não entra neste torneio.");
     }
+    const modo: ModoVagas = pedido?.modo === "RANKING" ? "RANKING" : "ALEATORIO";
     const valor = sementeDe(semente);
-    const ordem = ordemDasCabecas(equipes, torneio.modeloChave, valor);
+    let base = equipes;
+    if (modo === "RANKING" && pedido?.ordemLista && pedido.ordemLista.length > 0) {
+      const ids = new Set(equipes.map((equipe) => equipe.id));
+      const recebidos = pedido.ordemLista;
+      if (recebidos.length !== equipes.length || new Set(recebidos).size !== recebidos.length || recebidos.some((id) => !ids.has(id))) {
+        throw new ErroDeRegra("A lista de equipes mudou. Atualize a página e monte o ranking de novo.");
+      }
+      const porId = new Map(equipes.map((equipe) => [equipe.id, equipe]));
+      base = recebidos.map((id) => porId.get(id)!);
+    }
+    const ordem = ordemDasVagas(base, modo, valor, pedido?.posicoes ?? {});
+    const posicoes =
+      modo === "RANKING"
+        ? base.map((equipe) => ({
+            equipeId: equipe.id,
+            posicao: pedido?.posicoes?.[equipe.id] ?? null,
+          }))
+        : null;
     await tx.sorteio.updateMany({
       where: { torneioId, tipo: "CONFRONTOS", status: "RASCUNHO" },
       data: { status: "DESCARTADO" },
@@ -206,12 +240,12 @@ export async function gerarSorteioConfrontos(adminId: string, torneioId: string,
         tipo: "CONFRONTOS",
         status: "RASCUNHO",
         semente: valor,
-        algoritmo: torneio.modeloChave === "FOLHA_16" ? ALGORITMO_FOLHA_16 : ALGORITMO_CHAVE,
-        resultado: { equipes: ordem },
+        algoritmo: algoritmoDasVagas(torneio.modeloChave, modo),
+        resultado: { modo, equipes: ordem, posicoes },
         criadoPorId: adminId,
       },
     });
-    return { sorteioId: registro.id, ordem, semente: valor, torneioId, slug: torneio.slug };
+    return { sorteioId: registro.id, ordem, semente: valor, modo, torneioId, slug: torneio.slug };
   });
 }
 

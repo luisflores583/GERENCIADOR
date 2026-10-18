@@ -549,14 +549,11 @@ export async function acaoConfirmarConfrontos(_estado: EstadoAcao, form: FormDat
 export async function acaoConfirmarPlacar(_estado: EstadoAcao, form: FormData): Promise<EstadoAcao> {
   try {
     const admin = await exigirAdmin();
-    const resultado = await confirmarResultado(
-      admin.id,
-      texto(form, "partidaId"),
-      Number(texto(form, "placarA")),
-      Number(texto(form, "placarB")),
-    );
+    const vencedorEquipeId = texto(form, "vencedorEquipeId");
+    if (!vencedorEquipeId) return { ok: false, erro: "Escolha quem venceu." };
+    const resultado = await confirmarResultado(admin.id, texto(form, "partidaId"), vencedorEquipeId);
     atualizarTelas(resultado, "resultado");
-    return { ok: true, mensagem: resultado.idempotente ? "Esse placar já estava confirmado." : "Resultado confirmado. A chave foi atualizada." };
+    return { ok: true, mensagem: resultado.idempotente ? "Essa vitória já estava confirmada." : "Vitória confirmada. A chave foi atualizada." };
   } catch (erro) {
     return falha(erro);
   }
@@ -565,11 +562,12 @@ export async function acaoConfirmarPlacar(_estado: EstadoAcao, form: FormData): 
 export async function acaoCorrigirPlacar(_estado: EstadoAcao, form: FormData): Promise<EstadoAcao> {
   try {
     const admin = await exigirAdmin();
+    const vencedorEquipeId = texto(form, "vencedorEquipeId");
+    if (!vencedorEquipeId) return { ok: false, erro: "Escolha o novo vencedor." };
     const resultado = await corrigirResultado(
       admin.id,
       texto(form, "partidaId"),
-      Number(texto(form, "placarA")),
-      Number(texto(form, "placarB")),
+      vencedorEquipeId,
       texto(form, "motivo"),
       marcar(form, "confirmarDependencias"),
     );
@@ -582,7 +580,7 @@ export async function acaoCorrigirPlacar(_estado: EstadoAcao, form: FormData): P
       };
     }
     atualizarTelas(resultado, "correcao");
-    return { ok: true, mensagem: resultado.idempotente ? "O placar já estava assim." : "Placar corrigido e dependências recalculadas." };
+    return { ok: true, mensagem: resultado.idempotente ? "O vencedor já era esse." : "Vencedor corrigido e dependências recalculadas." };
   } catch (erro) {
     return falha(erro);
   }

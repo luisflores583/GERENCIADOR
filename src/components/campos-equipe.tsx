@@ -4,10 +4,12 @@ export function CamposEquipe({
   tamanho,
   fixo,
   permitirIncompleta = false,
+  telefoneObrigatorio = true,
 }: {
   tamanho: number;
   fixo?: { id: string; nomeCompleto: string; sexo: "FEMININO" | "MASCULINO"; telefone: string | null };
   permitirIncompleta?: boolean;
+  telefoneObrigatorio?: boolean;
 }) {
   const indices = Array.from({ length: tamanho }, (_, indice) => indice);
   return (
@@ -43,8 +45,13 @@ export function CamposEquipe({
                     <option value="MASCULINO">Masculino</option>
                   </Selecao>
                 </Campo>
-                <Campo id={`integranteTelefone${indice}`} rotulo="Telefone">
-                  <Entrada id={`integranteTelefone${indice}`} name={`integranteTelefone${indice}`} autoComplete="tel" required={!permitirIncompleta} />
+                <Campo id={`integranteTelefone${indice}`} rotulo="Telefone" dica={telefoneObrigatorio ? undefined : "Opcional."}>
+                  <Entrada
+                    id={`integranteTelefone${indice}`}
+                    name={`integranteTelefone${indice}`}
+                    autoComplete="tel"
+                    required={telefoneObrigatorio && !permitirIncompleta}
+                  />
                 </Campo>
                 <Campo id={`integranteEmail${indice}`} rotulo="E-mail" dica="Opcional.">
                   <Entrada id={`integranteEmail${indice}`} name={`integranteEmail${indice}`} type="email" autoComplete="off" />

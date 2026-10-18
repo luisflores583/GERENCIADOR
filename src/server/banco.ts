@@ -35,6 +35,7 @@ function mesclar(anterior: Partida | undefined, nova: PartidaMotor, agora: Date)
   if (nova.status === "CONCLUIDA") {
     const igual =
       anterior?.status === "CONCLUIDA" &&
+      anterior.vencedorId === nova.vencedorId &&
       anterior.placarA === nova.placarA &&
       anterior.placarB === nova.placarB &&
       anterior.equipeAId === nova.equipeAId &&

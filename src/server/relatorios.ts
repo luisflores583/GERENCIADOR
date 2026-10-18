@@ -116,7 +116,11 @@ export async function gerarPdf(painel: PainelDTO): Promise<Uint8Array> {
   escrever("Partidas", 14, true);
   for (const partida of painel.partidas) {
     const placar =
-      partida.placarA != null && partida.placarB != null ? `${partida.placarA} x ${partida.placarB}` : "x";
+      partida.placarA != null && partida.placarB != null
+        ? `${partida.placarA} x ${partida.placarB}`
+        : partida.status === "CONCLUIDA"
+          ? `vitória de ${partida.vencedorId === partida.equipeA?.id ? (partida.equipeA?.nome ?? "equipe") : (partida.equipeB?.nome ?? "equipe")}`
+          : "x";
     escrever(
       `${partida.fase}: ${partida.equipeA?.nome ?? "Aguardando"} ${placar} ${partida.equipeB?.nome ?? "Aguardando"} — ${partida.quadra ?? "sem quadra"} — ${ROTULO_PARTIDA[partida.status as keyof typeof ROTULO_PARTIDA] ?? partida.status}`,
     );

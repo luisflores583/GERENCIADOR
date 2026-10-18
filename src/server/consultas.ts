@@ -85,6 +85,7 @@ export async function montarPainel(slug: string): Promise<PainelDTO | null> {
       equipeB: resumoEquipe(partida.equipeBId),
       placarA: partida.placarA,
       placarB: partida.placarB,
+      vencedorId: partida.vencedorId,
       status: partida.status,
       quadra: partida.quadra?.nome ?? null,
       quadraId: partida.quadraId,

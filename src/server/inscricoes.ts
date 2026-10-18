@@ -107,8 +107,9 @@ export async function cadastrarEquipePorNomes(
     afirmarComposicaoAberta(torneio);
     if (usuario.papel !== "ADMIN") afirmarInscricoesAbertas(torneio);
     const ids: string[] = [];
+    const telefoneObrigatorio = usuario.papel !== "ADMIN";
     for (const componente of componentes) {
-      const id = await resolverIntegrante(tx, torneioId, componente);
+      const id = await resolverIntegrante(tx, torneioId, componente, telefoneObrigatorio);
       if (ids.includes(id)) throw new ErroDeRegra("O mesmo atleta foi informado mais de uma vez.");
       ids.push(id);
     }
@@ -395,7 +396,12 @@ async function renomearSeAutomatica(
   }
 }
 
-async function resolverIntegrante(tx: Tx, torneioId: string, componente: IntegranteInformado) {
+async function resolverIntegrante(
+  tx: Tx,
+  torneioId: string,
+  componente: IntegranteInformado,
+  telefoneObrigatorio: boolean,
+) {
   if (componente.atletaId) {
     const atleta = await tx.atleta.findUnique({ where: { id: componente.atletaId } });
     if (!atleta) throw new ErroDeRegra("Atleta não encontrado.", 404);
@@ -423,7 +429,7 @@ async function resolverIntegrante(tx: Tx, torneioId: string, componente: Integra
           usuarioId: usuario.id,
           nomeCompleto: componente.nome.trim(),
           sexo: componente.sexo,
-          telefone: telefoneNovo(componente.telefone),
+          telefone: telefoneNovo(componente.telefone, telefoneObrigatorio),
         },
       });
       return atleta.id;
@@ -451,7 +457,7 @@ async function resolverIntegrante(tx: Tx, torneioId: string, componente: Integra
         create: {
           nomeCompleto: componente.nome.trim(),
           sexo: componente.sexo,
-          telefone: telefoneNovo(componente.telefone),
+          telefone: telefoneNovo(componente.telefone, telefoneObrigatorio),
         },
       },
     },
@@ -460,9 +466,12 @@ async function resolverIntegrante(tx: Tx, torneioId: string, componente: Integra
   return criado.atleta!.id;
 }
 
-function telefoneNovo(telefone: string) {
+function telefoneNovo(telefone: string, obrigatorio: boolean) {
   const valor = telefone.trim();
-  if (!valor) throw new ErroDeRegra("Informe o telefone de cada integrante novo.");
+  if (!valor) {
+    if (obrigatorio) throw new ErroDeRegra("Informe o telefone de cada integrante novo.");
+    return null;
+  }
   if (valor.length > 20) throw new ErroDeRegra("O telefone pode ter no máximo 20 caracteres.");
   return valor;
 }

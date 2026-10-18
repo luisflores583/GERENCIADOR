@@ -16,7 +16,7 @@ docker compose down
 docker compose up --build
 ```
 
-Espere a linha `Areia Viva disponível em http://localhost:3000` e abra esse endereço. A primeira tela traz o título “O torneio anda sozinho. Você registra o placar.”, com Arena da Orla e Trios da Manhã.
+Espere a linha `Areia Viva disponível em http://localhost:3000` e abra esse endereço. A primeira tela traz o título “O torneio anda sozinho. Você registra a vitória.”, com Arena da Orla e Trios da Manhã.
 
 Se a porta 3000 já estiver ocupada por outro container, pare esse outro antes. O comando `docker compose ps` mostra o serviço `app` em execução.
 
@@ -107,5 +107,5 @@ As fotos de perfil ficam em `public/uploads`. Inclua essa pasta no backup se ela
 - Dupla eliminação: chave de vencedores, chave de perdedores, folga quando o número de equipes não é potência de 2, final e final extra.
 - Tabela de até 16 times: jogos 1 a 30 da folha, com campeão da série Ouro no jogo 30 e campeã da série Prata no jogo 29. A posição 1 do ranking é a cabeça 1. A chave automática continua disponível para os outros torneios, também com sorteio aleatório ou ranking.
 - Quadras, fila, indisponibilidade temporária e troca manual com validação.
-- Placar configurável por torneio e correção com histórico.
+- O administrador registra só a vitória da equipe. A correção fica no histórico e a mesma confirmação não conta a vitória duas vezes. Na inscrição feita pelo administrador, nome e sexo bastam; e-mail e telefone são opcionais. Quando o atleta monta a própria equipe, o telefone continua obrigatório.
 - Painel público ao vivo, exportação do resumo em CSV e PDF.

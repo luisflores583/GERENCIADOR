@@ -114,15 +114,15 @@ describe.skipIf(!rodar)("integração com o banco", () => {
       },
     });
 
-    await expect(confirmarResultado(atletas[0].id, partida.id, 21, 15)).rejects.toMatchObject({ status: 403 });
+    await expect(confirmarResultado(atletas[0].id, partida.id, partida.equipeAId!)).rejects.toMatchObject({ status: 403 });
 
-    const primeira = await confirmarResultado(admin.id, partida.id, 21, 15);
+    const primeira = await confirmarResultado(admin.id, partida.id, partida.equipeAId!);
     expect(primeira.idempotente).toBe(false);
-    const segunda = await confirmarResultado(admin.id, partida.id, 21, 15);
+    const segunda = await confirmarResultado(admin.id, partida.id, partida.equipeAId!);
     expect(segunda.idempotente).toBe(true);
-    await expect(confirmarResultado(admin.id, partida.id, 15, 21)).rejects.toBeInstanceOf(ErroDeRegra);
+    await expect(confirmarResultado(admin.id, partida.id, partida.equipeBId!)).rejects.toBeInstanceOf(ErroDeRegra);
 
-    const vencedorId = 21 > 15 ? partida.equipeAId : partida.equipeBId;
+    const vencedorId = partida.equipeAId;
     const vencedora = await prisma.equipe.findUniqueOrThrow({ where: { id: vencedorId! } });
     expect(vencedora.vitorias).toBe(1);
     expect(vencedora.derrotas).toBe(0);

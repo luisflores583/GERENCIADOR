@@ -435,6 +435,7 @@ describe("critérios de aceitação", () => {
     expect(plano.precisaConfirmacao).toBe(true);
     expect(plano.invalidados.length).toBeGreaterThan(0);
 
+    if (primeiro.placarA == null || primeiro.placarB == null) throw new Error("O resultado jogado precisa ter placar.");
     const mesmo = planejarCorrecao(
       inicial.equipesIds,
       jogado.resultados,

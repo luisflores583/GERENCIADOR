@@ -33,6 +33,7 @@ export type PartidaResumo = {
   equipeB: { id: string; nome: string; situacao: SituacaoVisual } | null;
   placarA: number | null;
   placarB: number | null;
+  vencedorId?: string | null;
   status: string;
   quadra: string | null;
   quadraId: string | null;

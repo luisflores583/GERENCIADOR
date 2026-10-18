@@ -45,18 +45,16 @@ export default async function Jogos({ params }: { params: Promise<{ id: string }
       <MenuTorneio id={torneio.id} slug={torneio.slug} />
       <h1 id="registrar" className="font-display text-4xl text-navy">Registrar resultado</h1>
       <p className="mt-2 max-w-3xl text-navy/70">
-        Informe o placar das duas equipes e confirme. O resultado fica gravado e a chave avança na hora.
-        Para vencer: {torneio.pontosParaVencer} pontos, diferença mínima {torneio.diferencaMinima}
-        {torneio.pontosMaximos ? `, teto ${torneio.pontosMaximos}` : ""}.
+        Escolha a equipe vencedora e confirme. A chave, as derrotas, as eliminações e as quadras avançam na hora. O placar não entra neste registro.
       </p>
       {torneio.status !== "EM_ANDAMENTO" ? (
         <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-amber-950">
-          O placar só é gravado com o torneio em andamento.
+          A vitória só é gravada com o torneio em andamento.
         </p>
       ) : null}
       {partidas.every((partida) => !["PRONTA", "AGENDADA", "EM_ANDAMENTO", "PAUSADA"].includes(partida.status) || !partida.equipeA || !partida.equipeB) ? (
         <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-navy">
-          Nenhuma partida está pronta para receber placar. A chave precisa ter os dois adversários definidos.
+          Nenhuma partida está pronta para receber a vitória. A chave precisa ter os dois adversários definidos.
         </p>
       ) : null}
       {grupos.map((status) => {
@@ -77,23 +75,27 @@ export default async function Jogos({ params }: { params: Promise<{ id: string }
                     <h2 className="text-2xl font-bold">
                       {partida.equipeA?.nome ?? "Aguardando adversário"} x {partida.equipeB?.nome ?? "Aguardando adversário"}
                     </h2>
-                    <p className="text-sm text-navy/70">{partida.quadra?.nome ?? "Sem quadra"}{partida.placarA != null ? ` · ${partida.placarA} x ${partida.placarB}` : ""}</p>
+                    <p className="text-sm text-navy/70">
+                      {partida.quadra?.nome ?? "Sem quadra"}
+                      {textoDoConfronto(partida)}
+                    </p>
                   </div>
                   <SeloPartida status={partida.status} />
                 </div>
                 {["PRONTA", "AGENDADA", "EM_ANDAMENTO", "PAUSADA"].includes(partida.status) && partida.equipeA && partida.equipeB ? (
                   <Formulario acao={acaoConfirmarPlacar} className="mt-4">
                     <input type="hidden" name="partidaId" value={partida.id} />
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Campo id={`a-${partida.id}`} rotulo={partida.equipeA.nome}>
-                        <Entrada id={`a-${partida.id}`} name="placarA" inputMode="numeric" required placeholder="0" />
-                      </Campo>
-                      <Campo id={`b-${partida.id}`} rotulo={partida.equipeB.nome}>
-                        <Entrada id={`b-${partida.id}`} name="placarB" inputMode="numeric" required placeholder="0" />
-                      </Campo>
-                    </div>
+                    <fieldset className="space-y-2">
+                      <legend className="font-semibold text-navy">Quem venceu</legend>
+                      {[partida.equipeA, partida.equipeB].map((equipe) => (
+                        <label key={equipe.id} className="flex min-h-14 items-center gap-3 rounded-2xl bg-white px-4">
+                          <input type="radio" name="vencedorEquipeId" value={equipe.id} required className="h-5 w-5" />
+                          <span className="text-lg font-semibold">{equipe.nome}</span>
+                        </label>
+                      ))}
+                    </fieldset>
                     <div className="flex flex-wrap gap-2">
-                      <Botao type="submit">Confirmar resultado</Botao>
+                      <Botao type="submit">Confirmar vitória</Botao>
                     </div>
                   </Formulario>
                 ) : null}
@@ -126,22 +128,30 @@ export default async function Jogos({ params }: { params: Promise<{ id: string }
                 {partida.status === "CONCLUIDA" ? (
                   <Formulario acao={acaoCorrigirPlacar} className="mt-4">
                     <input type="hidden" name="partidaId" value={partida.id} />
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Campo id={`ca-${partida.id}`} rotulo="Novo placar A">
-                        <Entrada id={`ca-${partida.id}`} name="placarA" inputMode="numeric" required defaultValue={partida.placarA ?? 0} />
-                      </Campo>
-                      <Campo id={`cb-${partida.id}`} rotulo="Novo placar B">
-                        <Entrada id={`cb-${partida.id}`} name="placarB" inputMode="numeric" required defaultValue={partida.placarB ?? 0} />
-                      </Campo>
-                    </div>
+                    <fieldset className="space-y-2">
+                      <legend className="font-semibold text-navy">Novo vencedor</legend>
+                      {[partida.equipeA, partida.equipeB].filter((equipe) => equipe).map((equipe) => (
+                        <label key={equipe!.id} className="flex min-h-14 items-center gap-3 rounded-2xl bg-white px-4">
+                          <input
+                            type="radio"
+                            name="vencedorEquipeId"
+                            value={equipe!.id}
+                            required
+                            defaultChecked={vencedorAtual(partida) === equipe!.id}
+                            className="h-5 w-5"
+                          />
+                          <span className="text-lg font-semibold">{equipe!.nome}</span>
+                        </label>
+                      ))}
+                    </fieldset>
                     <Campo id={`motivo-${partida.id}`} rotulo="Motivo da correção">
                       <Entrada id={`motivo-${partida.id}`} name="motivo" required />
                     </Campo>
-                    <label className="flex items-center gap-2 text-sm">
-                      <input type="checkbox" name="confirmarDependencias" />
+                    <label className="flex min-h-14 items-center gap-2 text-sm">
+                      <input type="checkbox" name="confirmarDependencias" className="h-5 w-5" />
                       Confirmo o recálculo das partidas dependentes
                     </label>
-                    <Botao type="submit" variante="secundario">Corrigir placar</Botao>
+                    <Botao type="submit" variante="secundario">Corrigir vencedor</Botao>
                   </Formulario>
                 ) : null}
                 {partida.historico.length > 0 ? (
@@ -149,7 +159,7 @@ export default async function Jogos({ params }: { params: Promise<{ id: string }
                     {partida.historico.map((item) => (
                       <li key={item.id}>
                         {formatarDataHora(item.criadoEm)} · {item.acao === "CORRECAO" ? "Correção" : "Confirmação"} por {item.admin.nome}
-                        {item.motivo ? ` · ${item.motivo}` : ""} · {item.placarANovo} x {item.placarBNovo}
+                        {item.motivo ? ` · ${item.motivo}` : ""} · {textoDoHistorico(item, partida)}
                       </li>
                     ))}
                   </ul>
@@ -161,4 +171,51 @@ export default async function Jogos({ params }: { params: Promise<{ id: string }
       })}
     </div>
   );
+}
+
+function nomeDaEquipe(
+  partida: { equipeA: { id: string; nome: string } | null; equipeB: { id: string; nome: string } | null },
+  id: string | null,
+) {
+  if (!id) return null;
+  if (partida.equipeA?.id === id) return partida.equipeA.nome;
+  if (partida.equipeB?.id === id) return partida.equipeB.nome;
+  return null;
+}
+
+function vencedorAtual(partida: {
+  vencedorId: string | null;
+  placarA: number | null;
+  placarB: number | null;
+  equipeAId: string | null;
+  equipeBId: string | null;
+}) {
+  if (partida.vencedorId) return partida.vencedorId;
+  if (partida.placarA != null && partida.placarB != null && partida.placarA !== partida.placarB) {
+    return partida.placarA > partida.placarB ? partida.equipeAId : partida.equipeBId;
+  }
+  return null;
+}
+
+function textoDoConfronto(partida: {
+  equipeA: { id: string; nome: string } | null;
+  equipeB: { id: string; nome: string } | null;
+  vencedorId: string | null;
+  placarA: number | null;
+  placarB: number | null;
+  equipeAId: string | null;
+  equipeBId: string | null;
+}) {
+  if (partida.placarA != null && partida.placarB != null) return ` · ${partida.placarA} x ${partida.placarB}`;
+  const nome = nomeDaEquipe(partida, vencedorAtual(partida));
+  return nome ? ` · vitória de ${nome}` : "";
+}
+
+function textoDoHistorico(
+  item: { placarANovo: number | null; placarBNovo: number | null; vencedorNovoId: string | null },
+  partida: { equipeA: { id: string; nome: string } | null; equipeB: { id: string; nome: string } | null },
+) {
+  if (item.placarANovo != null && item.placarBNovo != null) return `${item.placarANovo} x ${item.placarBNovo}`;
+  const nome = nomeDaEquipe(partida, item.vencedorNovoId);
+  return nome ? `vitória de ${nome}` : "vitória confirmada";
 }

@@ -52,7 +52,7 @@ export default async function Inscricoes({ params }: { params: Promise<{ id: str
         <Formulario acao={acaoInscreverDireto} className="mt-6 rounded-3xl bg-foam p-5 shadow-card">
           <h2 className="font-display text-3xl text-navy">Inscrever atleta neste torneio</h2>
           <p className="text-navy/70">
-            A inscrição é gravada como aprovada. O e-mail não é obrigatório. Naipe deste torneio: {ROTULO_NAIPE[torneio.naipe]}.
+            A inscrição é gravada como aprovada. O nome e o sexo bastam. O e-mail e o telefone são opcionais. Naipe deste torneio: {ROTULO_NAIPE[torneio.naipe]}.
             {torneio.naipe === "MISTO" ? " Cada equipe precisa de pelo menos uma atleta feminina." : ""}
           </p>
           <input type="hidden" name="torneioId" value={torneio.id} />
@@ -73,7 +73,7 @@ export default async function Inscricoes({ params }: { params: Promise<{ id: str
               <option value="MASCULINO">Masculino</option>
             </Selecao>
           </Campo>
-          <Campo id="telefoneNovo" rotulo="Telefone">
+          <Campo id="telefoneNovo" rotulo="Telefone" dica="Opcional.">
             <Entrada id="telefoneNovo" name="telefone" autoComplete="tel" />
           </Campo>
           <Campo id="emailNovo" rotulo="E-mail" dica="Opcional. A inscrição não exige e-mail.">
@@ -162,10 +162,10 @@ export default async function Inscricoes({ params }: { params: Promise<{ id: str
             <Formulario acao={acaoCadastrarEquipe} className="rounded-3xl bg-foam p-5 shadow-card">
               <h3 className="font-display text-2xl">Cadastrar equipe</h3>
               <p className="text-navy/70">
-                Preencha o nome, o sexo e o telefone de cada integrante. O e-mail é opcional. Quem já existe entra na equipe; quem não existe é cadastrado.
+                Preencha o nome e o sexo de cada integrante. O e-mail e o telefone são opcionais. Quem já existe entra na equipe; quem não existe é cadastrado.
               </p>
               <input type="hidden" name="torneioId" value={torneio.id} />
-              <CamposEquipe tamanho={tamanho} permitirIncompleta={torneio.permitirEquipeIncompleta} />
+              <CamposEquipe tamanho={tamanho} permitirIncompleta={torneio.permitirEquipeIncompleta} telefoneObrigatorio={false} />
               <Botao type="submit">Gravar equipe</Botao>
             </Formulario>
           )}

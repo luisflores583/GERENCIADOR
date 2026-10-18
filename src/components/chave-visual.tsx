@@ -29,10 +29,12 @@ function Cartao({ partida }: { partida: PartidaResumo }) {
       </div>
       {[partida.equipeA, partida.equipeB].map((equipe, indice) => {
         const placar = indice === 0 ? partida.placarA : partida.placarB;
-        const venceu =
+        const venceuPorPlacar =
           partida.status === "CONCLUIDA" &&
-          placar != null &&
-          (indice === 0 ? (partida.placarA ?? 0) > (partida.placarB ?? 0) : (partida.placarB ?? 0) > (partida.placarA ?? 0));
+          partida.placarA != null &&
+          partida.placarB != null &&
+          (indice === 0 ? partida.placarA > partida.placarB : partida.placarB > partida.placarA);
+        const venceu = partida.status === "CONCLUIDA" && (equipe?.id === partida.vencedorId || (!partida.vencedorId && venceuPorPlacar));
         return (
           <div key={indice} className={`mt-2 flex items-center justify-between gap-2 rounded-2xl px-3 py-2 ${venceu ? "bg-emerald-50" : "bg-white"}`}>
             <div className="min-w-0">
@@ -41,7 +43,9 @@ function Cartao({ partida }: { partida: PartidaResumo }) {
               </p>
               {equipe ? <SeloSituacao situacao={equipe.situacao} /> : null}
             </div>
-            <span className="text-2xl font-bold tabular-nums text-navy">{placar ?? "–"}</span>
+            <span className={`font-bold text-navy ${placar != null ? "text-2xl tabular-nums" : "text-sm"}`}>
+              {placar != null ? placar : venceu ? "Venceu" : "–"}
+            </span>
           </div>
         );
       })}

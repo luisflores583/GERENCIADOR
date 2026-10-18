@@ -22,7 +22,13 @@ export default async function Historico() {
         {partidas.map((partida) => (
           <li key={partida.id} className="rounded-3xl bg-foam p-4 shadow-card">
             <Link href={`/ao-vivo/${partida.torneio.slug}`} className="text-sm font-semibold text-ocean">{partida.torneio.nome}</Link>
-            <p className="text-lg font-bold">{partida.equipeA?.nome} {partida.placarA} x {partida.placarB} {partida.equipeB?.nome}</p>
+            <p className="text-lg font-bold">
+              {partida.equipeA?.nome}{" "}
+              {partida.placarA != null && partida.placarB != null
+                ? `${partida.placarA} x ${partida.placarB}`
+                : `vitória de ${partida.vencedorId === partida.equipeAId ? partida.equipeA?.nome : partida.equipeB?.nome}`}{" "}
+              {partida.equipeB?.nome}
+            </p>
             <p className="text-sm text-navy/70">{partida.quadra?.nome ?? "Sem quadra"} · {partida.fimEm ? formatarDataHora(partida.fimEm) : ""}</p>
           </li>
         ))}

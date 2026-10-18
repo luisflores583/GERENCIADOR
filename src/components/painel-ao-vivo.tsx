@@ -191,6 +191,15 @@ function Indicador({ rotulo, valor }: { rotulo: string; valor: number }) {
   );
 }
 
+function textoDoPlacar(partida: PartidaResumo) {
+  if (partida.placarA != null && partida.placarB != null) return `${partida.placarA} x ${partida.placarB}`;
+  if (partida.status === "CONCLUIDA" && partida.vencedorId) {
+    const nome = partida.vencedorId === partida.equipeA?.id ? partida.equipeA?.nome : partida.equipeB?.nome;
+    return nome ? `vitória de ${nome}` : "vitória";
+  }
+  return "– x –";
+}
+
 function Bloco({ titulo, partidas, vazio }: { titulo: string; partidas: PartidaResumo[]; vazio: string }) {
   return (
     <section className="rounded-3xl bg-foam p-4 shadow-card">
@@ -205,9 +214,7 @@ function Bloco({ titulo, partidas, vazio }: { titulo: string; partidas: PartidaR
             </div>
             <p className="mt-2 text-lg font-bold">
               {partida.equipeA?.nome ?? "Aguardando adversário"}{" "}
-              <span className="tabular-nums">
-                {partida.placarA ?? "–"} x {partida.placarB ?? "–"}
-              </span>{" "}
+              <span className="tabular-nums">{textoDoPlacar(partida)}</span>{" "}
               {partida.equipeB?.nome ?? "Aguardando adversário"}
             </p>
             <p className="text-sm text-navy/70">{partida.quadra ?? "Quadra a definir"}</p>

@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { aplicarResultado, criarEstadoInicial, reexecutar, type Origem, type PartidaMotor } from "@/engine/dupla-eliminacao";
+import {
+  aplicarResultado,
+  aplicarVitoria,
+  criarEstadoInicial,
+  planejarCorrecaoDeVencedor,
+  reexecutar,
+  type Origem,
+  type PartidaMotor,
+} from "@/engine/dupla-eliminacao";
 import {
   JOGOS_SEM_DESTINO_DE_PERDEDOR,
   JOGOS_SEM_DESTINO_DE_VENCEDOR,
@@ -210,6 +218,60 @@ describe("tabela de até 16 times", () => {
     );
     expect(jogo(corrigido.estado.partidas, "9").equipeAId).toBe("e16");
     expect(jogo(corrigido.estado.partidas, "10").equipeAId).toBe("e1");
+  });
+
+  it("registra só a vitória, avança a folha e não conta a mesma confirmação duas vezes", () => {
+    const inicial = criarEstadoInicial(ids(16), "FOLHA_16");
+    const primeira = aplicarVitoria(inicial, "1", "e1");
+    expect(primeira.idempotente).toBe(false);
+    expect(jogo(primeira.estado.partidas, "1").placarA).toBeNull();
+    expect(jogo(primeira.estado.partidas, "1").placarB).toBeNull();
+    expect(jogo(primeira.estado.partidas, "1").vencedorId).toBe("e1");
+    expect(jogo(primeira.estado.partidas, "9").equipeAId).toBe("e1");
+    expect(jogo(primeira.estado.partidas, "10").equipeAId).toBe("e16");
+    expect(primeira.estado.vitorias.e1).toBe(1);
+    expect(primeira.estado.derrotas.e16).toBe(1);
+
+    const repetida = aplicarVitoria(primeira.estado, "1", "e1");
+    expect(repetida.idempotente).toBe(true);
+    expect(repetida.estado.vitorias).toEqual(primeira.estado.vitorias);
+    expect(repetida.estado).toBe(primeira.estado);
+    expect(() => aplicarVitoria(primeira.estado, "1", "e16")).toThrow(/já foi confirmada/i);
+
+    const repetidaNaFolha = reexecutar(
+      ids(16),
+      [
+        { partidaId: "1", placarA: null, placarB: null, equipeAId: "e1", equipeBId: "e16", vencedorId: "e1" },
+        { partidaId: "1", placarA: null, placarB: null, equipeAId: "e1", equipeBId: "e16", vencedorId: "e1" },
+      ],
+      REGRAS,
+      { modelo: "FOLHA_16" },
+    );
+    expect(repetidaNaFolha.estado.vitorias.e1).toBe(1);
+    expect(jogo(repetidaNaFolha.estado.partidas, "9").equipeAId).toBe("e1");
+
+    const plano = planejarCorrecaoDeVencedor(
+      ids(16),
+      [{ partidaId: "1", placarA: null, placarB: null, equipeAId: "e1", equipeBId: "e16", vencedorId: "e1" }],
+      "1",
+      "e1",
+      REGRAS,
+      "FOLHA_16",
+    );
+    expect(plano.idempotente).toBe(true);
+    const corrigido = planejarCorrecaoDeVencedor(
+      ids(16),
+      [{ partidaId: "1", placarA: null, placarB: null, equipeAId: "e1", equipeBId: "e16", vencedorId: "e1" }],
+      "1",
+      "e16",
+      REGRAS,
+      "FOLHA_16",
+    );
+    expect(corrigido.idempotente).toBe(false);
+    expect(jogo(corrigido.estado!.partidas, "9").equipeAId).toBe("e16");
+    expect(jogo(corrigido.estado!.partidas, "10").equipeAId).toBe("e1");
+    expect(corrigido.estado!.vitorias.e16).toBe(1);
+    expect(corrigido.estado!.vitorias.e1 ?? 0).toBe(0);
   });
 
   it("entrega a série Prata ao vencedor do jogo 29 e a série Ouro ao vencedor do jogo 30", () => {

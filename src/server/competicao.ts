@@ -2,11 +2,10 @@ import { randomInt } from "node:crypto";
 import { Prisma, type Partida } from "@prisma/client";
 import {
   criarEstadoInicial,
-  planejarCorrecao,
+  planejarCorrecaoDeVencedor,
   reexecutar,
   type ResultadoRegistrado,
 } from "@/engine/dupla-eliminacao";
-import { validarPlacar } from "@/engine/placar";
 import { validarTrocaDeQuadra, type PartidaOperacional, type QuadraOperacional } from "@/engine/quadras";
 import { validarNaipe } from "@/engine/naipe";
 import { ALGORITMO_SORTEIO, ordemDasVagas, sortearEquipes, validarElenco, type ModoVagas } from "@/engine/sorteio";
@@ -30,19 +29,29 @@ function extrairResultados(partidas: Partida[]): ResultadoRegistrado[] {
     .filter(
       (partida) =>
         partida.status === "CONCLUIDA" &&
-        partida.placarA != null &&
-        partida.placarB != null &&
+        partida.vencedorId &&
         partida.equipeAId &&
         partida.equipeBId,
     )
     .sort((a, b) => (a.ordemConclusao ?? 0) - (b.ordemConclusao ?? 0) || a.codigo.localeCompare(b.codigo))
     .map((partida) => ({
       partidaId: partida.codigo,
-      placarA: partida.placarA!,
-      placarB: partida.placarB!,
+      placarA: partida.placarA,
+      placarB: partida.placarB,
       equipeAId: partida.equipeAId!,
       equipeBId: partida.equipeBId!,
+      vencedorId: partida.vencedorId,
     }));
+}
+
+function descricaoDoResultado(item: ResultadoRegistrado, nomes: Map<string, string>) {
+  const equipeA = nomes.get(item.equipeAId) ?? "Equipe A";
+  const equipeB = nomes.get(item.equipeBId) ?? "Equipe B";
+  if (item.placarA != null && item.placarB != null) {
+    return `${item.partidaId}: ${equipeA} ${item.placarA} x ${item.placarB} ${equipeB}`;
+  }
+  const vencedor = item.vencedorId ? nomes.get(item.vencedorId) : null;
+  return `${item.partidaId}: vitória de ${vencedor ?? "equipe"}`;
 }
 
 function sementeDe(informada?: number) {
@@ -321,7 +330,7 @@ export async function confirmarSorteioConfrontos(adminId: string, sorteioId: str
   });
 }
 
-export async function confirmarResultado(adminId: string, partidaId: string, placarA: number, placarB: number) {
+export async function confirmarResultado(adminId: string, partidaId: string, vencedorEquipeId: string) {
   await exigirAdministrador(adminId);
   const partida = await prisma.partida.findUnique({ where: { id: partidaId } });
   if (!partida) throw new ErroDeRegra("Partida não encontrada.", 404);
@@ -330,18 +339,22 @@ export async function confirmarResultado(adminId: string, partidaId: string, pla
     const torneio = await tx.torneio.findUniqueOrThrow({ where: { id: atual.torneioId } });
     if (torneio.status === "PAUSADO") throw new ErroDeRegra("O torneio está pausado.");
     if (torneio.status !== "EM_ANDAMENTO") throw new ErroDeRegra("O torneio não está em andamento.");
+    if (!atual.equipeAId || !atual.equipeBId) {
+      throw new ErroDeRegra("A partida ainda não tem os dois adversários definidos.");
+    }
+    if (vencedorEquipeId !== atual.equipeAId && vencedorEquipeId !== atual.equipeBId) {
+      throw new ErroDeRegra("Escolha uma das duas equipes do jogo.");
+    }
     if (atual.status === "CONCLUIDA") {
-      if (atual.placarA === placarA && atual.placarB === placarB) {
+      if (atual.vencedorId === vencedorEquipeId) {
         return { idempotente: true, torneioId: torneio.id, slug: torneio.slug };
       }
-      throw new ErroDeRegra("O resultado já foi confirmado. Use a correção para alterar o placar.", 409, "JA_CONFIRMADO");
+      throw new ErroDeRegra("A vitória já foi confirmada. Use a correção para alterar o vencedor.", 409, "JA_CONFIRMADO");
     }
-    if (!["PRONTA", "AGENDADA", "EM_ANDAMENTO", "PAUSADA"].includes(atual.status) || !atual.equipeAId || !atual.equipeBId) {
+    if (!["PRONTA", "AGENDADA", "EM_ANDAMENTO", "PAUSADA"].includes(atual.status)) {
       throw new ErroDeRegra("A partida ainda não tem os dois adversários definidos.");
     }
     const regras = regrasDoTorneio(torneio);
-    const validacao = validarPlacar(placarA, placarB, regras);
-    if (!validacao.ok) throw new ErroDeRegra(validacao.erro);
     const partidas = await tx.partida.findMany({ where: { torneioId: torneio.id } });
     const equipes = await tx.equipe.findMany({
       where: { torneioId: torneio.id, cabeca: { not: null } },
@@ -350,10 +363,11 @@ export async function confirmarResultado(adminId: string, partidaId: string, pla
     const resultados = extrairResultados(partidas);
     resultados.push({
       partidaId: atual.codigo,
-      placarA,
-      placarB,
+      placarA: null,
+      placarB: null,
       equipeAId: atual.equipeAId,
       equipeBId: atual.equipeBId,
+      vencedorId: vencedorEquipeId,
     });
     const replay = reexecutar(
       equipes.map((equipe) => equipe.id),
@@ -375,9 +389,9 @@ export async function confirmarResultado(adminId: string, partidaId: string, pla
         partidaId: salva.id,
         torneioId: torneio.id,
         acao: "CONFIRMACAO",
-        placarANovo: placarA,
-        placarBNovo: placarB,
-        vencedorNovoId: placarA > placarB ? atual.equipeAId : atual.equipeBId,
+        placarANovo: null,
+        placarBNovo: null,
+        vencedorNovoId: vencedorEquipeId,
         partidasAfetadas: [],
         adminId,
       },
@@ -390,8 +404,7 @@ export async function confirmarResultado(adminId: string, partidaId: string, pla
 export async function corrigirResultado(
   adminId: string,
   partidaId: string,
-  placarA: number,
-  placarB: number,
+  vencedorEquipeId: string,
   motivo: string,
   confirmarDependencias: boolean,
 ) {
@@ -406,6 +419,12 @@ export async function corrigirResultado(
     if (!["EM_ANDAMENTO", "PAUSADO"].includes(torneio.status)) {
       throw new ErroDeRegra("Ainda não há resultados para corrigir.");
     }
+    if (!atual.equipeAId || !atual.equipeBId) {
+      throw new ErroDeRegra("A partida ainda não tem os dois adversários definidos.");
+    }
+    if (vencedorEquipeId !== atual.equipeAId && vencedorEquipeId !== atual.equipeBId) {
+      throw new ErroDeRegra("Escolha uma das duas equipes do jogo.");
+    }
     const regras = regrasDoTorneio(torneio);
     const partidas = await tx.partida.findMany({ where: { torneioId: torneio.id } });
     const equipes = await tx.equipe.findMany({
@@ -413,19 +432,18 @@ export async function corrigirResultado(
       orderBy: { cabeca: "asc" },
     });
     const resultados = extrairResultados(partidas);
-    const plano = planejarCorrecao(
+    const plano = planejarCorrecaoDeVencedor(
       equipes.map((equipe) => equipe.id),
       resultados,
       atual.codigo,
-      placarA,
-      placarB,
+      vencedorEquipeId,
       regras,
       torneio.modeloChave,
     );
     const nomes = new Map(equipes.map((equipe) => [equipe.id, equipe.nome]));
     const afetadas = plano.invalidados.map((item) => ({
       codigo: item.partidaId,
-      descricao: `${item.partidaId}: ${nomes.get(item.equipeAId) ?? "Equipe A"} ${item.placarA} x ${item.placarB} ${nomes.get(item.equipeBId) ?? "Equipe B"}`,
+      descricao: descricaoDoResultado(item, nomes),
     }));
     if (plano.idempotente) return { idempotente: true, precisaConfirmacao: false, afetadas: [], torneioId: torneio.id, slug: torneio.slug };
     if (plano.precisaConfirmacao && !confirmarDependencias) {
@@ -444,9 +462,9 @@ export async function corrigirResultado(
         placarAAnterior: atual.placarA,
         placarBAnterior: atual.placarB,
         vencedorAnteriorId: atual.vencedorId,
-        placarANovo: placarA,
-        placarBNovo: placarB,
-        vencedorNovoId: placarA > placarB ? atual.equipeAId : atual.equipeBId,
+        placarANovo: null,
+        placarBNovo: null,
+        vencedorNovoId: vencedorEquipeId,
         motivo: motivo.trim(),
         partidasAfetadas: afetadas,
         adminId,

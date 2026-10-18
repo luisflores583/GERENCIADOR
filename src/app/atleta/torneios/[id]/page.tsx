@@ -104,7 +104,13 @@ export default async function TorneioDoAtleta({ params }: { params: Promise<{ id
         <ul className="mt-3 space-y-2">
           {partidas.map((partida) => (
             <li key={partida.id} className="rounded-2xl bg-white p-3">
-              {partida.equipeA?.nome ?? "Aguardando adversário"} {partida.placarA ?? "–"} x {partida.placarB ?? "–"} {partida.equipeB?.nome ?? "Aguardando adversário"} · {partida.quadra?.nome ?? "sem quadra"} · {partida.status}
+              {partida.equipeA?.nome ?? "Aguardando adversário"}{" "}
+              {partida.placarA != null && partida.placarB != null
+                ? `${partida.placarA} x ${partida.placarB}`
+                : partida.status === "CONCLUIDA"
+                  ? `vitória de ${partida.vencedorId === partida.equipeAId ? partida.equipeA?.nome : partida.equipeB?.nome}`
+                  : "– x –"}{" "}
+              {partida.equipeB?.nome ?? "Aguardando adversário"} · {partida.quadra?.nome ?? "sem quadra"} · {partida.status}
             </li>
           ))}
         </ul>

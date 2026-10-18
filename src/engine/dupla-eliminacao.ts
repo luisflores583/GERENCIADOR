@@ -63,10 +63,11 @@ export interface EstadoChave {
 
 export interface ResultadoRegistrado {
   partidaId: string;
-  placarA: number;
-  placarB: number;
+  placarA: number | null;
+  placarB: number | null;
   equipeAId: string;
   equipeBId: string;
+  vencedorId?: string | null;
 }
 
 type Resolvido = { tipo: "PENDENTE" } | { tipo: "BYE" } | { tipo: "EQUIPE"; id: string };
@@ -599,6 +600,37 @@ export function aplicarResultado(
   return { estado: proximo, idempotente: false };
 }
 
+export function aplicarVitoria(
+  estado: EstadoChave,
+  partidaId: string,
+  vencedorId: string,
+): { estado: EstadoChave; idempotente: boolean } {
+  const atual = estado.partidas.find((partida) => partida.id === partidaId);
+  if (!atual) throw new ErroDeRegra("Partida não encontrada.");
+  if (atual.status === "CONCLUIDA") {
+    if (atual.vencedorId === vencedorId) return { estado, idempotente: true };
+    throw new ErroDeRegra("A vitória já foi confirmada. Use a correção para alterar o vencedor.", 409, "JA_CONFIRMADO");
+  }
+  if (atual.status !== "PRONTA" || !atual.equipeAId || !atual.equipeBId) {
+    throw new ErroDeRegra("A partida ainda não tem os dois adversários definidos.");
+  }
+  if (vencedorId !== atual.equipeAId && vencedorId !== atual.equipeBId) {
+    throw new ErroDeRegra("Escolha uma das duas equipes do jogo.");
+  }
+
+  const proximo = structuredClone(estado) as EstadoChave;
+  const partida = proximo.partidas.find((item) => item.id === partidaId)!;
+  partida.status = "CONCLUIDA";
+  partida.placarA = null;
+  partida.placarB = null;
+  partida.vencedorId = vencedorId;
+  partida.perdedorId = vencedorId === partida.equipeAId ? partida.equipeBId! : partida.equipeAId!;
+  partida.ordemConclusao = proximo.sequencia + 1;
+  proximo.sequencia += 1;
+  propagar(proximo);
+  return { estado: proximo, idempotente: false };
+}
+
 export function reexecutar(
   equipesIds: readonly string[],
   resultados: readonly ResultadoRegistrado[],
@@ -622,7 +654,13 @@ export function reexecutar(
       invalidados.push(resultado);
       continue;
     }
-    estado = aplicarResultado(estado, resultado.partidaId, resultado.placarA, resultado.placarB, regras).estado;
+    if (resultado.vencedorId && (resultado.placarA == null || resultado.placarB == null)) {
+      estado = aplicarVitoria(estado, resultado.partidaId, resultado.vencedorId).estado;
+    } else if (resultado.placarA != null && resultado.placarB != null) {
+      estado = aplicarResultado(estado, resultado.partidaId, resultado.placarA, resultado.placarB, regras).estado;
+    } else {
+      throw new ErroDeRegra("O resultado confirmado não indica o vencedor.");
+    }
     aplicados.push(resultado);
   }
 
@@ -651,6 +689,41 @@ export function planejarCorrecao(
 
   const alterados = resultados.map((resultado, posicao) =>
     posicao === indice ? { ...resultado, placarA, placarB } : resultado,
+  );
+  const replay = reexecutar(equipesIds, alterados, regras, { modelo });
+  return {
+    idempotente: false,
+    precisaConfirmacao: replay.invalidados.length > 0,
+    invalidados: replay.invalidados,
+    estado: replay.estado,
+  };
+}
+
+export function planejarCorrecaoDeVencedor(
+  equipesIds: readonly string[],
+  resultados: readonly ResultadoRegistrado[],
+  partidaId: string,
+  vencedorId: string,
+  regras: RegrasPlacar,
+  modelo: ModeloChave = "GENERICA",
+):
+  | { idempotente: true; precisaConfirmacao: false; invalidados: ResultadoRegistrado[]; estado: null }
+  | { idempotente: false; precisaConfirmacao: boolean; invalidados: ResultadoRegistrado[]; estado: EstadoChave } {
+  const indice = resultados.findIndex((resultado) => resultado.partidaId === partidaId);
+  if (indice < 0) throw new ErroDeRegra("Esta partida não tem um resultado confirmado para corrigir.");
+  const atual = resultados[indice]!;
+  const vencedorAtual =
+    atual.vencedorId ??
+    (atual.placarA != null && atual.placarB != null ? (atual.placarA > atual.placarB ? atual.equipeAId : atual.equipeBId) : null);
+  if (vencedorAtual === vencedorId) {
+    return { idempotente: true, precisaConfirmacao: false, invalidados: [], estado: null };
+  }
+  if (vencedorId !== atual.equipeAId && vencedorId !== atual.equipeBId) {
+    throw new ErroDeRegra("Escolha uma das duas equipes do jogo.");
+  }
+
+  const alterados = resultados.map((resultado, posicao) =>
+    posicao === indice ? { ...resultado, placarA: null, placarB: null, vencedorId } : resultado,
   );
   const replay = reexecutar(equipesIds, alterados, regras, { modelo });
   return {

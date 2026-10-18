@@ -4,7 +4,8 @@ import { Botao } from "@/components/botao";
 import { Formulario } from "@/components/formulario";
 import { ListaRanking } from "@/components/lista-ranking";
 import { MenuTorneio } from "@/components/menu-torneio";
-import { acaoConfirmarConfrontos, acaoConfirmarEquipes, acaoDesfazerEquipes, acaoGerarConfrontos, acaoGerarEquipes } from "@/server/acoes";
+import { IniciarTorneio } from "@/components/iniciar-torneio";
+import { acaoConfirmarConfrontos, acaoConfirmarEquipes, acaoDesfazerEquipes, acaoGerarConfrontos, acaoGerarEquipes, acaoStatus } from "@/server/acoes";
 import { prisma } from "@/server/db";
 
 type ResultadoConfrontos = {
@@ -57,7 +58,9 @@ export default async function Sorteio({ params }: { params: Promise<{ id: string
         }));
     }
   }
-  const prontoParaConfrontos = torneio.status === "AGUARDANDO_SORTEIO";
+  const partidas = await prisma.partida.count({ where: { torneioId: torneio.id } });
+  const confrontosConfirmados = torneio.sorteios.some((item) => item.tipo === "CONFRONTOS" && item.status === "CONFIRMADO");
+  const prontoParaConfrontos = torneio.status === "AGUARDANDO_SORTEIO" && partidas === 0;
 
   return (
     <div>
@@ -135,8 +138,22 @@ export default async function Sorteio({ params }: { params: Promise<{ id: string
               <Botao type="submit" variante="navy">Usar este ranking</Botao>
             </Formulario>
           </div>
-        ) : (
+        ) : partidas > 0 || confrontosConfirmados ? (
           <p className="mt-2 text-navy/75">Os confrontos deste torneio já foram definidos.</p>
+        ) : (
+          <div className="mt-4 space-y-3">
+            <p className="text-navy/75">
+              O torneio ainda não começou. Inicie para gravar as vitórias. A chave usa a ordem atual das equipes confirmadas.
+            </p>
+            <IniciarTorneio torneioId={torneio.id} />
+            {torneio.status === "INSCRICOES_ABERTAS" || torneio.status === "INSCRICOES_ENCERRADAS" ? (
+              <Formulario acao={acaoStatus} className="w-auto">
+                <input type="hidden" name="torneioId" value={torneio.id} />
+                <input type="hidden" name="acao" value="preparar" />
+                <Botao type="submit" variante="secundario">Preparar sorteio</Botao>
+              </Formulario>
+            ) : null}
+          </div>
         )}
         {previaChave.length > 0 && ordem ? (
           <div className="mt-4">

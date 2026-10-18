@@ -286,6 +286,177 @@ async function validarEquipesParaChave(
   }
 }
 
+async function confirmarEquipesJaAprovadas(
+  tx: Tx,
+  torneio: { id: string; formato: "DUPLA" | "TRIO" | "QUARTETO"; naipe: "FEMININO" | "MASCULINO" | "MISTO"; permitirEquipeIncompleta: boolean },
+) {
+  const pendentes = await tx.equipe.findMany({
+    where: { torneioId: torneio.id, status: "PENDENTE" },
+    include: { membros: { include: { atleta: true } } },
+  });
+  for (const equipe of pendentes) {
+    const inscricoes = await tx.inscricao.findMany({ where: { equipeId: equipe.id } });
+    if (inscricoes.length === 0 || inscricoes.some((item) => item.status !== "APROVADA")) continue;
+    const validacao = validarElenco(
+      torneio.formato,
+      equipe.membros.length,
+      equipe.incompleta && torneio.permitirEquipeIncompleta,
+    );
+    if (!validacao.ok) continue;
+    const naipeOk = validarNaipe(
+      torneio.naipe,
+      equipe.membros.map((membro) => membro.atleta.sexo),
+      true,
+    );
+    if (!naipeOk.ok) continue;
+    await tx.equipe.update({ where: { id: equipe.id }, data: { status: "CONFIRMADA" } });
+  }
+}
+
+async function garantirQuadra(tx: Tx, torneio: { id: string; nome: string }) {
+  const habilitada = await tx.torneioQuadra.count({ where: { torneioId: torneio.id, habilitada: true } });
+  if (habilitada > 0) return;
+  const ocupadas = await tx.partida.findMany({
+    where: { status: { in: ["AGENDADA", "EM_ANDAMENTO", "PAUSADA"] }, quadraId: { not: null } },
+    select: { quadraId: true },
+  });
+  const ocupadasIds = new Set(ocupadas.map((partida) => partida.quadraId).filter((id): id is string => Boolean(id)));
+  const quadras = await tx.quadra.findMany({ orderBy: { nome: "asc" } });
+  let quadra = quadras.find((item) => !ocupadasIds.has(item.id));
+  if (!quadra) {
+    const base = `Quadra ${torneio.nome}`.slice(0, 80);
+    const existente = await tx.quadra.findUnique({ where: { nome: base } });
+    quadra = existente ?? (await tx.quadra.create({ data: { nome: base } }));
+    if (ocupadasIds.has(quadra.id)) {
+      quadra = await tx.quadra.create({ data: { nome: `${base} ${Date.now().toString(36)}`.slice(0, 80) } });
+    }
+  }
+  const ordem = await tx.torneioQuadra.count({ where: { torneioId: torneio.id } });
+  await tx.torneioQuadra.upsert({
+    where: { torneioId_quadraId: { torneioId: torneio.id, quadraId: quadra.id } },
+    update: { habilitada: true },
+    create: { torneioId: torneio.id, quadraId: quadra.id, habilitada: true, ordem },
+  });
+}
+
+async function gravarChaveEIniciar(
+  tx: Tx,
+  torneio: { id: string; modeloChave: "GENERICA" | "FOLHA_16"; equipesTravadasEm: Date | null; slug: string },
+  ordem: string[],
+  sorteioId: string,
+) {
+  const confirmadas = await tx.equipe.findMany({ where: { torneioId: torneio.id, status: "CONFIRMADA" } });
+  if (ordem.length !== confirmadas.length || confirmadas.some((equipe) => !ordem.includes(equipe.id))) {
+    throw new ErroDeRegra("As equipes mudaram. Gere o sorteio dos confrontos novamente.");
+  }
+  for (let indice = 0; indice < ordem.length; indice++) {
+    await tx.equipe.update({ where: { id: ordem[indice] }, data: { cabeca: indice + 1 } });
+  }
+  if (torneio.modeloChave === "FOLHA_16" && ordem.length > 16) {
+    throw new ErroDeRegra("A tabela de até 16 times aceita no máximo 16 equipes. A tabela de 32 times não entra neste torneio.");
+  }
+  const estado = criarEstadoInicial(ordem, torneio.modeloChave);
+  await sincronizarChave(tx, torneio.id, estado);
+  await tx.sorteio.update({
+    where: { id: sorteioId },
+    data: { status: "CONFIRMADO", confirmadoEm: new Date() },
+  });
+  const agora = new Date();
+  await tx.torneio.update({
+    where: { id: torneio.id },
+    data: { status: "EM_ANDAMENTO", iniciadoEm: agora, equipesTravadasEm: torneio.equipesTravadasEm ?? agora },
+  });
+  await distribuirTorneio(tx, torneio.id, agora);
+  return { idempotente: false, torneioId: torneio.id, slug: torneio.slug };
+}
+
+export async function iniciarTorneio(adminId: string, torneioId: string) {
+  await exigirAdministrador(adminId);
+  return trancar(torneioId, async (tx) => {
+    const torneio = await tx.torneio.findUniqueOrThrow({ where: { id: torneioId } });
+    if (torneio.status === "EM_ANDAMENTO") {
+      return { idempotente: true, torneioId: torneio.id, slug: torneio.slug };
+    }
+    if (torneio.status === "FINALIZADO") throw new ErroDeRegra("O torneio já foi encerrado.");
+    if (torneio.status === "PAUSADO") {
+      await tx.torneio.update({ where: { id: torneio.id }, data: { status: "EM_ANDAMENTO" } });
+      await distribuirTorneio(tx, torneio.id);
+      return { idempotente: false, torneioId: torneio.id, slug: torneio.slug };
+    }
+
+    const partidas = await tx.partida.count({ where: { torneioId: torneio.id } });
+    if (partidas > 0) {
+      const agora = new Date();
+      await tx.torneio.update({
+        where: { id: torneio.id },
+        data: {
+          status: "EM_ANDAMENTO",
+          iniciadoEm: torneio.iniciadoEm ?? agora,
+          equipesTravadasEm: torneio.equipesTravadasEm ?? agora,
+        },
+      });
+      await distribuirTorneio(tx, torneio.id, agora);
+      return { idempotente: false, torneioId: torneio.id, slug: torneio.slug };
+    }
+
+    await confirmarEquipesJaAprovadas(tx, torneio);
+    const pendentesEquipe = await tx.equipe.count({ where: { torneioId: torneio.id, status: "PENDENTE" } });
+    if (pendentesEquipe > 0) {
+      throw new ErroDeRegra("Ainda há equipes pendentes. Aprove ou rejeite em Inscrições antes de iniciar.");
+    }
+    const pendentesInscricao = await tx.inscricao.count({ where: { torneioId: torneio.id, status: "PENDENTE" } });
+    if (pendentesInscricao > 0) {
+      throw new ErroDeRegra("Ainda há inscrições pendentes. Aprove ou rejeite em Inscrições antes de iniciar.");
+    }
+    if (torneio.formacao === "SORTEADAS") {
+      const confirmado = await tx.sorteio.count({ where: { torneioId: torneio.id, tipo: "EQUIPES", status: "CONFIRMADO" } });
+      if (!confirmado) throw new ErroDeRegra("Confirme o sorteio das equipes em Sorteio antes de iniciar.");
+    }
+    await validarEquipesParaChave(
+      tx,
+      torneio.id,
+      torneio.formato,
+      torneio.formacao,
+      torneio.naipe,
+      torneio.permitirEquipeIncompleta,
+    );
+    const confirmadas = await tx.equipe.findMany({
+      where: { torneioId: torneio.id, status: "CONFIRMADA" },
+      orderBy: { criadaEm: "asc" },
+    });
+    if (confirmadas.length < 2) throw new ErroDeRegra("São necessárias pelo menos duas equipes confirmadas para iniciar.");
+    await garantirQuadra(tx, torneio);
+
+    const rascunho = await tx.sorteio.findFirst({
+      where: { torneioId: torneio.id, tipo: "CONFRONTOS", status: "RASCUNHO" },
+      orderBy: { criadoEm: "desc" },
+    });
+    if (rascunho) {
+      const ordem = (rascunho.resultado as { equipes: string[] }).equipes;
+      return gravarChaveEIniciar(tx, torneio, ordem, rascunho.id);
+    }
+
+    const semente = sementeDe();
+    const ordem = ordemDasVagas(confirmadas, "RANKING", semente, {});
+    const registro = await tx.sorteio.create({
+      data: {
+        torneioId: torneio.id,
+        tipo: "CONFRONTOS",
+        status: "RASCUNHO",
+        semente,
+        algoritmo: algoritmoDasVagas(torneio.modeloChave, "RANKING"),
+        resultado: {
+          modo: "RANKING",
+          equipes: ordem,
+          posicoes: confirmadas.map((equipe) => ({ equipeId: equipe.id, posicao: null })),
+        },
+        criadoPorId: adminId,
+      },
+    });
+    return gravarChaveEIniciar(tx, torneio, ordem, registro.id);
+  });
+}
+
 export async function confirmarSorteioConfrontos(adminId: string, sorteioId: string) {
   await exigirAdministrador(adminId);
   const rascunho = await prisma.sorteio.findUnique({ where: { id: sorteioId } });
@@ -304,29 +475,7 @@ export async function confirmarSorteioConfrontos(adminId: string, sorteioId: str
     const torneio = await tx.torneio.findUniqueOrThrow({ where: { id: atual.torneioId } });
     await validarEquipesParaChave(tx, torneio.id, torneio.formato, torneio.formacao, torneio.naipe, torneio.permitirEquipeIncompleta);
     const ordem = (atual.resultado as { equipes: string[] }).equipes;
-    const confirmadas = await tx.equipe.findMany({ where: { torneioId: torneio.id, status: "CONFIRMADA" } });
-    if (ordem.length !== confirmadas.length || confirmadas.some((equipe) => !ordem.includes(equipe.id))) {
-      throw new ErroDeRegra("As equipes mudaram. Gere o sorteio dos confrontos novamente.");
-    }
-    for (let indice = 0; indice < ordem.length; indice++) {
-      await tx.equipe.update({ where: { id: ordem[indice] }, data: { cabeca: indice + 1 } });
-    }
-    if (torneio.modeloChave === "FOLHA_16" && ordem.length > 16) {
-      throw new ErroDeRegra("A tabela de até 16 times aceita no máximo 16 equipes. A tabela de 32 times não entra neste torneio.");
-    }
-    const estado = criarEstadoInicial(ordem, torneio.modeloChave);
-    await sincronizarChave(tx, torneio.id, estado);
-    await tx.sorteio.update({
-      where: { id: atual.id },
-      data: { status: "CONFIRMADO", confirmadoEm: new Date() },
-    });
-    const agora = new Date();
-    await tx.torneio.update({
-      where: { id: torneio.id },
-      data: { status: "EM_ANDAMENTO", iniciadoEm: agora, equipesTravadasEm: torneio.equipesTravadasEm ?? agora },
-    });
-    await distribuirTorneio(tx, torneio.id, agora);
-    return { idempotente: false, torneioId: torneio.id, slug: torneio.slug };
+    return gravarChaveEIniciar(tx, torneio, ordem, atual.id);
   });
 }
 

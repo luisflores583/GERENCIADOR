@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Botao } from "@/components/botao";
 import { Campo, Entrada } from "@/components/campo";
 import { Formulario } from "@/components/formulario";
+import { IniciarTorneio } from "@/components/iniciar-torneio";
 import { MenuTorneio } from "@/components/menu-torneio";
 import { SeloPartida } from "@/components/selo";
 import { formatarDataHora } from "@/lib/formatacao";
@@ -48,9 +49,28 @@ export default async function Jogos({ params }: { params: Promise<{ id: string }
         Escolha a equipe vencedora e confirme. A chave, as derrotas, as eliminações e as quadras avançam na hora. O placar não entra neste registro.
       </p>
       {torneio.status !== "EM_ANDAMENTO" ? (
-        <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-amber-950">
-          A vitória só é gravada com o torneio em andamento.
-        </p>
+        <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-amber-950">
+          {torneio.status === "FINALIZADO" ? (
+            <p>Este torneio já foi encerrado.</p>
+          ) : torneio.status === "PAUSADO" ? (
+            <>
+              <p>O torneio está pausado. Retome para gravar a vitória.</p>
+              <div className="mt-3">
+                <IniciarTorneio torneioId={torneio.id} retomada />
+              </div>
+            </>
+          ) : (
+            <>
+              <p>A vitória entra quando o torneio está em andamento. Inicie para liberar os jogos.</p>
+              <p className="mt-2">
+                A chave usa a ordem atual das equipes confirmadas. Para sortear ou numerar o ranking, monte isso em Sorteio antes de iniciar.
+              </p>
+              <div className="mt-3">
+                <IniciarTorneio torneioId={torneio.id} />
+              </div>
+            </>
+          )}
+        </div>
       ) : null}
       {partidas.every((partida) => !["PRONTA", "AGENDADA", "EM_ANDAMENTO", "PAUSADA"].includes(partida.status) || !partida.equipeA || !partida.equipeB) ? (
         <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-navy">

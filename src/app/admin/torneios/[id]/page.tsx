@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Botao } from "@/components/botao";
 import { CamposTorneio } from "@/components/campos-torneio";
 import { Formulario } from "@/components/formulario";
+import { IniciarTorneio } from "@/components/iniciar-torneio";
 import { MenuTorneio } from "@/components/menu-torneio";
 import { SeloStatus } from "@/components/selo";
 import { formatarMoeda, paraCampoDataHora } from "@/lib/formatacao";
@@ -18,13 +19,16 @@ export default async function VisaoTorneio({ params }: { params: Promise<{ id: s
   });
   if (!torneio) notFound();
   const valor = torneio.valorCentavos == null ? "" : (torneio.valorCentavos / 100).toFixed(2).replace(".", ",");
-  const acoes = [
-    ["preparar", "Preparar sorteio"],
-    ["encerrar", "Encerrar inscrições"],
-    ["reabrir", "Reabrir inscrições"],
-    ["pausar", "Pausar torneio"],
-    ["retomar", "Retomar torneio"],
-  ] as const;
+  const acoes: Array<["preparar" | "encerrar" | "reabrir" | "pausar", string]> = [];
+  if (torneio.status === "INSCRICOES_ABERTAS") {
+    acoes.push(["preparar", "Preparar sorteio"], ["encerrar", "Encerrar inscrições"]);
+  } else if (torneio.status === "INSCRICOES_ENCERRADAS") {
+    acoes.push(["preparar", "Preparar sorteio"], ["reabrir", "Reabrir inscrições"]);
+  } else if (torneio.status === "AGUARDANDO_SORTEIO" && !torneio.equipesTravadasEm) {
+    acoes.push(["reabrir", "Reabrir inscrições"]);
+  } else if (torneio.status === "EM_ANDAMENTO") {
+    acoes.push(["pausar", "Pausar torneio"]);
+  }
   return (
     <div>
       <MenuTorneio id={torneio.id} slug={torneio.slug} />
@@ -35,7 +39,10 @@ export default async function VisaoTorneio({ params }: { params: Promise<{ id: s
       <p className="mt-2 text-navy/70">
         {ROTULO_FORMATO[torneio.formato]} · {ROTULO_NAIPE[torneio.naipe]} · {torneio._count.inscricoes} inscrições · {torneio._count.equipes} equipes · inscrição {formatarMoeda(torneio.valorCentavos)}
       </p>
-      <div className="mt-6 flex flex-wrap gap-2">
+      <div className="mt-6 flex flex-wrap items-center gap-2">
+        {torneio.status !== "EM_ANDAMENTO" && torneio.status !== "FINALIZADO" ? (
+          <IniciarTorneio torneioId={torneio.id} retomada={torneio.status === "PAUSADO"} />
+        ) : null}
         <Link className="inline-flex min-h-14 items-center rounded-2xl bg-coral px-5 font-semibold text-white" href={`/admin/torneios/${torneio.id}/jogos`}>
           Registrar resultado
         </Link>

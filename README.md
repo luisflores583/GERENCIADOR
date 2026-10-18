@@ -107,5 +107,5 @@ As fotos de perfil ficam em `public/uploads`. Inclua essa pasta no backup se ela
 - Dupla eliminação: chave de vencedores, chave de perdedores, folga quando o número de equipes não é potência de 2, final e final extra.
 - Tabela de até 16 times: jogos 1 a 30 da folha, com campeão da série Ouro no jogo 30 e campeã da série Prata no jogo 29. A posição 1 do ranking é a cabeça 1. A chave automática continua disponível para os outros torneios, também com sorteio aleatório ou ranking.
 - Quadras, fila, indisponibilidade temporária e troca manual com validação.
-- O administrador registra só a vitória da equipe. A correção fica no histórico e a mesma confirmação não conta a vitória duas vezes. Na inscrição feita pelo administrador, nome e sexo bastam; e-mail e telefone são opcionais. Quando o atleta monta a própria equipe, o telefone continua obrigatório.
+- O administrador registra só a vitória da equipe. A correção fica no histórico e a mesma confirmação não conta a vitória duas vezes. Em Resultados, o botão Iniciar torneio começa a chave quando ela ainda não está em andamento. Na inscrição feita pelo administrador, nome e sexo bastam; e-mail e telefone são opcionais. Quando o atleta monta a própria equipe, o telefone continua obrigatório.
 - Painel público ao vivo, exportação do resumo em CSV e PDF.

@@ -41,6 +41,7 @@ import {
   gerarSorteioEquipes,
   indisponibilizarQuadra,
   iniciarPartida,
+  iniciarTorneio,
   pausarPartida,
   retomarPartida,
   salvarQuadra,
@@ -250,6 +251,17 @@ export async function acaoStatus(_estado: EstadoAcao, form: FormData): Promise<E
     const torneio = await alterarStatus(admin.id, texto(form, "torneioId"), texto(form, "acao"));
     atualizarTelas(torneio, "status");
     return { ok: true, mensagem: "Status atualizado." };
+  } catch (erro) {
+    return falha(erro);
+  }
+}
+
+export async function acaoIniciarTorneio(_estado: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+  try {
+    const admin = await exigirAdmin();
+    const resultado = await iniciarTorneio(admin.id, texto(form, "torneioId"));
+    atualizarTelas(resultado, "inicio");
+    return { ok: true, mensagem: resultado.idempotente ? "O torneio já estava em andamento." : "Torneio iniciado. Já dá para registrar a vitória." };
   } catch (erro) {
     return falha(erro);
   }

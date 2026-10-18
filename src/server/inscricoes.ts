@@ -156,7 +156,7 @@ async function persistirEquipe(
     data: {
       torneioId: torneio.id,
       nome: titulo,
-      status: "PENDENTE",
+      status: papel === "ADMIN" ? "CONFIRMADA" : "PENDENTE",
       incompleta: unicos.length < tamanho,
       capitaoId: unicos[0],
     },

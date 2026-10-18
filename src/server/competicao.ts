@@ -11,7 +11,7 @@ import { validarNaipe } from "@/engine/naipe";
 import { ALGORITMO_SORTEIO, ordemDasVagas, sortearEquipes, validarElenco, type ModoVagas } from "@/engine/sorteio";
 import { ErroDeRegra } from "@/lib/erros";
 import { exigirAdministrador } from "@/server/acesso";
-import { distribuirTorneio, regrasDoTorneio, sincronizarChave, trancar, type Tx } from "@/server/banco";
+import { distribuirTorneio, idsDeQuadrasOcupadas, regrasDoTorneio, sincronizarChave, trancar, type Tx } from "@/server/banco";
 import { prisma } from "@/server/db";
 
 const ALGORITMO_CHAVE = `${ALGORITMO_SORTEIO}+dupla-eliminacao-v1`;
@@ -313,23 +313,41 @@ async function confirmarEquipesJaAprovadas(
   }
 }
 
+async function quadraLivrePorNome(tx: Tx, nome: string, ocupadasIds: Set<string>) {
+  const limitado = nome.slice(0, 80);
+  const existente = await tx.quadra.findUnique({ where: { nome: limitado } });
+  if (!existente) return tx.quadra.create({ data: { nome: limitado } });
+  if (!ocupadasIds.has(existente.id)) return existente;
+  return null;
+}
+
 async function garantirQuadra(tx: Tx, torneio: { id: string; nome: string }) {
-  const habilitada = await tx.torneioQuadra.count({ where: { torneioId: torneio.id, habilitada: true } });
-  if (habilitada > 0) return;
-  const ocupadas = await tx.partida.findMany({
-    where: { status: { in: ["AGENDADA", "EM_ANDAMENTO", "PAUSADA"] }, quadraId: { not: null } },
-    select: { quadraId: true },
-  });
-  const ocupadasIds = new Set(ocupadas.map((partida) => partida.quadraId).filter((id): id is string => Boolean(id)));
+  const ocupadasIds = await idsDeQuadrasOcupadas(tx);
+  const vinculos = await tx.torneioQuadra.findMany({ where: { torneioId: torneio.id, habilitada: true } });
+  if (vinculos.some((vinculo) => !ocupadasIds.has(vinculo.quadraId))) return;
+
   const quadras = await tx.quadra.findMany({ orderBy: { nome: "asc" } });
-  let quadra = quadras.find((item) => !ocupadasIds.has(item.id));
+  const vinculadas = new Set(vinculos.map((vinculo) => vinculo.quadraId));
+  let quadra = quadras.find((item) => !ocupadasIds.has(item.id) && !vinculadas.has(item.id));
   if (!quadra) {
-    const base = `Quadra ${torneio.nome}`.slice(0, 80);
-    const existente = await tx.quadra.findUnique({ where: { nome: base } });
-    quadra = existente ?? (await tx.quadra.create({ data: { nome: base } }));
-    if (ocupadasIds.has(quadra.id)) {
-      quadra = await tx.quadra.create({ data: { nome: `${base} ${Date.now().toString(36)}`.slice(0, 80) } });
+    const desabilitada = await tx.torneioQuadra.findFirst({
+      where: {
+        torneioId: torneio.id,
+        habilitada: false,
+        ...(ocupadasIds.size > 0 ? { quadraId: { notIn: [...ocupadasIds] } } : {}),
+      },
+    });
+    if (desabilitada) {
+      await tx.torneioQuadra.update({ where: { id: desabilitada.id }, data: { habilitada: true } });
+      return;
     }
+  }
+  if (!quadra) {
+    const base = `Quadra ${torneio.nome}`.slice(0, 70);
+    quadra =
+      (await quadraLivrePorNome(tx, base, ocupadasIds)) ??
+      (await quadraLivrePorNome(tx, `${base} extra`, ocupadasIds)) ??
+      (await tx.quadra.create({ data: { nome: `${base} ${Date.now().toString(36)}`.slice(0, 80) } }));
   }
   const ordem = await tx.torneioQuadra.count({ where: { torneioId: torneio.id } });
   await tx.torneioQuadra.upsert({
@@ -427,13 +445,19 @@ export async function iniciarTorneio(adminId: string, torneioId: string) {
     if (confirmadas.length < 2) throw new ErroDeRegra("São necessárias pelo menos duas equipes confirmadas para iniciar.");
     await garantirQuadra(tx, torneio);
 
-    const rascunho = await tx.sorteio.findFirst({
-      where: { torneioId: torneio.id, tipo: "CONFRONTOS", status: "RASCUNHO" },
+    const sorteios = await tx.sorteio.findMany({
+      where: { torneioId: torneio.id, tipo: "CONFRONTOS", status: { in: ["RASCUNHO", "CONFIRMADO"] } },
       orderBy: { criadoEm: "desc" },
     });
-    if (rascunho) {
-      const ordem = (rascunho.resultado as { equipes: string[] }).equipes;
-      return gravarChaveEIniciar(tx, torneio, ordem, rascunho.id);
+    const idsConfirmados = new Set(confirmadas.map((equipe) => equipe.id));
+    const compativel = sorteios.find((item) => {
+      const ordem = (item.resultado as { equipes?: string[] } | null)?.equipes;
+      if (!ordem || ordem.length !== confirmadas.length) return false;
+      return new Set(ordem).size === ordem.length && ordem.every((equipeId) => idsConfirmados.has(equipeId));
+    });
+    if (compativel) {
+      const ordem = (compativel.resultado as { equipes: string[] }).equipes;
+      return gravarChaveEIniciar(tx, torneio, ordem, compativel.id);
     }
 
     const semente = sementeDe();

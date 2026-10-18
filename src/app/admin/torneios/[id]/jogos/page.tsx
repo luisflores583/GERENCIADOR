@@ -48,7 +48,11 @@ export default async function Jogos({ params }: { params: Promise<{ id: string }
       <p className="mt-2 max-w-3xl text-navy/70">
         Escolha a equipe vencedora e confirme. A chave, as derrotas, as eliminações e as quadras avançam na hora. O placar não entra neste registro.
       </p>
-      {torneio.status !== "EM_ANDAMENTO" ? (
+      {torneio.status === "EM_ANDAMENTO" ? (
+        <div className="mt-4">
+          <IniciarTorneio torneioId={torneio.id} />
+        </div>
+      ) : (
         <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-amber-950">
           {torneio.status === "FINALIZADO" ? (
             <p>Este torneio já foi encerrado.</p>
@@ -71,7 +75,7 @@ export default async function Jogos({ params }: { params: Promise<{ id: string }
             </>
           )}
         </div>
-      ) : null}
+      )}
       {partidas.every((partida) => !["PRONTA", "AGENDADA", "EM_ANDAMENTO", "PAUSADA"].includes(partida.status) || !partida.equipeA || !partida.equipeB) ? (
         <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-navy">
           Nenhuma partida está pronta para receber a vitória. A chave precisa ter os dois adversários definidos.

@@ -139,7 +139,12 @@ export default async function Sorteio({ params }: { params: Promise<{ id: string
             </Formulario>
           </div>
         ) : partidas > 0 || confrontosConfirmados ? (
-          <p className="mt-2 text-navy/75">Os confrontos deste torneio já foram definidos.</p>
+          <div className="mt-4 space-y-3">
+            <p className="text-navy/75">Os confrontos deste torneio já foram definidos.</p>
+            {torneio.status !== "FINALIZADO" ? (
+              <IniciarTorneio torneioId={torneio.id} retomada={torneio.status === "PAUSADO"} />
+            ) : null}
+          </div>
         ) : (
           <div className="mt-4 space-y-3">
             <p className="text-navy/75">

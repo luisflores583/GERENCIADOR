@@ -9,6 +9,7 @@ import { redirect } from "next/navigation";
 import { ZodError } from "zod";
 import { publicar } from "@/engine/tempo-real";
 import { ErroDeRegra } from "@/lib/erros";
+import { ehCadastroDuplicado } from "@/lib/restricao-unica";
 import { interpretarDataHoraLocal } from "@/lib/formatacao";
 import { integrantesDoFormulario } from "@/lib/integrantes";
 import { erroZod, esquemaCadastro, esquemaInscricaoDireta, esquemaLogin, esquemaPerfil } from "@/lib/schemas";
@@ -64,7 +65,9 @@ function falha(erro: unknown): EstadoAcao {
   if (erro instanceof ErroDeRegra) return { ok: false, erro: erro.message };
   if (erro instanceof ZodError) return { ok: false, erro: erroZod(erro) };
   if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
-    return { ok: false, erro: "Já existe um cadastro com estes dados." };
+    if (ehCadastroDuplicado(erro.meta)) return { ok: false, erro: "Já existe um cadastro com estes dados." };
+    console.error(erro);
+    return { ok: false, erro: "Não foi possível concluir a operação." };
   }
   console.error(erro);
   return { ok: false, erro: "Não foi possível concluir a operação." };

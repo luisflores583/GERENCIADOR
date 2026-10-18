@@ -40,7 +40,7 @@ export default async function VisaoTorneio({ params }: { params: Promise<{ id: s
         {ROTULO_FORMATO[torneio.formato]} · {ROTULO_NAIPE[torneio.naipe]} · {torneio._count.inscricoes} inscrições · {torneio._count.equipes} equipes · inscrição {formatarMoeda(torneio.valorCentavos)}
       </p>
       <div className="mt-6 flex flex-wrap items-center gap-2">
-        {torneio.status !== "EM_ANDAMENTO" && torneio.status !== "FINALIZADO" ? (
+        {torneio.status !== "FINALIZADO" ? (
           <IniciarTorneio torneioId={torneio.id} retomada={torneio.status === "PAUSADO"} />
         ) : null}
         <Link className="inline-flex min-h-14 items-center rounded-2xl bg-coral px-5 font-semibold text-white" href={`/admin/torneios/${torneio.id}/jogos`}>

@@ -99,7 +99,11 @@ export async function sincronizarChave(tx: Tx, torneioId: string, estado: Estado
   const porCodigo = new Map(anteriores.map((partida) => [partida.codigo, partida]));
 
   for (const partida of estado.partidas) {
-    const anterior = porCodigo.get(partida.id);
+    const anterior =
+      porCodigo.get(partida.id) ??
+      anteriores.find(
+        (item) => item.chave === partida.chave && item.rodada === partida.rodada && item.posicao === partida.posicao,
+      );
     const dados = mesclar(anterior, partida, agora);
     if (!anterior) {
       await tx.partida.create({
@@ -113,7 +117,20 @@ export async function sincronizarChave(tx: Tx, torneioId: string, estado: Estado
         },
       });
     } else {
-      await tx.partida.update({ where: { id: anterior.id }, data: dados });
+      await tx.partida.update({
+        where: { id: anterior.id },
+        data: {
+          ...dados,
+          codigo: anterior.codigo === partida.id ? undefined : partida.id,
+          chave: partida.chave,
+          rodada: partida.rodada,
+          posicao: partida.posicao,
+        },
+      });
+      if (anterior.codigo !== partida.id) {
+        porCodigo.delete(anterior.codigo);
+        porCodigo.set(partida.id, { ...anterior, codigo: partida.id });
+      }
     }
   }
 
@@ -154,6 +171,35 @@ export async function sincronizarChave(tx: Tx, torneioId: string, estado: Estado
   });
 }
 
+const STATUS_QUADRA_ATIVA = ["AGENDADA", "EM_ANDAMENTO", "PAUSADA"] as const;
+
+export async function idsDeQuadrasOcupadas(tx: Tx, excetoTorneioId?: string) {
+  const ocupadas = await tx.partida.findMany({
+    where: {
+      status: { in: [...STATUS_QUADRA_ATIVA] },
+      quadraId: { not: null },
+      ...(excetoTorneioId ? { torneioId: { not: excetoTorneioId } } : {}),
+    },
+    select: { quadraId: true },
+  });
+  return new Set(ocupadas.flatMap((partida) => (partida.quadraId ? [partida.quadraId] : [])));
+}
+
+async function reservarQuadra(tx: Tx, partidaId: string, quadraId: string, status: string) {
+  const reservadas = await tx.$executeRaw`
+    UPDATE "Partida"
+    SET "quadraId" = ${quadraId}, "status" = CAST(${status} AS "StatusPartida")
+    WHERE id = ${partidaId}
+      AND NOT EXISTS (
+        SELECT 1 FROM "Partida" AS outra
+        WHERE outra."quadraId" = ${quadraId}
+          AND outra.id <> ${partidaId}
+          AND outra.status IN ('AGENDADA'::"StatusPartida", 'EM_ANDAMENTO'::"StatusPartida", 'PAUSADA'::"StatusPartida")
+      )
+  `;
+  return Number(reservadas) > 0;
+}
+
 export async function distribuirTorneio(tx: Tx, torneioId: string, agora = new Date()) {
   const torneio = await tx.torneio.findUniqueOrThrow({ where: { id: torneioId } });
   if (torneio.status !== "EM_ANDAMENTO") return;
@@ -179,13 +225,16 @@ export async function distribuirTorneio(tx: Tx, torneioId: string, agora = new D
     fimEm: partida.fimEm?.getTime() ?? null,
   }));
 
+  const ocupadasFora = await idsDeQuadrasOcupadas(tx, torneioId);
   const resultado = distribuirQuadras({
     partidas: operacionais,
-    quadras: vinculos.map((vinculo) => ({
-      id: vinculo.quadraId,
-      habilitada: vinculo.habilitada,
-      indisponivelAte: vinculo.indisponivelAte?.getTime() ?? null,
-    })),
+    quadras: vinculos
+      .filter((vinculo) => !ocupadasFora.has(vinculo.quadraId))
+      .map((vinculo) => ({
+        id: vinculo.quadraId,
+        habilitada: vinculo.habilitada,
+        indisponivelAte: vinculo.indisponivelAte?.getTime() ?? null,
+      })),
     agora: agora.getTime(),
     maxSimultaneas: torneio.quadrasSimultaneas,
     descansoMinutos: torneio.descansoMinutos,
@@ -194,6 +243,10 @@ export async function distribuirTorneio(tx: Tx, torneioId: string, agora = new D
   for (const partida of resultado.partidas) {
     const atual = partidas.find((item) => item.id === partida.id);
     if (!atual || (atual.quadraId === partida.quadraId && atual.status === partida.status)) continue;
+    if (partida.quadraId && partida.quadraId !== atual.quadraId) {
+      await reservarQuadra(tx, partida.id, partida.quadraId, partida.status);
+      continue;
+    }
     await tx.partida.update({
       where: { id: partida.id },
       data: { quadraId: partida.quadraId, status: partida.status },

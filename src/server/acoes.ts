@@ -16,7 +16,7 @@ import { erroZod, esquemaCadastro, esquemaInscricaoDireta, esquemaLogin, esquema
 import { conferirSenha, gerarHash } from "@/server/senha";
 import { criarSessao, encerrarSessao, exigirAdmin, exigirAtleta } from "@/server/sessao";
 import { prisma } from "@/server/db";
-import { alterarStatus, atualizarTorneio, criarTorneio } from "@/server/torneios";
+import { alterarStatus, atualizarTorneio, criarTorneio, excluirTorneio } from "@/server/torneios";
 import {
   adicionarMembro,
   aprovarEquipe,
@@ -254,6 +254,26 @@ export async function acaoStatus(_estado: EstadoAcao, form: FormData): Promise<E
     const torneio = await alterarStatus(admin.id, texto(form, "torneioId"), texto(form, "acao"));
     atualizarTelas(torneio, "status");
     return { ok: true, mensagem: "Status atualizado." };
+  } catch (erro) {
+    return falha(erro);
+  }
+}
+
+export async function acaoExcluirTorneio(_estado: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+  try {
+    const admin = await exigirAdmin();
+    if (!marcar(form, "confirmo")) {
+      return { ok: false, erro: "Confirme a exclusão. Ela não pode ser desfeita." };
+    }
+    const torneio = await excluirTorneio(admin.id, texto(form, "torneioId"));
+    revalidarPainel();
+    revalidatePath("/");
+    revalidatePath("/admin");
+    revalidatePath(`/ao-vivo/${torneio.slug}`);
+    revalidatePath(`/torneios/${torneio.slug}`);
+    revalidatePath("/atleta");
+    publicar(torneio.id, "exclusao");
+    redirect("/admin");
   } catch (erro) {
     return falha(erro);
   }

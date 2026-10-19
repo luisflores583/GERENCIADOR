@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ExcluirTorneio } from "@/components/excluir-torneio";
 import { SeloStatus } from "@/components/selo";
 import { formatarData } from "@/lib/formatacao";
 import { prisma } from "@/server/db";
@@ -51,6 +52,9 @@ export default async function PainelAdmin() {
               <Link className="inline-flex min-h-14 items-center rounded-2xl bg-white px-4 font-semibold text-navy" href={`/admin/torneios/${torneio.id}`}>
                 Configurar
               </Link>
+            </div>
+            <div className="mt-4 border-t border-navy/10 pt-4">
+              <ExcluirTorneio torneioId={torneio.id} nome={torneio.nome} />
             </div>
           </article>
         ))}

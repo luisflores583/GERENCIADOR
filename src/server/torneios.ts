@@ -119,6 +119,32 @@ export async function atualizarTorneio(adminId: string, torneioId: string, entra
   });
 }
 
+export async function excluirTorneio(adminId: string, torneioId: string) {
+  await exigirAdministrador(adminId);
+  return trancar(torneioId, async (tx) => {
+    const torneio = await tx.torneio.findUnique({ where: { id: torneioId } });
+    if (!torneio) throw new ErroDeRegra("Torneio não encontrado.", 404);
+    await tx.torneio.update({
+      where: { id: torneioId },
+      data: {
+        campeaoEquipeId: null,
+        viceEquipeId: null,
+        campeaoOuroEquipeId: null,
+        campeaoPrataEquipeId: null,
+      },
+    });
+    await tx.historicoResultado.deleteMany({ where: { torneioId } });
+    await tx.partida.deleteMany({ where: { torneioId } });
+    await tx.sorteio.deleteMany({ where: { torneioId } });
+    await tx.inscricao.deleteMany({ where: { torneioId } });
+    await tx.membroEquipe.deleteMany({ where: { equipe: { torneioId } } });
+    await tx.equipe.deleteMany({ where: { torneioId } });
+    await tx.torneioQuadra.deleteMany({ where: { torneioId } });
+    await tx.torneio.delete({ where: { id: torneioId } });
+    return { id: torneio.id, slug: torneio.slug, nome: torneio.nome };
+  });
+}
+
 export async function alterarStatus(adminId: string, torneioId: string, acao: string) {
   await exigirAdministrador(adminId);
   return trancar(torneioId, async (tx) => {

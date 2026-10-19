@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Botao } from "@/components/botao";
 import { CamposTorneio } from "@/components/campos-torneio";
 import { Formulario } from "@/components/formulario";
+import { ExcluirTorneio } from "@/components/excluir-torneio";
 import { IniciarTorneio } from "@/components/iniciar-torneio";
 import { MenuTorneio } from "@/components/menu-torneio";
 import { SeloStatus } from "@/components/selo";
@@ -89,6 +90,15 @@ export default async function VisaoTorneio({ params }: { params: Promise<{ id: s
         />
         <Botao type="submit">Salvar alterações</Botao>
       </Formulario>
+      <section className="mt-8 rounded-[2rem] bg-foam p-6 shadow-card">
+        <h2 className="font-display text-2xl text-navy">Excluir torneio</h2>
+        <p className="mt-2 text-navy/70">
+          Apaga este torneio e o que é dele. Atletas e quadras da arena permanecem.
+        </p>
+        <div className="mt-4">
+          <ExcluirTorneio torneioId={torneio.id} nome={torneio.nome} />
+        </div>
+      </section>
     </div>
   );
 }

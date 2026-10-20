@@ -23,6 +23,7 @@ import {
   aprovarInscricao,
   aprovarTodas,
   cadastrarEquipePorNomes,
+  cadastrarEquipeSomenteComNome,
   criarEquipe,
   inscrever,
   inscreverAtletaDireto,
@@ -376,6 +377,17 @@ export async function acaoInscrever(_estado: EstadoAcao, form: FormData): Promis
     await inscrever(usuario.id, texto(form, "torneioId"));
     revalidatePath("/atleta");
     return { ok: true, mensagem: "Inscrição enviada. Aguarde a aprovação da organização." };
+  } catch (erro) {
+    return falha(erro);
+  }
+}
+
+export async function acaoCadastrarEquipePorNome(_estado: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+  try {
+    const admin = await exigirAdmin();
+    const equipe = await cadastrarEquipeSomenteComNome(admin.id, texto(form, "torneioId"), texto(form, "nome"));
+    revalidarPainel();
+    return { ok: true, mensagem: `Equipe ${equipe.nome} gravada. Ela já pode ir ao sorteio e à tabela.` };
   } catch (erro) {
     return falha(erro);
   }

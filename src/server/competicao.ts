@@ -279,6 +279,7 @@ async function validarEquipesParaChave(
     include: { membros: { include: { atleta: true } } },
   });
   for (const equipe of equipes) {
+    if (equipe.membros.length === 0) continue;
     const validacao = validarElenco(formato, equipe.membros.length, equipe.incompleta && permitirIncompleta);
     if (!validacao.ok) throw new ErroDeRegra(`${equipe.nome}: ${validacao.erro}`);
     const naipeOk = validarNaipe(naipe, equipe.membros.map((membro) => membro.atleta.sexo), true);

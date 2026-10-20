@@ -91,6 +91,31 @@ export async function criarEquipe(
   });
 }
 
+export async function cadastrarEquipeSomenteComNome(adminId: string, torneioId: string, nome: string) {
+  await exigirAdministrador(adminId);
+  return trancar(torneioId, async (tx) => {
+    const torneio = await tx.torneio.findUniqueOrThrow({ where: { id: torneioId } });
+    if (torneio.formacao !== "PRE_FORMADAS") {
+      throw new ErroDeRegra("Neste torneio as equipes serão sorteadas. Inscreva o atleta individualmente.");
+    }
+    afirmarComposicaoAberta(torneio);
+    const titulo = nome.trim();
+    if (!titulo) throw new ErroDeRegra("Informe o nome da equipe.");
+    const resolvido = resolverNomeEquipe(titulo, []);
+    if (!resolvido.ok || resolvido.automatico) throw new ErroDeRegra("Informe o nome da equipe.");
+    const livre = await nomeLivre(tx, torneio.id, resolvido.nome);
+    return tx.equipe.create({
+      data: {
+        torneioId: torneio.id,
+        nome: livre,
+        status: "CONFIRMADA",
+        incompleta: false,
+        capitaoId: null,
+      },
+    });
+  });
+}
+
 export async function cadastrarEquipePorNomes(
   usuarioId: string,
   torneioId: string,
@@ -279,9 +304,11 @@ export async function aprovarEquipe(adminId: string, equipeId: string) {
     const torneio = await tx.torneio.findUniqueOrThrow({ where: { id: equipe.torneioId } });
     afirmarComposicaoAberta(torneio);
     const membros = await tx.membroEquipe.findMany({ where: { equipeId }, include: { atleta: true } });
-    const validacao = validarElenco(torneio.formato, membros.length, equipe.incompleta && torneio.permitirEquipeIncompleta);
-    if (!validacao.ok) throw new ErroDeRegra(validacao.erro);
-    afirmarSexoNoTorneio(torneio.naipe, membros.map((membro) => membro.atleta.sexo), true);
+    if (membros.length > 0) {
+      const validacao = validarElenco(torneio.formato, membros.length, equipe.incompleta && torneio.permitirEquipeIncompleta);
+      if (!validacao.ok) throw new ErroDeRegra(validacao.erro);
+      afirmarSexoNoTorneio(torneio.naipe, membros.map((membro) => membro.atleta.sexo), true);
+    }
     await tx.inscricao.updateMany({
       where: { equipeId },
       data: { status: "APROVADA" },

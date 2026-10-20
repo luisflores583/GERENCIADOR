@@ -4,12 +4,13 @@ import { Campo, Entrada, Selecao } from "@/components/campo";
 import { CamposEquipe } from "@/components/campos-equipe";
 import { Formulario } from "@/components/formulario";
 import { MenuTorneio } from "@/components/menu-torneio";
-import { ROTULO_INSCRICAO, ROTULO_NAIPE, ROTULO_SEXO } from "@/lib/rotulos";
+import { ROTULO_EQUIPE, ROTULO_INSCRICAO, ROTULO_NAIPE, ROTULO_SEXO } from "@/lib/rotulos";
 import {
   acaoAprovarEquipe,
   acaoAprovarInscricao,
   acaoAprovarTodas,
   acaoCadastrarEquipe,
+  acaoCadastrarEquipePorNome,
   acaoInscreverDireto,
   acaoRejeitarEquipe,
   acaoRejeitarInscricao,
@@ -42,7 +43,7 @@ export default async function Inscricoes({ params }: { params: Promise<{ id: str
       <p className="mt-2 text-navy/70">
         {torneio.formacao === "SORTEADAS"
           ? "A organização inscreve o atleta neste torneio. A equipe só aparece depois do sorteio confirmado."
-          : `Cadastre a equipe com ${tamanho} integrantes. O nome da equipe é opcional.`}
+          : "Cadastre a equipe só com o nome, ou preencha os integrantes. No cadastro com integrantes, o nome da equipe é opcional."}
       </p>
       {travado ? (
         <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-amber-950">
@@ -127,7 +128,11 @@ export default async function Inscricoes({ params }: { params: Promise<{ id: str
             <article key={equipe.id} className="rounded-3xl bg-white p-4 shadow-card">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-xl font-bold">{equipe.nome}</h3>
-                <p>{equipe.membros.length}/{tamanho} · {equipe.status}</p>
+                <p>
+                  {equipe.membros.length === 0 ? "Sem integrantes listados" : `${equipe.membros.length}/${tamanho}`}
+                  {" · "}
+                  {ROTULO_EQUIPE[equipe.status]}
+                </p>
               </div>
               <ul className="mt-2">
                 {equipe.membros.map((membro) => (
@@ -159,8 +164,21 @@ export default async function Inscricoes({ params }: { params: Promise<{ id: str
             </article>
           ))}
           {travado ? null : (
+            <Formulario acao={acaoCadastrarEquipePorNome} className="rounded-3xl bg-foam p-5 shadow-card">
+              <h3 className="font-display text-2xl">Cadastrar equipe só com o nome</h3>
+              <p className="text-navy/70">
+                Informe o nome da equipe. Os nomes dos integrantes, o sexo, o telefone e o e-mail não são necessários. A equipe entra confirmada e pode ir ao sorteio e à tabela.
+              </p>
+              <input type="hidden" name="torneioId" value={torneio.id} />
+              <Campo id="nomeSomenteEquipe" rotulo="Nome da equipe">
+                <Entrada id="nomeSomenteEquipe" name="nome" maxLength={80} autoComplete="off" required />
+              </Campo>
+              <Botao type="submit">Gravar equipe</Botao>
+            </Formulario>
+          )}
+          {travado ? null : (
             <Formulario acao={acaoCadastrarEquipe} className="rounded-3xl bg-foam p-5 shadow-card">
-              <h3 className="font-display text-2xl">Cadastrar equipe</h3>
+              <h3 className="font-display text-2xl">Cadastrar equipe com os integrantes</h3>
               <p className="text-navy/70">
                 Preencha o nome e o sexo de cada integrante. O e-mail e o telefone são opcionais. Quem já existe entra na equipe; quem não existe é cadastrado.
               </p>

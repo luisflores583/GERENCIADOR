@@ -97,7 +97,7 @@ export default async function Jogos({ params }: { params: Promise<{ id: string }
                         : `${nomeDaFase(partida.chave, partida.rodada, rodadas)} · ${partida.codigo}`}
                     </p>
                     <h2 className="text-2xl font-bold">
-                      {partida.equipeA?.nome ?? "Aguardando adversário"} x {partida.equipeB?.nome ?? "Aguardando adversário"}
+                      {nomeDoLado(partida.equipeA?.nome, partida.status)} x {nomeDoLado(partida.equipeB?.nome, partida.status)}
                     </h2>
                     <p className="text-sm text-navy/70">
                       {partida.quadra?.nome ?? "Sem quadra"}
@@ -221,7 +221,13 @@ function vencedorAtual(partida: {
   return null;
 }
 
+function nomeDoLado(nome: string | null | undefined, status: string) {
+  if (nome) return nome;
+  return status === "BYE" || status === "VAZIA" || status === "NAO_NECESSARIA" ? "Folga" : "Aguardando adversário";
+}
+
 function textoDoConfronto(partida: {
+  status: string;
   equipeA: { id: string; nome: string } | null;
   equipeB: { id: string; nome: string } | null;
   vencedorId: string | null;
@@ -230,6 +236,10 @@ function textoDoConfronto(partida: {
   equipeAId: string | null;
   equipeBId: string | null;
 }) {
+  const umLado = Boolean(partida.equipeAId) !== Boolean(partida.equipeBId);
+  if (partida.status === "BYE" || (partida.status === "CONCLUIDA" && umLado)) {
+    return " · avançou por folga";
+  }
   if (partida.placarA != null && partida.placarB != null) return ` · ${partida.placarA} x ${partida.placarB}`;
   const nome = nomeDaEquipe(partida, vencedorAtual(partida));
   return nome ? ` · vitória de ${nome}` : "";

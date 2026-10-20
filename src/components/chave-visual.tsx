@@ -1,4 +1,5 @@
 import { SeloPartida, SeloSituacao } from "@/components/selo";
+import { avancouPorFolga } from "@/engine/classificacao";
 import type { PartidaResumo } from "@/tipos";
 
 const GRUPOS = [
@@ -34,17 +35,29 @@ function Cartao({ partida }: { partida: PartidaResumo }) {
           partida.placarA != null &&
           partida.placarB != null &&
           (indice === 0 ? partida.placarA > partida.placarB : partida.placarB > partida.placarA);
-        const venceu = partida.status === "CONCLUIDA" && (equipe?.id === partida.vencedorId || (!partida.vencedorId && venceuPorPlacar));
+        const venceu =
+          partida.status === "CONCLUIDA" &&
+          Boolean(partida.equipeA && partida.equipeB) &&
+          (equipe?.id === partida.vencedorId || (!partida.vencedorId && venceuPorPlacar));
+        const avancou = avancouPorFolga(
+          {
+            status: partida.status,
+            vencedorId: partida.vencedorId,
+            equipeAId: partida.equipeA?.id ?? null,
+            equipeBId: partida.equipeB?.id ?? null,
+          },
+          equipe?.id ?? null,
+        );
         return (
-          <div key={indice} className={`mt-2 flex items-center justify-between gap-2 rounded-2xl px-3 py-2 ${venceu ? "bg-emerald-50" : "bg-white"}`}>
+          <div key={indice} className={`mt-2 flex items-center justify-between gap-2 rounded-2xl px-3 py-2 ${venceu || avancou ? "bg-emerald-50" : "bg-white"}`}>
             <div className="min-w-0">
-              <p className={`truncate font-semibold ${equipe?.situacao === "ELIMINADA" ? "text-stone-500 line-through" : "text-navy"}`}>
+              <p className={`truncate font-semibold ${equipe?.situacao === "ELIMINADA" && !avancou ? "text-stone-500 line-through" : "text-navy"}`}>
                 {equipe?.nome ?? (partida.aguardandoAdversario ? "Aguardando adversário" : "Folga")}
               </p>
-              {equipe ? <SeloSituacao situacao={equipe.situacao} /> : null}
+              {equipe && !avancou ? <SeloSituacao situacao={equipe.situacao} /> : null}
             </div>
             <span className={`font-bold text-navy ${placar != null ? "text-2xl tabular-nums" : "text-sm"}`}>
-              {placar != null ? placar : venceu ? "Venceu" : "–"}
+              {placar != null ? placar : avancou ? "Avançou" : venceu ? "Venceu" : "–"}
             </span>
           </div>
         );

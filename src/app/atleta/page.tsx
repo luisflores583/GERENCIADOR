@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SeloStatus } from "@/components/selo";
+import { campanhaDaEquipe } from "@/engine/classificacao";
 import { formatarDataHora } from "@/lib/formatacao";
 import { ROTULO_FORMATO, ROTULO_NAIPE } from "@/lib/rotulos";
 import { prisma } from "@/server/db";
@@ -16,6 +17,13 @@ export default async function InicioAtleta() {
     }),
   ]);
   const equipeIds = inscricoes.map((item) => item.equipeId).filter((id): id is string => Boolean(id));
+  const partidasDaCampanha = equipeIds.length
+    ? await prisma.partida.findMany({
+        where: { OR: [{ equipeAId: { in: equipeIds } }, { equipeBId: { in: equipeIds } }] },
+        select: { status: true, vencedorId: true, perdedorId: true, equipeAId: true, equipeBId: true },
+      })
+    : [];
+  const campanha = new Map(equipeIds.map((id) => [id, campanhaDaEquipe(partidasDaCampanha, id)]));
   const proximas = equipeIds.length
     ? await prisma.partida.findMany({
         where: {
@@ -57,7 +65,7 @@ export default async function InicioAtleta() {
                 <SeloStatus status={inscricao.torneio.status} />
               </div>
               <p className="mt-1">{ROTULO_FORMATO[inscricao.torneio.formato]} · {ROTULO_NAIPE[inscricao.torneio.naipe]} · {inscricao.equipe?.nome ?? "Sem equipe ainda"}</p>
-              {inscricao.equipe ? <p>Vitórias {inscricao.equipe.vitorias} · Derrotas {inscricao.equipe.derrotas}</p> : null}
+              {inscricao.equipe ? <p>Vitórias {campanha.get(inscricao.equipe.id)?.vitorias ?? 0} · Derrotas {campanha.get(inscricao.equipe.id)?.derrotas ?? 0}</p> : null}
             </Link>
           ))}
         </div>

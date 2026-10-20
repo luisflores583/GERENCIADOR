@@ -13,6 +13,7 @@ import {
   JOGOS_SEM_DESTINO_DE_VENCEDOR,
   construirFolha16,
 } from "@/engine/folha-16";
+import { avancouPorFolga, campanhaDaEquipe, situacaoDaEquipe } from "@/engine/classificacao";
 import { embaralhar, ordenarRanking, ordemDasVagas } from "@/engine/sorteio";
 
 const REGRAS = { pontosParaVencer: 21, diferencaMinima: 2, pontosMaximos: null };
@@ -272,6 +273,47 @@ describe("tabela de até 16 times", () => {
     expect(jogo(corrigido.estado!.partidas, "10").equipeAId).toBe("e1");
     expect(corrigido.estado!.vitorias.e16).toBe(1);
     expect(corrigido.estado!.vitorias.e1 ?? 0).toBe(0);
+  });
+
+  it("não conta a folga como derrota e mantém a derrota de um jogo disputado", () => {
+    const estado = criarEstadoInicial(ids(12), "FOLHA_16");
+    for (const codigo of ["1", "4", "5", "8"]) {
+      const partida = jogo(estado.partidas, codigo);
+      expect(partida.status).toBe("BYE");
+      expect(partida.perdedorId).toBeNull();
+      expect(partida.vencedorId).toBeTruthy();
+      expect(estado.derrotas[partida.vencedorId!]).toBe(0);
+      expect(situacaoDaEquipe(partida.vencedorId!, 0, null, null)).toBe("INVICTA");
+      expect(avancouPorFolga(partida, partida.vencedorId)).toBe(true);
+      expect(avancouPorFolga(partida, null)).toBe(false);
+    }
+
+    const gravadaComoDerrota = {
+      status: "CONCLUIDA",
+      equipeAId: "e1",
+      equipeBId: null,
+      vencedorId: null,
+      perdedorId: "e1",
+    };
+    expect(campanhaDaEquipe([gravadaComoDerrota], "e1")).toEqual({ vitorias: 0, derrotas: 0 });
+    expect(avancouPorFolga(gravadaComoDerrota, "e1")).toBe(true);
+    expect(campanhaDaEquipe([{ status: "BYE", equipeAId: "e1", equipeBId: null, vencedorId: "e1", perdedorId: "e1" }], "e1")).toEqual({
+      vitorias: 0,
+      derrotas: 0,
+    });
+
+    let atual = aplicarVitoria(estado, "2", "e9").estado;
+    const dez = jogo(atual.partidas, "10");
+    expect(dez.status).toBe("BYE");
+    expect(dez.perdedorId).toBeNull();
+    expect(dez.vencedorId).toBe("e8");
+    expect(atual.derrotas.e8).toBe(1);
+    expect(atual.derrotas.e1).toBe(0);
+    expect(campanhaDaEquipe(atual.partidas, "e8").derrotas).toBe(1);
+    expect(campanhaDaEquipe(atual.partidas, "e1").derrotas).toBe(0);
+    expect(situacaoDaEquipe("e8", campanhaDaEquipe(atual.partidas, "e8").derrotas, null, null)).toBe("UMA_DERROTA");
+    expect(avancouPorFolga(dez, "e8")).toBe(true);
+    expect(avancouPorFolga(jogo(atual.partidas, "2"), "e8")).toBe(false);
   });
 
   it("entrega a série Prata ao vencedor do jogo 29 e a série Ouro ao vencedor do jogo 30", () => {

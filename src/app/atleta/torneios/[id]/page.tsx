@@ -4,7 +4,7 @@ import { Botao } from "@/components/botao";
 import { CamposEquipe } from "@/components/campos-equipe";
 import { Formulario } from "@/components/formulario";
 import { SeloSituacao, SeloStatus } from "@/components/selo";
-import { situacaoDaEquipe } from "@/engine/classificacao";
+import { campanhaDaEquipe, situacaoDaEquipe } from "@/engine/classificacao";
 import { tamanhoDaEquipe } from "@/engine/sorteio";
 import { acaoAdicionarMembro, acaoCadastrarEquipe, acaoInscrever } from "@/server/acoes";
 import { prisma } from "@/server/db";
@@ -36,7 +36,17 @@ export default async function TorneioDoAtleta({ params }: { params: Promise<{ id
       })
     : [];
   const tamanho = tamanhoDaEquipe(torneio.formato);
-  const situacao = equipe ? situacaoDaEquipe(equipe.id, equipe.derrotas, torneio.campeaoEquipeId, torneio.viceEquipeId) : null;
+  const campanha = equipe ? campanhaDaEquipe(partidas, equipe.id) : null;
+  const situacao = equipe && campanha
+    ? situacaoDaEquipe(
+        equipe.id,
+        campanha.derrotas,
+        torneio.campeaoEquipeId,
+        torneio.viceEquipeId,
+        torneio.campeaoOuroEquipeId,
+        torneio.campeaoPrataEquipeId,
+      )
+    : null;
   const abertas = torneio.equipes.filter((item) => item.status === "PENDENTE" && item.membros.length < tamanho && item.incompleta);
   const prazoAberto = torneio.inscricoesAte.getTime() >= Date.now();
   const podeCadastrarEquipe = torneio.formacao === "PRE_FORMADAS" && torneio.status === "INSCRICOES_ABERTAS" && prazoAberto && !torneio.equipesTravadasEm && !equipe;
@@ -67,7 +77,7 @@ export default async function TorneioDoAtleta({ params }: { params: Promise<{ id
             <h2 className="font-display text-3xl">{equipe.nome}</h2>
             <SeloSituacao situacao={situacao} />
           </div>
-          <p className="mt-2">{equipe.vitorias} vitórias · {equipe.derrotas} derrotas</p>
+          <p className="mt-2">{campanha?.vitorias ?? 0} vitórias · {campanha?.derrotas ?? 0} derrotas</p>
           <ul className="mt-2">{equipe.membros.map((membro) => <li key={membro.atletaId}>{membro.atleta.nomeCompleto}</li>)}</ul>
         </section>
       ) : null}
@@ -104,17 +114,37 @@ export default async function TorneioDoAtleta({ params }: { params: Promise<{ id
         <ul className="mt-3 space-y-2">
           {partidas.map((partida) => (
             <li key={partida.id} className="rounded-2xl bg-white p-3">
-              {partida.equipeA?.nome ?? "Aguardando adversário"}{" "}
-              {partida.placarA != null && partida.placarB != null
-                ? `${partida.placarA} x ${partida.placarB}`
-                : partida.status === "CONCLUIDA"
-                  ? `vitória de ${partida.vencedorId === partida.equipeAId ? partida.equipeA?.nome : partida.equipeB?.nome}`
-                  : "– x –"}{" "}
-              {partida.equipeB?.nome ?? "Aguardando adversário"} · {partida.quadra?.nome ?? "sem quadra"} · {partida.status}
+              {textoDoJogo(partida)} · {partida.quadra?.nome ?? "sem quadra"}
             </li>
           ))}
         </ul>
       </section>
     </div>
   );
+}
+
+function textoDoJogo(partida: {
+  status: string;
+  equipeA: { nome: string } | null;
+  equipeB: { nome: string } | null;
+  equipeAId: string | null;
+  equipeBId: string | null;
+  vencedorId: string | null;
+  placarA: number | null;
+  placarB: number | null;
+}) {
+  const umLado = Boolean(partida.equipeA) !== Boolean(partida.equipeB);
+  if (partida.status === "BYE" || (partida.status === "CONCLUIDA" && umLado)) {
+    const nome = partida.equipeA?.nome ?? partida.equipeB?.nome ?? "A equipe";
+    return `${nome} avançou por folga`;
+  }
+  const esquerda = partida.equipeA?.nome ?? "Aguardando adversário";
+  const direita = partida.equipeB?.nome ?? "Aguardando adversário";
+  const meio =
+    partida.placarA != null && partida.placarB != null
+      ? `${partida.placarA} x ${partida.placarB}`
+      : partida.status === "CONCLUIDA"
+        ? `vitória de ${partida.vencedorId === partida.equipeAId ? partida.equipeA?.nome : partida.equipeB?.nome}`
+        : "– x –";
+  return `${esquerda} ${meio} ${direita}`;
 }

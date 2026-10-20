@@ -11,6 +11,44 @@ export interface LinhaClassificacao {
   ordemEliminacao: number | null;
 }
 
+type PartidaContagem = {
+  status: string;
+  vencedorId: string | null;
+  perdedorId: string | null;
+  equipeAId: string | null;
+  equipeBId: string | null;
+};
+
+export function campanhaDaEquipe(partidas: readonly PartidaContagem[], equipeId: string) {
+  let vitorias = 0;
+  let derrotas = 0;
+  for (const partida of partidas) {
+    if (partida.status !== "CONCLUIDA") continue;
+    if (!partida.equipeAId || !partida.equipeBId || !partida.vencedorId || !partida.perdedorId) continue;
+    if (partida.vencedorId === partida.perdedorId) continue;
+    if (partida.vencedorId === equipeId) vitorias += 1;
+    if (partida.perdedorId === equipeId) derrotas += 1;
+  }
+  return { vitorias, derrotas };
+}
+
+export function avancouPorFolga(
+  partida: {
+    status: string;
+    vencedorId?: string | null;
+    equipeAId?: string | null;
+    equipeBId?: string | null;
+  },
+  equipeId: string | null,
+) {
+  if (!equipeId) return false;
+  const soUmLado = Boolean(partida.equipeAId) !== Boolean(partida.equipeBId);
+  const folga = partida.status === "BYE" || (soUmLado && partida.status === "CONCLUIDA");
+  if (!folga) return false;
+  if (soUmLado) return partida.equipeAId === equipeId || partida.equipeBId === equipeId;
+  return !partida.vencedorId || partida.vencedorId === equipeId;
+}
+
 export function situacaoDaEquipe(
   equipeId: string,
   derrotas: number,

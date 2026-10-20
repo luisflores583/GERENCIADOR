@@ -1,4 +1,4 @@
-import { situacaoDaEquipe, type SituacaoEquipe } from "@/engine/classificacao";
+import { campanhaDaEquipe, situacaoDaEquipe, type SituacaoEquipe } from "@/engine/classificacao";
 import { nomeDaFase, rodadasDaChaveDeVencedores } from "@/engine/dupla-eliminacao";
 import { rotuloDaPartida } from "@/engine/folha-16";
 import { prisma } from "@/server/db";
@@ -50,15 +50,18 @@ export async function montarPainel(slug: string): Promise<PainelDTO | null> {
     );
 
   const equipes: EquipeResumo[] = torneio.equipes
-    .map((equipe) => ({
-      id: equipe.id,
-      nome: equipe.nome,
-      vitorias: equipe.vitorias,
-      derrotas: equipe.derrotas,
-      situacao: situacao(equipe.id, equipe.derrotas),
-      membros: equipe.membros.map((membro) => membro.atleta.apelido || membro.atleta.nomeCompleto),
-      cabeca: equipe.cabeca,
-    }))
+    .map((equipe) => {
+      const campanha = campanhaDaEquipe(torneio.partidas, equipe.id);
+      return {
+        id: equipe.id,
+        nome: equipe.nome,
+        vitorias: campanha.vitorias,
+        derrotas: campanha.derrotas,
+        situacao: situacao(equipe.id, campanha.derrotas),
+        membros: equipe.membros.map((membro) => membro.atleta.apelido || membro.atleta.nomeCompleto),
+        cabeca: equipe.cabeca,
+      };
+    })
     .sort((a, b) => (a.cabeca ?? 999) - (b.cabeca ?? 999) || a.nome.localeCompare(b.nome, "pt-BR"));
 
   const porId = new Map(equipes.map((equipe) => [equipe.id, equipe]));

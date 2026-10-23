@@ -12,7 +12,7 @@ import { ErroDeRegra } from "@/lib/erros";
 import { ehCadastroDuplicado } from "@/lib/restricao-unica";
 import { interpretarDataHoraLocal } from "@/lib/formatacao";
 import { integrantesDoFormulario } from "@/lib/integrantes";
-import { erroZod, esquemaCadastro, esquemaInscricaoDireta, esquemaLogin, esquemaPerfil } from "@/lib/schemas";
+import { erroZod, esquemaCadastro, esquemaEdicaoInscricao, esquemaInscricaoDireta, esquemaLogin, esquemaPerfil } from "@/lib/schemas";
 import { conferirSenha, gerarHash } from "@/server/senha";
 import { criarSessao, encerrarSessao, exigirAdmin, exigirAtleta } from "@/server/sessao";
 import { prisma } from "@/server/db";
@@ -25,6 +25,8 @@ import {
   cadastrarEquipePorNomes,
   cadastrarEquipeSomenteComNome,
   criarEquipe,
+  editarDadosDaInscricao,
+  excluirInscricaoDoTorneio,
   inscrever,
   inscreverAtletaDireto,
   rejeitarEquipe,
@@ -452,6 +454,38 @@ export async function acaoRemoverMembro(_estado: EstadoAcao, form: FormData): Pr
     revalidarPainel();
     revalidatePath("/atleta");
     return { ok: true, mensagem: "Atleta removido da equipe." };
+  } catch (erro) {
+    return falha(erro);
+  }
+}
+
+export async function acaoEditarInscricao(_estado: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+  try {
+    const admin = await exigirAdmin();
+    const dados = esquemaEdicaoInscricao.parse({
+      nome: texto(form, "nome"),
+      apelido: texto(form, "apelido"),
+      telefone: texto(form, "telefone"),
+      sexo: texto(form, "sexo"),
+      email: texto(form, "email"),
+    });
+    const resultado = await editarDadosDaInscricao(admin.id, texto(form, "inscricaoId"), dados);
+    atualizarTelas(resultado, "inscricao");
+    return { ok: true, mensagem: `Os dados de ${resultado.nome} foram atualizados.` };
+  } catch (erro) {
+    return falha(erro);
+  }
+}
+
+export async function acaoExcluirInscricao(_estado: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+  try {
+    const admin = await exigirAdmin();
+    if (!marcar(form, "confirmo")) {
+      return { ok: false, erro: "Confirme a exclusão. Ela não pode ser desfeita." };
+    }
+    const resultado = await excluirInscricaoDoTorneio(admin.id, texto(form, "inscricaoId"));
+    atualizarTelas(resultado, "inscricao");
+    return { ok: true, mensagem: `${resultado.nome} saiu deste torneio. O cadastro da pessoa permanece.` };
   } catch (erro) {
     return falha(erro);
   }

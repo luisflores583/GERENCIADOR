@@ -3,6 +3,7 @@ import type { Sexo, Torneio } from "@prisma/client";
 import { validarNaipe } from "@/engine/naipe";
 import { desambiguarNome, nomeAutomatico, pareceNomeAutomatico, resolverNomeEquipe } from "@/engine/nomes";
 import { tamanhoDaEquipe, validarElenco } from "@/engine/sorteio";
+import { AVISO_EQUIPE_NA_CHAVE, equipesDoAtletaNaChave } from "@/lib/chave-da-equipe";
 import { ErroDeRegra } from "@/lib/erros";
 import type { IntegranteInformado } from "@/lib/integrantes";
 import { carregarUsuario, exigirAdministrador } from "@/server/acesso";
@@ -357,6 +358,133 @@ export async function inscreverAtletaDireto(adminId: string, torneioId: string, 
           data: { torneioId, atletaId, status: "APROVADA" },
         });
     return { inscricao, torneioId: torneio.id, slug: torneio.slug, nome: atleta.nomeCompleto };
+  });
+}
+
+export async function editarDadosDaInscricao(
+  adminId: string,
+  inscricaoId: string,
+  dados: { nome: string; sexo: Sexo; apelido: string; telefone: string; email: string },
+) {
+  await exigirAdministrador(adminId);
+  const inscricao = await prismaInscricao(inscricaoId);
+  return trancar(inscricao.torneioId, async (tx) => {
+    const atual = await tx.inscricao.findUniqueOrThrow({
+      where: { id: inscricaoId },
+      include: {
+        atleta: { include: { usuario: true } },
+        equipe: { include: { membros: { include: { atleta: true } } } },
+      },
+    });
+    const torneio = await tx.torneio.findUniqueOrThrow({ where: { id: atual.torneioId } });
+    const nome = dados.nome.trim();
+    if (nome.length < 3) throw new ErroDeRegra("Informe o nome completo.");
+    if (dados.sexo !== "FEMININO" && dados.sexo !== "MASCULINO") throw new ErroDeRegra("Informe o sexo.");
+    const apelido = dados.apelido.trim();
+    if (apelido.length > 40) throw new ErroDeRegra("O apelido pode ter no máximo 40 caracteres.");
+    const telefone = dados.telefone.trim();
+    if (telefone.length > 20) throw new ErroDeRegra("O telefone pode ter no máximo 20 caracteres.");
+    const email = dados.email.trim().toLowerCase();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new ErroDeRegra("Informe um e-mail válido ou deixe em branco.");
+    }
+    if (email && email !== (atual.atleta.usuario.email ?? "")) {
+      const outro = await tx.usuario.findUnique({ where: { email } });
+      if (outro && outro.id !== atual.atleta.usuarioId) {
+        throw new ErroDeRegra("Já existe um cadastro com estes dados.");
+      }
+    }
+
+    if (atual.equipe && atual.equipe.membros.length > 0) {
+      const tamanho = tamanhoDaEquipe(torneio.formato);
+      const sexos = atual.equipe.membros.map((membro) =>
+        membro.atletaId === atual.atletaId ? dados.sexo : membro.atleta.sexo,
+      );
+      afirmarSexoNoTorneio(torneio.naipe, sexos, sexos.length === tamanho);
+    } else {
+      afirmarSexoNoTorneio(torneio.naipe, [dados.sexo], false);
+    }
+
+    await tx.atleta.update({
+      where: { id: atual.atletaId },
+      data: {
+        nomeCompleto: nome,
+        sexo: dados.sexo,
+        apelido: apelido || null,
+        telefone: telefone || null,
+      },
+    });
+    await tx.usuario.update({
+      where: { id: atual.atleta.usuarioId },
+      data: { nome, email: email || null },
+    });
+
+    if (atual.equipe && atual.equipe.membros.length > 0) {
+      const nomesAntes = atual.equipe.membros.map((membro) => membro.atleta.nomeCompleto);
+      const nomesDepois = atual.equipe.membros.map((membro) =>
+        membro.atletaId === atual.atletaId ? nome : membro.atleta.nomeCompleto,
+      );
+      await renomearSeAutomatica(tx, atual.equipe, nomesAntes, nomesDepois);
+    }
+
+    return { torneioId: torneio.id, slug: torneio.slug, nome };
+  });
+}
+
+export async function excluirInscricaoDoTorneio(adminId: string, inscricaoId: string) {
+  await exigirAdministrador(adminId);
+  const inscricao = await prismaInscricao(inscricaoId);
+  return trancar(inscricao.torneioId, async (tx) => {
+    const atual = await tx.inscricao.findUniqueOrThrow({
+      where: { id: inscricaoId },
+      include: { atleta: true },
+    });
+    const torneio = await tx.torneio.findUniqueOrThrow({ where: { id: atual.torneioId } });
+    const vinculos = await tx.membroEquipe.findMany({
+      where: { atletaId: atual.atletaId, equipe: { torneioId: torneio.id } },
+      select: { equipeId: true },
+    });
+    const equipesDoAtleta = [...new Set([...(atual.equipeId ? [atual.equipeId] : []), ...vinculos.map((item) => item.equipeId)])];
+    const partidas = await tx.partida.findMany({
+      where: { torneioId: torneio.id },
+      select: { equipeAId: true, equipeBId: true, vencedorId: true, perdedorId: true },
+    });
+    const equipesNaChave = new Set(
+      partidas.flatMap((partida) =>
+        [partida.equipeAId, partida.equipeBId, partida.vencedorId, partida.perdedorId].filter((id): id is string => Boolean(id)),
+      ),
+    );
+    if (equipesDoAtletaNaChave(equipesDoAtleta, equipesNaChave).length > 0) {
+      throw new ErroDeRegra(AVISO_EQUIPE_NA_CHAVE);
+    }
+
+    for (const equipeId of equipesDoAtleta) {
+      const equipe = await tx.equipe.findUnique({ where: { id: equipeId } });
+      const antes = await tx.membroEquipe.findMany({ where: { equipeId }, include: { atleta: true } });
+      await tx.membroEquipe.deleteMany({ where: { equipeId, atletaId: atual.atletaId } });
+      const restam = antes.filter((membro) => membro.atletaId !== atual.atletaId);
+      if (!equipe) continue;
+      if (restam.length === 0) {
+        await tx.equipe.update({ where: { id: equipeId }, data: { capitaoId: null } });
+        continue;
+      }
+      await renomearSeAutomatica(
+        tx,
+        equipe,
+        antes.map((membro) => membro.atleta.nomeCompleto),
+        restam.map((membro) => membro.atleta.nomeCompleto),
+      );
+      await tx.equipe.update({
+        where: { id: equipeId },
+        data: {
+          capitaoId: equipe.capitaoId === atual.atletaId ? restam[0]!.atletaId : equipe.capitaoId,
+          status: "PENDENTE",
+        },
+      });
+    }
+
+    await tx.inscricao.delete({ where: { id: atual.id } });
+    return { torneioId: torneio.id, slug: torneio.slug, nome: atual.atleta.nomeCompleto };
   });
 }
 

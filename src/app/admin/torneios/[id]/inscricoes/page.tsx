@@ -4,6 +4,7 @@ import { Campo, Entrada, Selecao } from "@/components/campo";
 import { CamposEquipe } from "@/components/campos-equipe";
 import { Formulario } from "@/components/formulario";
 import { MenuTorneio } from "@/components/menu-torneio";
+import { AVISO_EQUIPE_NA_CHAVE, equipesDoAtletaNaChave } from "@/lib/chave-da-equipe";
 import { ROTULO_EQUIPE, ROTULO_INSCRICAO, ROTULO_NAIPE, ROTULO_SEXO } from "@/lib/rotulos";
 import {
   acaoAprovarEquipe,
@@ -11,6 +12,8 @@ import {
   acaoAprovarTodas,
   acaoCadastrarEquipe,
   acaoCadastrarEquipePorNome,
+  acaoEditarInscricao,
+  acaoExcluirInscricao,
   acaoInscreverDireto,
   acaoRejeitarEquipe,
   acaoRejeitarInscricao,
@@ -24,8 +27,9 @@ export default async function Inscricoes({ params }: { params: Promise<{ id: str
   const torneio = await prisma.torneio.findUnique({
     where: { id },
     include: {
-      inscricoes: { include: { atleta: true, equipe: true }, orderBy: { criadaEm: "asc" } },
+      inscricoes: { include: { atleta: { include: { usuario: true } }, equipe: true }, orderBy: { criadaEm: "asc" } },
       equipes: { include: { membros: { include: { atleta: true } }, capitao: true }, orderBy: { nome: "asc" } },
+      partidas: { select: { equipeAId: true, equipeBId: true, vencedorId: true, perdedorId: true } },
     },
   });
   if (!torneio) notFound();
@@ -36,6 +40,19 @@ export default async function Inscricoes({ params }: { params: Promise<{ id: str
     torneio.inscricoes.filter((item) => item.status === "PENDENTE" || item.status === "APROVADA").map((item) => item.atletaId),
   );
   const disponiveis = atletas.filter((atleta) => !ocupados.has(atleta.id));
+  const equipesNaChave = new Set(
+    torneio.partidas.flatMap((partida) =>
+      [partida.equipeAId, partida.equipeBId, partida.vencedorId, partida.perdedorId].filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const equipesPorAtleta = new Map<string, string[]>();
+  for (const equipe of torneio.equipes) {
+    for (const membro of equipe.membros) {
+      const lista = equipesPorAtleta.get(membro.atletaId) ?? [];
+      lista.push(equipe.id);
+      equipesPorAtleta.set(membro.atletaId, lista);
+    }
+  }
   return (
     <div>
       <MenuTorneio id={torneio.id} slug={torneio.slug} />
@@ -94,13 +111,28 @@ export default async function Inscricoes({ params }: { params: Promise<{ id: str
       ) : null}
 
       <section className="mt-6 space-y-3">
-        {torneio.inscricoes.map((inscricao) => (
+        {torneio.inscricoes.map((inscricao) => {
+          const equipesDoAtleta = [
+            ...new Set([
+              ...(inscricao.equipeId ? [inscricao.equipeId] : []),
+              ...(equipesPorAtleta.get(inscricao.atletaId) ?? []),
+            ]),
+          ];
+          const naChave = equipesDoAtletaNaChave(equipesDoAtleta, equipesNaChave).length > 0;
+          return (
           <article key={inscricao.id} className="rounded-3xl bg-foam p-4 shadow-card">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className="text-lg font-bold">{inscricao.atleta.nomeCompleto}</p>
                 <p className="text-sm text-navy/70">
-                  {ROTULO_SEXO[inscricao.atleta.sexo]} · {inscricao.atleta.telefone ?? "sem telefone"} · {ROTULO_INSCRICAO[inscricao.status]}
+                  {ROTULO_SEXO[inscricao.atleta.sexo]}
+                  {inscricao.atleta.apelido ? ` · ${inscricao.atleta.apelido}` : ""}
+                  {" · "}
+                  {inscricao.atleta.telefone ?? "sem telefone"}
+                  {" · "}
+                  {inscricao.atleta.usuario.email ?? "sem e-mail"}
+                  {" · "}
+                  {ROTULO_INSCRICAO[inscricao.status]}
                   {inscricao.equipe ? ` · ${inscricao.equipe.nome}` : ""}
                 </p>
               </div>
@@ -117,8 +149,45 @@ export default async function Inscricoes({ params }: { params: Promise<{ id: str
                 </div>
               ) : null}
             </div>
+            <details className="mt-3">
+              <summary className="inline-flex min-h-14 cursor-pointer list-none items-center rounded-2xl bg-navy px-5 font-semibold text-white">
+                Editar
+              </summary>
+              <Formulario acao={acaoEditarInscricao} className="mt-3 rounded-2xl bg-white p-4">
+                <input type="hidden" name="inscricaoId" value={inscricao.id} />
+                <Campo id={`nome-${inscricao.id}`} rotulo="Nome">
+                  <Entrada id={`nome-${inscricao.id}`} name="nome" defaultValue={inscricao.atleta.nomeCompleto} autoComplete="name" required />
+                </Campo>
+                <Campo id={`sexo-${inscricao.id}`} rotulo="Sexo">
+                  <Selecao id={`sexo-${inscricao.id}`} name="sexo" defaultValue={inscricao.atleta.sexo}>
+                    <option value="FEMININO">Feminino</option>
+                    <option value="MASCULINO">Masculino</option>
+                  </Selecao>
+                </Campo>
+                <Campo id={`apelido-${inscricao.id}`} rotulo="Apelido" dica="Opcional.">
+                  <Entrada id={`apelido-${inscricao.id}`} name="apelido" defaultValue={inscricao.atleta.apelido ?? ""} autoComplete="off" />
+                </Campo>
+                <Campo id={`telefone-${inscricao.id}`} rotulo="Telefone" dica="Opcional.">
+                  <Entrada id={`telefone-${inscricao.id}`} name="telefone" defaultValue={inscricao.atleta.telefone ?? ""} autoComplete="tel" />
+                </Campo>
+                <Campo id={`email-${inscricao.id}`} rotulo="E-mail" dica="Opcional.">
+                  <Entrada id={`email-${inscricao.id}`} name="email" type="email" defaultValue={inscricao.atleta.usuario.email ?? ""} autoComplete="off" />
+                </Campo>
+                <Botao type="submit">Gravar alterações</Botao>
+              </Formulario>
+            </details>
+            {naChave ? <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-amber-950">{AVISO_EQUIPE_NA_CHAVE}</p> : null}
+            <Formulario acao={acaoExcluirInscricao} className="mt-3">
+              <input type="hidden" name="inscricaoId" value={inscricao.id} />
+              <label className="flex items-start gap-3 text-sm text-navy">
+                <input type="checkbox" name="confirmo" className="mt-1 h-5 w-5 shrink-0" />
+                <span>Confirmo excluir esta inscrição. O atleta sai só deste torneio.</span>
+              </label>
+              <Botao type="submit" variante="perigo">Excluir</Botao>
+            </Formulario>
           </article>
-        ))}
+          );
+        })}
       </section>
 
       {torneio.formacao === "PRE_FORMADAS" ? (

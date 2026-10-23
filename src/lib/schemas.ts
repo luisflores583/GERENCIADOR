@@ -43,6 +43,21 @@ export const esquemaInscricaoDireta = z
     }
   });
 
+export const esquemaEdicaoInscricao = z
+  .object({
+    nome: z.string().trim().min(3, "Informe o nome completo.").max(120),
+    apelido: z.string().trim().max(40).optional().default(""),
+    telefone: z.string().trim().max(20).optional().default(""),
+    sexo,
+    email: z.string().trim().optional().default(""),
+  })
+  .superRefine((dados, ctx) => {
+    const email = dados.email.trim().toLowerCase();
+    if (email && !z.string().email().safeParse(email).success) {
+      ctx.addIssue({ code: "custom", path: ["email"], message: "Informe um e-mail válido ou deixe em branco." });
+    }
+  });
+
 export const esquemaPerfil = z.object({
   nome: z.string().trim().min(3, "Informe o nome completo.").max(120),
   apelido: z.string().trim().max(40).optional().default(""),

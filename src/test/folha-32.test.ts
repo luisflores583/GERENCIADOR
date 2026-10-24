@@ -125,6 +125,8 @@ describe("tabela de até 32 times", () => {
       ["56", { tipo: "VENCEDOR", partidaId: "53" }, { tipo: "VENCEDOR", partidaId: "54" }],
       ["57", { tipo: "PERDEDOR", partidaId: "42" }, { tipo: "VENCEDOR", partidaId: "55" }],
       ["58", { tipo: "VENCEDOR", partidaId: "56" }, { tipo: "PERDEDOR", partidaId: "44" }],
+      ["59", { tipo: "VENCEDOR", partidaId: "44" }, { tipo: "VENCEDOR", partidaId: "57" }],
+      ["60", { tipo: "VENCEDOR", partidaId: "42" }, { tipo: "VENCEDOR", partidaId: "58" }],
       ["61", { tipo: "PERDEDOR", partidaId: "59" }, { tipo: "PERDEDOR", partidaId: "60" }],
       ["62", { tipo: "VENCEDOR", partidaId: "59" }, { tipo: "VENCEDOR", partidaId: "60" }],
     ];
@@ -142,16 +144,23 @@ describe("tabela de até 32 times", () => {
     expect(rotuloDaPartida32("1", "SEM_REGIAO")).toBe("Jogo 1");
   });
 
-  it("deixa sem ligação o lado que só traz o nome do semifinalista", () => {
+  it("liga as semifinais pela fase e mantém o jogo 41 ausente", () => {
     const partidas = construirFolha32();
-    expect(jogo(partidas, "59").origemA).toEqual({ tipo: "SEM_PONTEIRO", rotulo: "Semifinalista B" });
-    expect(jogo(partidas, "59").origemB).toEqual({ tipo: "SEM_PONTEIRO", rotulo: "Semifinalista C" });
-    expect(jogo(partidas, "60").origemA).toEqual({ tipo: "SEM_PONTEIRO", rotulo: "Semifinalista A" });
-    expect(jogo(partidas, "60").origemB).toEqual({ tipo: "SEM_PONTEIRO", rotulo: "Semifinalista D" });
-    expect(textoDaVaga(jogo(partidas, "59").origemA)).toBe("Semifinalista B");
-    expect(textoDaVaga(jogo(partidas, "18").origemA)).toBeNull();
+    expect(jogo(partidas, "59").origemA).toEqual({ tipo: "VENCEDOR", partidaId: "44" });
+    expect(jogo(partidas, "59").origemB).toEqual({ tipo: "VENCEDOR", partidaId: "57" });
+    expect(jogo(partidas, "60").origemA).toEqual({ tipo: "VENCEDOR", partidaId: "42" });
+    expect(jogo(partidas, "60").origemB).toEqual({ tipo: "VENCEDOR", partidaId: "58" });
+    expect(jogo(partidas, "44").chave).toBe("SEMIFINALISTA_B");
+    expect(jogo(partidas, "57").chave).toBe("SEMIFINALISTA_C");
+    expect(jogo(partidas, "42").chave).toBe("SEMIFINALISTA_A");
+    expect(jogo(partidas, "58").chave).toBe("SEMIFINALISTA_D");
+    expect(textoDaVaga(jogo(partidas, "59").origemA)).toBeNull();
     expect(partidas.some((partida) => partida.id === "41")).toBe(false);
     expect(jogo(partidas, "49").origemA).toEqual({ tipo: "VENCEDOR", partidaId: "41" });
+    expect(jogo(partidas, "14").origemB).toEqual({ tipo: "CABECA", cabeca: 15 });
+    expect(jogo(partidas, "15").origemA).toEqual({ tipo: "CABECA", cabeca: 15 });
+    const usadas = partidas.flatMap((partida) => [partida.origemA, partida.origemB]);
+    expect(usadas.some((origem) => origem.tipo === "CABECA" && origem.cabeca === 23)).toBe(false);
   });
 
   it("move vencedor e perdedor do jogo 1 para os jogos 18 e 17", () => {

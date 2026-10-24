@@ -14,10 +14,6 @@ function perdedor(partidaId: string): Origem {
   return { tipo: "PERDEDOR", partidaId };
 }
 
-function semPonteiro(rotulo: string): Origem {
-  return { tipo: "SEM_PONTEIRO", rotulo };
-}
-
 type Definicao = {
   id: string;
   chave: LadoChave;
@@ -95,8 +91,8 @@ const DEFINICOES: Definicao[] = [
   jogo("56", "SEM_REGIAO", vencedor("53"), vencedor("54")),
   jogo("57", "SEMIFINALISTA_C", perdedor("42"), vencedor("55")),
   jogo("58", "SEMIFINALISTA_D", vencedor("56"), perdedor("44")),
-  jogo("59", "SEMIFINAL", semPonteiro("Semifinalista B"), semPonteiro("Semifinalista C")),
-  jogo("60", "SEMIFINAL", semPonteiro("Semifinalista A"), semPonteiro("Semifinalista D")),
+  jogo("59", "SEMIFINAL", vencedor("44"), vencedor("57")),
+  jogo("60", "SEMIFINAL", vencedor("42"), vencedor("58")),
   jogo("61", "FINAL", perdedor("59"), perdedor("60")),
   jogo("62", "FINAL", vencedor("59"), vencedor("60")),
 ];

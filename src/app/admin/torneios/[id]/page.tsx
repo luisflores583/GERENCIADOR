@@ -94,7 +94,7 @@ export default async function VisaoTorneio({ params }: { params: Promise<{ id: s
       <section className="mt-8 rounded-[2rem] bg-foam p-6 shadow-card">
         <h2 className="font-display text-2xl text-navy">Reiniciar ou excluir</h2>
         <p className="mt-2 text-navy/70">
-          Reiniciar tira os jogos, os resultados, a classificação e a chave. As equipes e os atletas inscritos permanecem, prontos para um novo sorteio. Excluir apaga este torneio e o que é dele. Atletas e quadras da arena permanecem.
+          Reiniciar tira os jogos, os resultados, a classificação, as folgas e a chave. O torneio volta ao início: a configuração pode ser alterada e as inscrições ficam abertas. As equipes e os atletas inscritos permanecem. Excluir apaga este torneio e o que é dele. Atletas e quadras da arena permanecem.
         </p>
         <div className="mt-4 grid items-start gap-6 lg:grid-cols-2">
           <ReiniciarTorneio torneioId={torneio.id} />

@@ -4,6 +4,7 @@ import { Botao } from "@/components/botao";
 import { Formulario } from "@/components/formulario";
 import { ListaRanking } from "@/components/lista-ranking";
 import { MenuTorneio } from "@/components/menu-torneio";
+import { SeloStatus } from "@/components/selo";
 import { IniciarTorneio } from "@/components/iniciar-torneio";
 import { acaoConfirmarConfrontos, acaoConfirmarEquipes, acaoDesfazerEquipes, acaoGerarConfrontos, acaoGerarEquipes, acaoStatus } from "@/server/acoes";
 import { prisma } from "@/server/db";
@@ -63,12 +64,15 @@ export default async function Sorteio({ params }: { params: Promise<{ id: string
   }
   const partidas = await prisma.partida.count({ where: { torneioId: torneio.id } });
   const confrontosConfirmados = torneio.sorteios.some((item) => item.tipo === "CONFRONTOS" && item.status === "CONFIRMADO");
-  const prontoParaConfrontos = torneio.status === "AGUARDANDO_SORTEIO" && partidas === 0;
+  const prontoParaConfrontos = (torneio.status === "AGUARDANDO_SORTEIO" || torneio.status === "INSCRICOES_ENCERRADAS") && partidas === 0;
 
   return (
     <div>
       <MenuTorneio id={torneio.id} slug={torneio.slug} />
-      <h1 className="font-display text-4xl text-navy">Sorteios</h1>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="font-display text-4xl text-navy">Sorteios</h1>
+        <SeloStatus status={torneio.status} />
+      </div>
       <p className="mt-2 max-w-3xl text-navy/75">
         O sorteio fica registrado com a semente e o algoritmo. Confirmar trava a composição. Sem sobra de atletas, o sistema não forma equipe incompleta.
       </p>
@@ -128,6 +132,7 @@ export default async function Sorteio({ params }: { params: Promise<{ id: string
         )}
         {prontoParaConfrontos ? (
           <div className="mt-4 space-y-6">
+            <IniciarTorneio torneioId={torneio.id} />
             <Formulario acao={acaoGerarConfrontos}>
               <input type="hidden" name="torneioId" value={torneio.id} />
               <input type="hidden" name="modo" value="ALEATORIO" />

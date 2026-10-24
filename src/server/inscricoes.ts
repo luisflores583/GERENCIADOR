@@ -10,7 +10,14 @@ import { carregarUsuario, exigirAdministrador } from "@/server/acesso";
 import { trancar, type Tx } from "@/server/banco";
 import { gerarHash } from "@/server/senha";
 
+function afirmarEntradaNova(torneio: Torneio) {
+  if (torneio.status === "INSCRICOES_ENCERRADAS") {
+    throw new ErroDeRegra("As inscrições estão encerradas. A lista atual permanece. Ninguém novo entra.");
+  }
+}
+
 function afirmarInscricoesAbertas(torneio: Torneio) {
+  afirmarEntradaNova(torneio);
   if (torneio.status !== "INSCRICOES_ABERTAS") {
     throw new ErroDeRegra("As inscrições deste torneio não estão abertas.");
   }
@@ -84,6 +91,7 @@ export async function criarEquipe(
       throw new ErroDeRegra("Neste torneio as equipes serão sorteadas. Inscreva-se individualmente.");
     }
     afirmarComposicaoAberta(torneio);
+    afirmarEntradaNova(torneio);
     if (usuario.papel !== "ADMIN") afirmarInscricoesAbertas(torneio);
     if (atletaId && !unicos.includes(atletaId)) {
       throw new ErroDeRegra("A equipe precisa incluir você.");
@@ -100,6 +108,7 @@ export async function cadastrarEquipeSomenteComNome(adminId: string, torneioId: 
       throw new ErroDeRegra("Neste torneio as equipes serão sorteadas. Inscreva o atleta individualmente.");
     }
     afirmarComposicaoAberta(torneio);
+    afirmarEntradaNova(torneio);
     const titulo = nome.trim();
     if (!titulo) throw new ErroDeRegra("Informe o nome da equipe.");
     const resolvido = resolverNomeEquipe(titulo, []);
@@ -131,6 +140,7 @@ export async function cadastrarEquipePorNomes(
       throw new ErroDeRegra("Neste torneio as equipes serão sorteadas. Inscreva-se individualmente.");
     }
     afirmarComposicaoAberta(torneio);
+    afirmarEntradaNova(torneio);
     if (usuario.papel !== "ADMIN") afirmarInscricoesAbertas(torneio);
     const ids: string[] = [];
     const telefoneObrigatorio = usuario.papel !== "ADMIN";
@@ -206,6 +216,7 @@ export async function adicionarMembro(usuarioId: string, equipeId: string, atlet
     }
     const torneio = await tx.torneio.findUniqueOrThrow({ where: { id: equipe.torneioId } });
     afirmarComposicaoAberta(torneio);
+    afirmarEntradaNova(torneio);
     const tamanho = tamanhoDaEquipe(torneio.formato);
     const membros = await tx.membroEquipe.count({ where: { equipeId } });
     if (membros >= tamanho) throw new ErroDeRegra("A equipe já está completa.");
@@ -338,6 +349,7 @@ export async function inscreverAtletaDireto(adminId: string, torneioId: string, 
   return trancar(torneioId, async (tx) => {
     const torneio = await tx.torneio.findUniqueOrThrow({ where: { id: torneioId } });
     afirmarComposicaoAberta(torneio);
+    afirmarEntradaNova(torneio);
     if (torneio.status === "FINALIZADO") throw new ErroDeRegra("Torneio finalizado.");
     const atleta = await tx.atleta.findUnique({ where: { id: atletaId } });
     if (!atleta) throw new ErroDeRegra("Atleta não encontrado.", 404);

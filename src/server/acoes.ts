@@ -16,7 +16,7 @@ import { erroZod, esquemaCadastro, esquemaEdicaoInscricao, esquemaInscricaoDiret
 import { conferirSenha, gerarHash } from "@/server/senha";
 import { criarSessao, encerrarSessao, exigirAdmin, exigirAtleta } from "@/server/sessao";
 import { prisma } from "@/server/db";
-import { alterarStatus, atualizarTorneio, criarTorneio, excluirTorneio, reiniciarTorneio } from "@/server/torneios";
+import { alterarStatus, atualizarTorneio, criarTorneio, encerrarInscricao, excluirTorneio, reiniciarTorneio } from "@/server/torneios";
 import {
   adicionarMembro,
   aprovarEquipe,
@@ -286,11 +286,25 @@ export async function acaoReiniciarTorneio(_estado: EstadoAcao, form: FormData):
   try {
     const admin = await exigirAdmin();
     if (!marcar(form, "confirmo")) {
-      return { ok: false, erro: "Confirme o reinício. Os jogos saem e os atletas inscritos permanecem." };
+      return { ok: false, erro: "Confirme o reinício. Os jogos saem, a configuração pode ser alterada e os atletas inscritos permanecem." };
     }
     const torneio = await reiniciarTorneio(admin.id, texto(form, "torneioId"));
     atualizarTelas(torneio, "reinicio");
-    return { ok: true, mensagem: "Torneio reiniciado. Os jogos saíram. Os atletas inscritos permanecem." };
+    return { ok: true, mensagem: "Torneio reiniciado. Os jogos saíram. A configuração pode ser alterada. Os atletas inscritos permanecem." };
+  } catch (erro) {
+    return falha(erro);
+  }
+}
+
+export async function acaoEncerrarInscricao(_estado: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+  try {
+    const admin = await exigirAdmin();
+    if (!marcar(form, "confirmo")) {
+      return { ok: false, erro: "Confirme o encerramento. A lista atual permanece e ninguém novo entra." };
+    }
+    const torneio = await encerrarInscricao(admin.id, texto(form, "torneioId"));
+    atualizarTelas(torneio, "inscricoes");
+    return { ok: true, mensagem: "Inscrições encerradas. A lista atual permanece. Ninguém novo entra." };
   } catch (erro) {
     return falha(erro);
   }
@@ -311,6 +325,10 @@ export async function acaoInscreverDireto(_estado: EstadoAcao, form: FormData): 
   try {
     const admin = await exigirAdmin();
     const torneioId = texto(form, "torneioId");
+    const aberto = await prisma.torneio.findUnique({ where: { id: torneioId }, select: { status: true } });
+    if (aberto?.status === "INSCRICOES_ENCERRADAS") {
+      return { ok: false, erro: "As inscrições estão encerradas. A lista atual permanece. Ninguém novo entra." };
+    }
     let atletaId = texto(form, "atletaId");
     if (!atletaId) {
       const dados = esquemaInscricaoDireta.parse({

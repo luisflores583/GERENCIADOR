@@ -187,7 +187,8 @@ describe.skipIf(!rodar)("integração com o banco", () => {
     await confirmarResultado(admin.id, partida.id, partida.equipeAId!);
 
     const reiniciado = await reiniciarTorneio(admin.id, torneio.id);
-    expect(reiniciado.status).toBe("AGUARDANDO_SORTEIO");
+    expect(reiniciado.status).toBe("INSCRICOES_ABERTAS");
+    expect(reiniciado.equipesTravadasEm).toBeNull();
     expect(reiniciado.iniciadoEm).toBeNull();
     expect(reiniciado.campeaoEquipeId).toBeNull();
     expect(await prisma.partida.count({ where: { torneioId: torneio.id } })).toBe(0);
@@ -198,5 +199,119 @@ describe.skipIf(!rodar)("integração com o banco", () => {
     expect(equipes.every((equipe) => equipe.vitorias === 0 && equipe.derrotas === 0 && equipe.cabeca === null && equipe.status === "CONFIRMADA")).toBe(true);
     expect(equipes.find((equipe) => equipe.id === sol.id)?.nome).toBe("Dupla Sol");
     expect(await prisma.sorteio.count({ where: { torneioId: torneio.id, tipo: "CONFRONTOS", status: { in: ["RASCUNHO", "CONFIRMADO"] } } })).toBe(0);
+
+    const { atualizarTorneio } = await import("@/server/torneios");
+    const alterado = await atualizarTorneio(admin.id, torneio.id, {
+      nome: `${prefixo} reinicio`,
+      descricao: "",
+      regulamento: "",
+      inicioEm: "2026-11-20T09:00",
+      local: "Quadra reinicio",
+      formato: "TRIO",
+      formacao: "PRE_FORMADAS",
+      naipe: "FEMININO",
+      modeloChave: "FOLHA_16",
+      maxAtletas: "",
+      inscricoesAte: "2026-12-20T18:00",
+      valorReais: "",
+      pontosParaVencer: "21",
+      diferencaMinima: "2",
+      pontosMaximos: "",
+      quadrasSimultaneas: "2",
+      descansoMinutos: "0",
+      permitirEquipeIncompleta: false,
+      corDestaque: "#e36a3a",
+      nomeOrganizador: "Teste",
+    });
+    expect(alterado.formato).toBe("TRIO");
+    expect(alterado.naipe).toBe("FEMININO");
+    expect(alterado.modeloChave).toBe("FOLHA_16");
+    expect(await prisma.inscricao.count({ where: { torneioId: torneio.id, atletaId: atleta.atleta!.id, status: "APROVADA" } })).toBe(1);
+    expect(await prisma.equipe.count({ where: { torneioId: torneio.id } })).toBe(2);
+
+    const semJogos = await criarTorneio(admin.id, {
+      nome: `${prefixo} reinicio sem jogos`,
+      descricao: "",
+      regulamento: "",
+      inicioEm: "2026-11-21T09:00",
+      local: "Quadra reinicio",
+      formato: "DUPLA",
+      formacao: "PRE_FORMADAS",
+      naipe: "MASCULINO",
+      modeloChave: "GENERICA",
+      maxAtletas: "",
+      inscricoesAte: "2026-12-20T18:00",
+      valorReais: "",
+      pontosParaVencer: "21",
+      diferencaMinima: "2",
+      pontosMaximos: "",
+      quadrasSimultaneas: "1",
+      descansoMinutos: "0",
+      permitirEquipeIncompleta: false,
+      corDestaque: "#e36a3a",
+      nomeOrganizador: "Teste",
+    });
+    criados.torneios.push(semJogos.id);
+    expect((await reiniciarTorneio(admin.id, semJogos.id)).status).toBe("INSCRICOES_ABERTAS");
+  });
+
+  it("encerra a inscrição e impede atleta novo", async () => {
+    const { criarTorneio, encerrarInscricao } = await import("@/server/torneios");
+    const { cadastrarEquipeSomenteComNome, editarDadosDaInscricao, inscreverAtletaDireto } = await import("@/server/inscricoes");
+    const { gerarSorteioConfrontos, iniciarTorneio } = await import("@/server/competicao");
+
+    const admin = await usuario(`${prefixo}-encerra-admin@arena.local`, "ADMIN", "Admin encerra");
+    const atual = await usuario(`${prefixo}-encerra-ana@arena.local`, "ATLETA", "Ana Encerra");
+    const novo = await usuario(`${prefixo}-encerra-bia@arena.local`, "ATLETA", "Bia Encerra");
+    const torneio = await criarTorneio(admin.id, {
+      nome: `${prefixo} encerra`,
+      descricao: "",
+      regulamento: "",
+      inicioEm: "2026-11-22T09:00",
+      local: "Quadra encerra",
+      formato: "DUPLA",
+      formacao: "PRE_FORMADAS",
+      naipe: "MASCULINO",
+      modeloChave: "GENERICA",
+      maxAtletas: "",
+      inscricoesAte: "2026-12-22T18:00",
+      valorReais: "",
+      pontosParaVencer: "21",
+      diferencaMinima: "2",
+      pontosMaximos: "",
+      quadrasSimultaneas: "1",
+      descansoMinutos: "0",
+      permitirEquipeIncompleta: false,
+      corDestaque: "#e36a3a",
+      nomeOrganizador: "Teste",
+    });
+    criados.torneios.push(torneio.id);
+    await cadastrarEquipeSomenteComNome(admin.id, torneio.id, "Dupla Sol");
+    await cadastrarEquipeSomenteComNome(admin.id, torneio.id, "Dupla Mar");
+    await inscreverAtletaDireto(admin.id, torneio.id, atual.atleta!.id);
+
+    const encerrado = await encerrarInscricao(admin.id, torneio.id);
+    expect(encerrado.status).toBe("INSCRICOES_ENCERRADAS");
+    await expect(inscreverAtletaDireto(admin.id, torneio.id, novo.atleta!.id)).rejects.toThrow(/Ninguém novo entra/);
+    await expect(cadastrarEquipeSomenteComNome(admin.id, torneio.id, "Dupla Nova")).rejects.toThrow(/Ninguém novo entra/);
+    const inscricao = await prisma.inscricao.findFirstOrThrow({ where: { torneioId: torneio.id, atletaId: atual.atleta!.id } });
+    await editarDadosDaInscricao(admin.id, inscricao.id, {
+      nome: "Ana Encerra da Areia",
+      sexo: "MASCULINO",
+      apelido: "",
+      telefone: "",
+      email: "",
+    });
+    expect(await prisma.inscricao.count({ where: { torneioId: torneio.id, status: "APROVADA" } })).toBe(1);
+    expect((await prisma.atleta.findUniqueOrThrow({ where: { id: atual.atleta!.id } })).nomeCompleto).toBe("Ana Encerra da Areia");
+
+    const quadra = await prisma.quadra.create({ data: { nome: `${prefixo} quadra encerra` } });
+    criados.quadras.push(quadra.id);
+    await prisma.torneioQuadra.create({ data: { torneioId: torneio.id, quadraId: quadra.id, habilitada: true, ordem: 0 } });
+    await gerarSorteioConfrontos(admin.id, torneio.id);
+    expect(await prisma.sorteio.count({ where: { torneioId: torneio.id, tipo: "CONFRONTOS", status: "RASCUNHO" } })).toBe(1);
+    const iniciado = await iniciarTorneio(admin.id, torneio.id);
+    expect(iniciado.idempotente).toBe(false);
+    expect((await prisma.torneio.findUniqueOrThrow({ where: { id: torneio.id } })).status).toBe("EM_ANDAMENTO");
   });
 });

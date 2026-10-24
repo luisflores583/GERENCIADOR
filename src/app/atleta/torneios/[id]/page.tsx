@@ -58,7 +58,10 @@ export default async function TorneioDoAtleta({ params }: { params: Promise<{ id
         <h1 className="mt-2 font-display text-4xl text-navy">{torneio.nome}</h1>
         <Link className="mt-2 inline-flex min-h-14 items-center font-semibold text-ocean" href={`/ao-vivo/${torneio.slug}`}>Ver chave completa</Link>
       </div>
-      {torneio.formacao === "SORTEADAS" && (!inscricao || inscricao.status === "REJEITADA" || inscricao.status === "CANCELADA") ? (
+      {torneio.status === "INSCRICOES_ENCERRADAS" && (!inscricao || inscricao.status === "REJEITADA" || inscricao.status === "CANCELADA") ? (
+        <p className="rounded-2xl bg-amber-50 px-4 py-3 text-amber-950">As inscrições estão encerradas. A lista atual permanece. Ninguém novo entra.</p>
+      ) : null}
+      {torneio.formacao === "SORTEADAS" && torneio.status === "INSCRICOES_ABERTAS" && (!inscricao || inscricao.status === "REJEITADA" || inscricao.status === "CANCELADA") ? (
         <Formulario acao={acaoInscrever} className="rounded-3xl bg-foam p-5 shadow-card">
           <input type="hidden" name="torneioId" value={torneio.id} />
           <p>Inscrição individual neste torneio. A equipe será sorteada depois.</p>

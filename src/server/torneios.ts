@@ -1,6 +1,4 @@
 import type { StatusTorneio } from "@prisma/client";
-import { validarNaipe } from "@/engine/naipe";
-import { tamanhoDaEquipe } from "@/engine/sorteio";
 import { centavosDeReais, interpretarDataHoraLocal, slugificar } from "@/lib/formatacao";
 import { ErroDeRegra } from "@/lib/erros";
 import { erroZod, esquemaTorneio } from "@/lib/schemas";
@@ -82,29 +80,6 @@ export async function atualizarTorneio(adminId: string, torneioId: string, entra
     if (travado && (dados.formato !== atual.formato || dados.formacao !== atual.formacao || dados.naipe !== atual.naipe || dados.modeloChave !== atual.modeloChave)) {
       throw new ErroDeRegra("Formato, formação, naipe e tabela ficam travados depois que as equipes são confirmadas.");
     }
-    if (dados.naipe !== atual.naipe) {
-      const inscricoes = await tx.inscricao.findMany({
-        where: { torneioId, status: { in: ["PENDENTE", "APROVADA"] } },
-        include: { atleta: true },
-      });
-      for (const item of inscricoes) {
-        const individual = validarNaipe(dados.naipe, [item.atleta.sexo], false);
-        if (!individual.ok) throw new ErroDeRegra(`${item.atleta.nomeCompleto}: ${individual.erro}`);
-      }
-      const equipes = await tx.equipe.findMany({
-        where: { torneioId },
-        include: { membros: { include: { atleta: true } } },
-      });
-      const tamanho = tamanhoDaEquipe(dados.formato);
-      for (const equipe of equipes) {
-        const naipeOk = validarNaipe(
-          dados.naipe,
-          equipe.membros.map((membro) => membro.atleta.sexo),
-          equipe.membros.length === tamanho,
-        );
-        if (!naipeOk.ok) throw new ErroDeRegra(`${equipe.nome}: ${naipeOk.erro}`);
-      }
-    }
     const jaTemPlacar = await tx.partida.count({ where: { torneioId, status: "CONCLUIDA" } });
     if (jaTemPlacar > 0) {
       dados.pontosParaVencer = atual.pontosParaVencer;
@@ -150,11 +125,6 @@ export async function reiniciarTorneio(adminId: string, torneioId: string) {
   return trancar(torneioId, async (tx) => {
     const torneio = await tx.torneio.findUnique({ where: { id: torneioId } });
     if (!torneio) throw new ErroDeRegra("Torneio não encontrado.", 404);
-    const partidas = await tx.partida.count({ where: { torneioId } });
-    const jaComecou = ["EM_ANDAMENTO", "PAUSADO", "FINALIZADO"].includes(torneio.status);
-    if (partidas === 0 && !jaComecou) {
-      throw new ErroDeRegra("Este torneio ainda não tem jogos para reiniciar.");
-    }
     await tx.torneio.update({
       where: { id: torneioId },
       data: {
@@ -181,10 +151,27 @@ export async function reiniciarTorneio(adminId: string, torneioId: string) {
     return tx.torneio.update({
       where: { id: torneioId },
       data: {
-        status: "AGUARDANDO_SORTEIO",
+        status: "INSCRICOES_ABERTAS",
+        equipesTravadasEm: null,
         iniciadoEm: null,
         finalizadoEm: null,
       },
+    });
+  });
+}
+
+export async function encerrarInscricao(adminId: string, torneioId: string) {
+  await exigirAdministrador(adminId);
+  return trancar(torneioId, async (tx) => {
+    const torneio = await tx.torneio.findUnique({ where: { id: torneioId } });
+    if (!torneio) throw new ErroDeRegra("Torneio não encontrado.", 404);
+    if (torneio.status === "INSCRICOES_ENCERRADAS") return torneio;
+    if (torneio.status !== "INSCRICOES_ABERTAS") {
+      throw new ErroDeRegra("As inscrições só podem ser encerradas enquanto estão abertas.");
+    }
+    return tx.torneio.update({
+      where: { id: torneioId },
+      data: { status: "INSCRICOES_ENCERRADAS" },
     });
   });
 }

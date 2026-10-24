@@ -78,15 +78,13 @@ export default async function Jogos({ params }: { params: Promise<{ id: string }
           )}
         </div>
       )}
-      {torneio.partidas.length > 0 ? (
-        <section className="mt-6 rounded-3xl bg-foam p-4 shadow-card">
-          <h2 className="font-display text-2xl text-navy">Reiniciar torneio</h2>
-          <p className="mt-2 text-navy/70">Os jogos saem. Os atletas inscritos permanecem.</p>
-          <div className="mt-4">
-            <ReiniciarTorneio torneioId={torneio.id} />
-          </div>
-        </section>
-      ) : null}
+      <section className="mt-6 rounded-3xl bg-foam p-4 shadow-card">
+        <h2 className="font-display text-2xl text-navy">Reiniciar torneio</h2>
+        <p className="mt-2 text-navy/70">Os jogos saem. A configuração pode ser alterada. Os atletas inscritos permanecem.</p>
+        <div className="mt-4">
+          <ReiniciarTorneio torneioId={torneio.id} />
+        </div>
+      </section>
       {partidas.every((partida) => !["PRONTA", "AGENDADA", "EM_ANDAMENTO", "PAUSADA"].includes(partida.status) || !partida.equipeA || !partida.equipeB) ? (
         <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-navy">
           Nenhuma partida está pronta para receber a vitória. A chave precisa ter os dois adversários definidos.

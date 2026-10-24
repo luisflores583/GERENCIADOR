@@ -3,7 +3,9 @@ import { Botao } from "@/components/botao";
 import { Campo, Entrada, Selecao } from "@/components/campo";
 import { CamposEquipe } from "@/components/campos-equipe";
 import { Formulario } from "@/components/formulario";
+import { EncerrarInscricao } from "@/components/encerrar-inscricao";
 import { MenuTorneio } from "@/components/menu-torneio";
+import { SeloStatus } from "@/components/selo";
 import { AVISO_EQUIPE_NA_CHAVE, equipesDoAtletaNaChave } from "@/lib/chave-da-equipe";
 import { ROTULO_EQUIPE, ROTULO_INSCRICAO, ROTULO_NAIPE, ROTULO_SEXO } from "@/lib/rotulos";
 import {
@@ -36,6 +38,8 @@ export default async function Inscricoes({ params }: { params: Promise<{ id: str
   const atletas = await prisma.atleta.findMany({ orderBy: { nomeCompleto: "asc" } });
   const tamanho = tamanhoDaEquipe(torneio.formato);
   const travado = Boolean(torneio.equipesTravadasEm) || ["EM_ANDAMENTO", "PAUSADO", "FINALIZADO"].includes(torneio.status);
+  const inscricoesEncerradas = torneio.status === "INSCRICOES_ENCERRADAS";
+  const entradaNovaBloqueada = travado || inscricoesEncerradas;
   const ocupados = new Set(
     torneio.inscricoes.filter((item) => item.status === "PENDENTE" || item.status === "APROVADA").map((item) => item.atletaId),
   );
@@ -56,13 +60,29 @@ export default async function Inscricoes({ params }: { params: Promise<{ id: str
   return (
     <div>
       <MenuTorneio id={torneio.id} slug={torneio.slug} />
-      <h1 className="font-display text-4xl text-navy">Inscrições de {torneio.nome}</h1>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="font-display text-4xl text-navy">Inscrições de {torneio.nome}</h1>
+        <SeloStatus status={torneio.status} />
+      </div>
       <p className="mt-2 text-navy/70">
         {torneio.formacao === "SORTEADAS"
           ? "A organização inscreve o atleta neste torneio. A equipe só aparece depois do sorteio confirmado."
           : "Cadastre a equipe só com o nome, ou preencha os integrantes. No cadastro com integrantes, o nome da equipe é opcional."}
       </p>
-      {travado ? (
+      {torneio.status === "INSCRICOES_ABERTAS" ? (
+        <section className="mt-6 rounded-3xl bg-foam p-5 shadow-card">
+          <h2 className="font-display text-2xl text-navy">Encerrar inscrição</h2>
+          <p className="mt-2 text-navy/70">A lista atual permanece. Ninguém novo entra. Quem já está continua, e a inscrição ainda pode ser editada ou excluída.</p>
+          <div className="mt-4">
+            <EncerrarInscricao torneioId={torneio.id} />
+          </div>
+        </section>
+      ) : null}
+      {inscricoesEncerradas ? (
+        <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-amber-950">
+          Inscrições encerradas. A lista atual permanece. Ninguém novo entra.
+        </p>
+      ) : travado ? (
         <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-amber-950">
           Este torneio já começou ou as equipes foram travadas. Novas inscrições ficam bloqueadas.
         </p>
@@ -232,7 +252,7 @@ export default async function Inscricoes({ params }: { params: Promise<{ id: str
               )}
             </article>
           ))}
-          {travado ? null : (
+          {entradaNovaBloqueada ? null : (
             <Formulario acao={acaoCadastrarEquipePorNome} className="rounded-3xl bg-foam p-5 shadow-card">
               <h3 className="font-display text-2xl">Cadastrar equipe só com o nome</h3>
               <p className="text-navy/70">
@@ -245,7 +265,7 @@ export default async function Inscricoes({ params }: { params: Promise<{ id: str
               <Botao type="submit">Gravar equipe</Botao>
             </Formulario>
           )}
-          {travado ? null : (
+          {entradaNovaBloqueada ? null : (
             <Formulario acao={acaoCadastrarEquipe} className="rounded-3xl bg-foam p-5 shadow-card">
               <h3 className="font-display text-2xl">Cadastrar equipe com os integrantes</h3>
               <p className="text-navy/70">

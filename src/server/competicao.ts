@@ -212,8 +212,8 @@ export async function gerarSorteioConfrontos(
   await exigirAdministrador(adminId);
   return trancar(torneioId, async (tx) => {
     const torneio = await tx.torneio.findUniqueOrThrow({ where: { id: torneioId } });
-    if (torneio.status !== "AGUARDANDO_SORTEIO") {
-      throw new ErroDeRegra("Prepare o sorteio antes de gerar os confrontos.");
+    if (torneio.status !== "AGUARDANDO_SORTEIO" && torneio.status !== "INSCRICOES_ENCERRADAS") {
+      throw new ErroDeRegra("Encerre as inscrições ou prepare o sorteio antes de gerar os confrontos.");
     }
     if (await tx.partida.count({ where: { torneioId } })) {
       throw new ErroDeRegra("Os confrontos deste torneio já foram gerados.");

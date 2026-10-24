@@ -22,7 +22,7 @@ Se a porta 3000 já estiver ocupada por outro container, pare esse outro antes. 
 
 O Compose sobe o PostgreSQL 16 e a aplicação. Na primeira partida ele aplica as migrações e carrega o seed de demonstração.
 
-Acesso local de demonstração, exibido na tela de entrada enquanto `EXIBIR_ACESSO_DEMO=true`:
+Acesso local de demonstração, gravado só no seed. A tela de entrada não mostra essas contas:
 
 | Perfil | E-mail | Senha |
 | --- | --- | --- |
@@ -80,9 +80,8 @@ Antes de abrir para outras pessoas:
 
 1. Troque `SESSION_SECRET`, a senha do PostgreSQL e as senhas do seed.
 2. Defina `COOKIE_SECURE=true`.
-3. Defina `EXIBIR_ACESSO_DEMO=false`.
-4. Depois da primeira subida, defina `SEED_ON_START=false` para o seed não rodar de novo a cada reinício.
-5. Aponte o proxy para a porta 3000 e sirva o site só por HTTPS.
+3. Depois da primeira subida, defina `SEED_ON_START=false` para o seed não rodar de novo a cada reinício.
+4. Aponte o proxy para a porta 3000 e sirva o site só por HTTPS.
 
 Cópia de segurança do banco:
 

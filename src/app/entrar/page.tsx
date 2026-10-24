@@ -12,7 +12,6 @@ export default async function Entrar() {
   const usuario = await obterUsuario();
   if (usuario?.papel === "ADMIN") redirect("/admin");
   if (usuario?.papel === "ATLETA") redirect("/atleta");
-  const demo = process.env.EXIBIR_ACESSO_DEMO === "true";
   return (
     <Casco>
       <div className="mx-auto max-w-lg rounded-[2rem] bg-foam p-6 shadow-card">
@@ -27,13 +26,6 @@ export default async function Entrar() {
           </Campo>
           <Botao type="submit">Entrar</Botao>
         </Formulario>
-        {demo ? (
-          <aside className="mt-6 rounded-2xl bg-sand p-4 text-sm text-navy">
-            <p className="font-semibold">Demonstração local</p>
-            <p>Admin: {process.env.SEED_ADMIN_EMAIL} / {process.env.SEED_ADMIN_PASSWORD}</p>
-            <p>Atleta: ana@arena.local / {process.env.SEED_ATHLETE_PASSWORD}</p>
-          </aside>
-        ) : null}
       </div>
     </Casco>
   );

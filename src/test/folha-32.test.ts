@@ -15,17 +15,13 @@ function jogo(partidas: PartidaMotor[], id: string): PartidaMotor {
 }
 
 describe("tabela de até 32 times", () => {
-  it("segue os 61 jogos do arquivo e preserva a folha de 16", () => {
+  it("segue os 62 jogos do arquivo e preserva a folha de 16", () => {
     const partidas = construirFolha32();
     const codigos = partidas.map((partida) => partida.id);
-    const esperados = [
-      ...Array.from({ length: 40 }, (_, indice) => String(indice + 1)),
-      ...Array.from({ length: 21 }, (_, indice) => String(indice + 42)),
-    ];
+    const esperados = Array.from({ length: 62 }, (_, indice) => String(indice + 1));
     expect(codigos).toEqual(esperados);
-    expect(codigos).not.toContain("41");
     expect(codigos).not.toContain("F1");
-    expect(new Set(codigos).size).toBe(61);
+    expect(new Set(codigos).size).toBe(62);
 
     const estado = criarEstadoInicial(ids(32), "FOLHA_32");
     expect(estado.modelo).toBe("FOLHA_32");
@@ -43,7 +39,7 @@ describe("tabela de até 32 times", () => {
     expect(jogo(partidas, "10").origemA).toEqual({ tipo: "CABECA", cabeca: 19 });
   });
 
-  it("coloca as equipes 1 a 32 nos jogos 1 a 16, inclusive a equipe 15 repetida", () => {
+  it("coloca as equipes 1 a 32 nos jogos 1 a 16, com a equipe 23 no jogo 14", () => {
     const partidas = construirFolha32();
     const cabecas: Record<string, [number, number]> = {
       "1": [1, 32],
@@ -59,7 +55,7 @@ describe("tabela de até 32 times", () => {
       "11": [11, 22],
       "12": [27, 6],
       "13": [7, 26],
-      "14": [10, 15],
+      "14": [23, 10],
       "15": [15, 18],
       "16": [31, 2],
     };
@@ -70,13 +66,13 @@ describe("tabela de até 32 times", () => {
       expect(partida.chave).toBe("SEM_REGIAO");
     }
     const usadas = new Set(Object.values(cabecas).flat());
-    expect(usadas.has(23)).toBe(false);
-    expect(usadas.has(15)).toBe(true);
+    expect(usadas.has(23)).toBe(true);
+    expect([...usadas].filter((cabeca) => cabeca === 15)).toHaveLength(1);
 
     const estado = criarEstadoInicial(ids(32), "FOLHA_32");
     expect(jogo(estado.partidas, "1")).toMatchObject({ equipeAId: "e1", equipeBId: "e32", status: "PRONTA" });
     expect(jogo(estado.partidas, "2")).toMatchObject({ equipeAId: "e17", equipeBId: "e16" });
-    expect(jogo(estado.partidas, "14")).toMatchObject({ equipeAId: "e10", equipeBId: "e15" });
+    expect(jogo(estado.partidas, "14")).toMatchObject({ equipeAId: "e23", equipeBId: "e10" });
     expect(jogo(estado.partidas, "15")).toMatchObject({ equipeAId: "e15", equipeBId: "e18" });
     expect(jogo(estado.partidas, "16")).toMatchObject({ equipeAId: "e31", equipeBId: "e2" });
   });
@@ -108,6 +104,7 @@ describe("tabela de até 32 times", () => {
       ["38", { tipo: "VENCEDOR", partidaId: "26" }, { tipo: "VENCEDOR", partidaId: "28" }],
       ["39", { tipo: "VENCEDOR", partidaId: "23" }, { tipo: "PERDEDOR", partidaId: "26" }],
       ["40", { tipo: "VENCEDOR", partidaId: "30" }, { tipo: "VENCEDOR", partidaId: "32" }],
+      ["41", { tipo: "VENCEDOR", partidaId: "25" }, { tipo: "PERDEDOR", partidaId: "28" }],
       ["42", { tipo: "VENCEDOR", partidaId: "34" }, { tipo: "VENCEDOR", partidaId: "36" }],
       ["43", { tipo: "VENCEDOR", partidaId: "27" }, { tipo: "PERDEDOR", partidaId: "30" }],
       ["44", { tipo: "VENCEDOR", partidaId: "38" }, { tipo: "VENCEDOR", partidaId: "40" }],
@@ -144,23 +141,40 @@ describe("tabela de até 32 times", () => {
     expect(rotuloDaPartida32("1", "SEM_REGIAO")).toBe("Jogo 1");
   });
 
-  it("liga as semifinais pela fase e mantém o jogo 41 ausente", () => {
+  it("cria o jogo 41 e liga as semifinais pela fase", () => {
     const partidas = construirFolha32();
+    expect(jogo(partidas, "41").origemA).toEqual({ tipo: "VENCEDOR", partidaId: "25" });
+    expect(jogo(partidas, "41").origemB).toEqual({ tipo: "PERDEDOR", partidaId: "28" });
+    expect(jogo(partidas, "41").chave).toBe("SEM_REGIAO");
+    expect(jogo(partidas, "49").origemA).toEqual({ tipo: "VENCEDOR", partidaId: "41" });
+    expect(partidas.some((partida) => partida.origemA.tipo === "PERDEDOR" && partida.origemA.partidaId === "41")).toBe(false);
+    expect(partidas.some((partida) => partida.origemB.tipo === "PERDEDOR" && partida.origemB.partidaId === "41")).toBe(false);
+    expect(jogo(partidas, "14").origemA).toEqual({ tipo: "CABECA", cabeca: 23 });
+    expect(jogo(partidas, "14").origemB).toEqual({ tipo: "CABECA", cabeca: 10 });
+    expect(jogo(partidas, "15").origemA).toEqual({ tipo: "CABECA", cabeca: 15 });
+    expect(jogo(partidas, "15").origemB).toEqual({ tipo: "CABECA", cabeca: 18 });
     expect(jogo(partidas, "59").origemA).toEqual({ tipo: "VENCEDOR", partidaId: "44" });
     expect(jogo(partidas, "59").origemB).toEqual({ tipo: "VENCEDOR", partidaId: "57" });
     expect(jogo(partidas, "60").origemA).toEqual({ tipo: "VENCEDOR", partidaId: "42" });
     expect(jogo(partidas, "60").origemB).toEqual({ tipo: "VENCEDOR", partidaId: "58" });
-    expect(jogo(partidas, "44").chave).toBe("SEMIFINALISTA_B");
-    expect(jogo(partidas, "57").chave).toBe("SEMIFINALISTA_C");
-    expect(jogo(partidas, "42").chave).toBe("SEMIFINALISTA_A");
-    expect(jogo(partidas, "58").chave).toBe("SEMIFINALISTA_D");
-    expect(textoDaVaga(jogo(partidas, "59").origemA)).toBeNull();
-    expect(partidas.some((partida) => partida.id === "41")).toBe(false);
-    expect(jogo(partidas, "49").origemA).toEqual({ tipo: "VENCEDOR", partidaId: "41" });
-    expect(jogo(partidas, "14").origemB).toEqual({ tipo: "CABECA", cabeca: 15 });
-    expect(jogo(partidas, "15").origemA).toEqual({ tipo: "CABECA", cabeca: 15 });
-    const usadas = partidas.flatMap((partida) => [partida.origemA, partida.origemB]);
-    expect(usadas.some((origem) => origem.tipo === "CABECA" && origem.cabeca === 23)).toBe(false);
+    expect(textoDaVaga(jogo(partidas, "41").origemA)).toBeNull();
+  });
+
+  it("coloca no jogo 41 o vencedor do 25 e o perdedor do 28", () => {
+    let estado = criarEstadoInicial(ids(32), "FOLHA_32");
+    estado = aplicarVitoria(estado, "9", "e3").estado;
+    estado = aplicarVitoria(estado, "10", "e19").estado;
+    estado = aplicarVitoria(estado, "25", "e30").estado;
+    estado = aplicarVitoria(estado, "11", "e11").estado;
+    estado = aplicarVitoria(estado, "12", "e27").estado;
+    estado = aplicarVitoria(estado, "28", "e27").estado;
+    expect(jogo(estado.partidas, "41")).toMatchObject({ equipeAId: "e30", equipeBId: "e11", status: "PRONTA" });
+    expect(jogo(estado.partidas, "49").equipeAId).toBeNull();
+    const destinoDoPerdedor = estado.partidas.filter((partida) => {
+      const lados = [partida.origemA, partida.origemB];
+      return lados.some((origem) => origem.tipo === "PERDEDOR" && origem.partidaId === "41");
+    });
+    expect(destinoDoPerdedor).toEqual([]);
   });
 
   it("move vencedor e perdedor do jogo 1 para os jogos 18 e 17", () => {

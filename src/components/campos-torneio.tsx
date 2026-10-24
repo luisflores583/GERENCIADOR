@@ -71,7 +71,7 @@ export function CamposTorneio({
         </Selecao>
         {v.travado ? <input type="hidden" name="naipe" value={v.naipe} /> : null}
       </Campo>
-      <Campo id="modeloChave" rotulo="Tabela" dica="A tabela de até 16 times usa os jogos 1 a 30. A de até 32 times usa os jogos 1 a 62 do arquivo, sem o jogo 41. A chave automática vale para os outros torneios.">
+      <Campo id="modeloChave" rotulo="Tabela" dica="A tabela de até 16 times usa os jogos 1 a 30. A de até 32 times usa os jogos 1 a 62 do arquivo, com o jogo 41. A chave automática vale para os outros torneios.">
         <Selecao id="modeloChave" name="modeloChave" defaultValue={v.modeloChave ?? "FOLHA_16"} disabled={v.travado}>
           <option value="FOLHA_16">Tabela de até 16 times</option>
           <option value="FOLHA_32">Tabela de até 32 times</option>

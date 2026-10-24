@@ -1,0 +1,9 @@
+node_modules
+.next
+.git
+.env
+.env.local
+coverage
+*.log
+public/uploads/*
+!public/uploads/.gitkeep

@@ -71,4 +71,5 @@ export const ROTULO_EQUIPE = {
 export const ROTULO_MODELO = {
   GENERICA: "Chave automática",
   FOLHA_16: "Tabela de até 16 times",
+  FOLHA_32: "Tabela de até 32 times",
 } as const;

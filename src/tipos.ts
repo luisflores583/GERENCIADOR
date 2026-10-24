@@ -40,6 +40,8 @@ export type PartidaResumo = {
   inicioEm: string | null;
   fimEm: string | null;
   aguardandoAdversario: boolean;
+  vagaA?: string | null;
+  vagaB?: string | null;
 };
 
 export type PainelDTO = {
@@ -81,7 +83,7 @@ export type PainelDTO = {
   classificacao: Array<EquipeResumo & { posicao: number }>;
   campeao: string | null;
   vice: string | null;
-  modeloChave: "GENERICA" | "FOLHA_16";
+  modeloChave: "GENERICA" | "FOLHA_16" | "FOLHA_32";
   campeaoOuro: string | null;
   campeaoPrata: string | null;
   atualizadoEm: string;

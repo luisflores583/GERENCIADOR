@@ -8,6 +8,7 @@ import { SeloPartida } from "@/components/selo";
 import { formatarDataHora } from "@/lib/formatacao";
 import { nomeDaFase, rodadasDaChaveDeVencedores } from "@/engine/dupla-eliminacao";
 import { rotuloDaPartida } from "@/engine/folha-16";
+import { rotuloDaPartida32, textoDaVaga } from "@/engine/folha-32";
 import { ROTULO_PARTIDA } from "@/lib/rotulos";
 import {
   acaoConfirmarPlacar,
@@ -94,10 +95,12 @@ export default async function Jogos({ params }: { params: Promise<{ id: string }
                     <p className="text-sm font-semibold text-ocean">
                       {torneio.modeloChave === "FOLHA_16"
                         ? rotuloDaPartida(partida.codigo, partida.chave)
-                        : `${nomeDaFase(partida.chave, partida.rodada, rodadas)} · ${partida.codigo}`}
+                        : torneio.modeloChave === "FOLHA_32"
+                          ? rotuloDaPartida32(partida.codigo, partida.chave)
+                          : `${nomeDaFase(partida.chave, partida.rodada, rodadas)} · ${partida.codigo}`}
                     </p>
                     <h2 className="text-2xl font-bold">
-                      {nomeDoLado(partida.equipeA?.nome, partida.status)} x {nomeDoLado(partida.equipeB?.nome, partida.status)}
+                      {nomeDoLado(partida.equipeA?.nome, partida.status, textoDaVaga(partida.origemA))} x {nomeDoLado(partida.equipeB?.nome, partida.status, textoDaVaga(partida.origemB))}
                     </h2>
                     <p className="text-sm text-navy/70">
                       {partida.quadra?.nome ?? "Sem quadra"}
@@ -221,8 +224,9 @@ function vencedorAtual(partida: {
   return null;
 }
 
-function nomeDoLado(nome: string | null | undefined, status: string) {
+function nomeDoLado(nome: string | null | undefined, status: string, vaga?: string | null) {
   if (nome) return nome;
+  if (vaga) return vaga;
   return status === "BYE" || status === "VAZIA" || status === "NAO_NECESSARIA" ? "Folga" : "Aguardando adversário";
 }
 

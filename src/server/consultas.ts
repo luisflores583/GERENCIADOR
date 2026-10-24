@@ -1,6 +1,7 @@
 import { campanhaDaEquipe, situacaoDaEquipe, type SituacaoEquipe } from "@/engine/classificacao";
 import { nomeDaFase, rodadasDaChaveDeVencedores } from "@/engine/dupla-eliminacao";
 import { rotuloDaPartida } from "@/engine/folha-16";
+import { rotuloDaPartida32, textoDaVaga } from "@/engine/folha-32";
 import { prisma } from "@/server/db";
 import type { EquipeResumo, PainelDTO, PartidaResumo } from "@/tipos";
 
@@ -83,9 +84,13 @@ export async function montarPainel(slug: string): Promise<PainelDTO | null> {
       fase:
         torneio.modeloChave === "FOLHA_16"
           ? rotuloDaPartida(partida.codigo, partida.chave)
-          : nomeDaFase(partida.chave, partida.rodada, rodadas),
+          : torneio.modeloChave === "FOLHA_32"
+            ? rotuloDaPartida32(partida.codigo, partida.chave)
+            : nomeDaFase(partida.chave, partida.rodada, rodadas),
       equipeA: resumoEquipe(partida.equipeAId),
       equipeB: resumoEquipe(partida.equipeBId),
+      vagaA: textoDaVaga(partida.origemA),
+      vagaB: textoDaVaga(partida.origemB),
       placarA: partida.placarA,
       placarB: partida.placarB,
       vencedorId: partida.vencedorId,

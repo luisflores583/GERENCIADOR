@@ -41,18 +41,19 @@ export default async function Sorteio({ params }: { params: Promise<{ id: string
   let previaChave: { codigo: string; a: string; b: string }[] = [];
   const ordem = resultadoConfrontos?.equipes;
   if (rascunhoConfrontos && ordem) {
-    if (torneio.modeloChave === "FOLHA_16" && ordem.length > 16) {
+    const folhaNumerada = torneio.modeloChave === "FOLHA_16" || torneio.modeloChave === "FOLHA_32";
+    if (folhaNumerada && ordem.length > 16) {
       previaChave = [];
     } else {
       const estado = criarEstadoInicial(ordem, torneio.modeloChave);
       previaChave = estado.partidas
         .filter((partida) =>
-          torneio.modeloChave === "FOLHA_16"
+          folhaNumerada
             ? Number(partida.id) >= 1 && Number(partida.id) <= 8
             : partida.chave === "VENCEDORES" && partida.rodada === 1 && partida.status !== "VAZIA",
         )
         .map((partida) => ({
-          codigo: torneio.modeloChave === "FOLHA_16" ? `Jogo ${partida.id}` : partida.id,
+          codigo: folhaNumerada ? `Jogo ${partida.id}` : partida.id,
           a: partida.equipeAId ? (porId.get(partida.equipeAId) ?? "Folga") : "Folga",
           b: partida.equipeBId ? (porId.get(partida.equipeBId) ?? "Folga") : "Folga",
         }));
@@ -113,6 +114,10 @@ export default async function Sorteio({ params }: { params: Promise<{ id: string
         {torneio.modeloChave === "FOLHA_16" ? (
           <p className="mt-2 text-navy/75">
             Este torneio usa a tabela de até 16 times. A posição 1 do ranking é a cabeça 1 e a posição 16 é a cabeça 16. O jogo 1 é 1 contra 16, o jogo 2 é 9 contra 8, o jogo 3 é 5 contra 12, o jogo 4 é 4 contra 13, o jogo 5 é 3 contra 14, o jogo 6 é 6 contra 11, o jogo 7 é 7 contra 10 e o jogo 8 é 15 contra 2.
+          </p>
+        ) : torneio.modeloChave === "FOLHA_32" ? (
+          <p className="mt-2 text-navy/75">
+            Este torneio usa a tabela de até 32 times. A posição 1 do ranking é a equipe 1 e a posição 16 é a equipe 16. O jogo 1 é 1 contra 16, o jogo 2 é 9 contra 8, o jogo 3 é 5 contra 12, o jogo 4 é 4 contra 13, o jogo 5 é 3 contra 14, o jogo 6 é 6 contra 11, o jogo 7 é 7 contra 10 e o jogo 8 é 15 contra 2.
           </p>
         ) : (
           <p className="mt-2 text-navy/75">

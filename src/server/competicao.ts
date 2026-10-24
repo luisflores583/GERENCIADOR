@@ -3,7 +3,9 @@ import { Prisma, type Partida } from "@prisma/client";
 import {
   criarEstadoInicial,
   planejarCorrecaoDeVencedor,
+  recusarAcimaDaFolha,
   reexecutar,
+  type ModeloChave,
   type ResultadoRegistrado,
 } from "@/engine/dupla-eliminacao";
 import { validarTrocaDeQuadra, type PartidaOperacional, type QuadraOperacional } from "@/engine/quadras";
@@ -16,12 +18,20 @@ import { prisma } from "@/server/db";
 
 const ALGORITMO_CHAVE = `${ALGORITMO_SORTEIO}+dupla-eliminacao-v1`;
 const ALGORITMO_FOLHA_16 = `${ALGORITMO_SORTEIO}+folha-16-v1`;
+const ALGORITMO_FOLHA_32 = `${ALGORITMO_SORTEIO}+folha-32-v1`;
 const ALGORITMO_RANKING_CHAVE = "ranking-v1+dupla-eliminacao-v1";
 const ALGORITMO_RANKING_FOLHA_16 = "ranking-v1+folha-16-v1";
+const ALGORITMO_RANKING_FOLHA_32 = "ranking-v1+folha-32-v1";
 
-function algoritmoDasVagas(modelo: "GENERICA" | "FOLHA_16", modo: ModoVagas): string {
-  if (modo === "RANKING") return modelo === "FOLHA_16" ? ALGORITMO_RANKING_FOLHA_16 : ALGORITMO_RANKING_CHAVE;
-  return modelo === "FOLHA_16" ? ALGORITMO_FOLHA_16 : ALGORITMO_CHAVE;
+function algoritmoDasVagas(modelo: ModeloChave, modo: ModoVagas): string {
+  if (modo === "RANKING") {
+    if (modelo === "FOLHA_16") return ALGORITMO_RANKING_FOLHA_16;
+    if (modelo === "FOLHA_32") return ALGORITMO_RANKING_FOLHA_32;
+    return ALGORITMO_RANKING_CHAVE;
+  }
+  if (modelo === "FOLHA_16") return ALGORITMO_FOLHA_16;
+  if (modelo === "FOLHA_32") return ALGORITMO_FOLHA_32;
+  return ALGORITMO_CHAVE;
 }
 
 function extrairResultados(partidas: Partida[]): ResultadoRegistrado[] {
@@ -216,9 +226,7 @@ export async function gerarSorteioConfrontos(
       orderBy: { criadaEm: "asc" },
     });
     if (equipes.length < 2) throw new ErroDeRegra("São necessárias pelo menos duas equipes confirmadas.");
-    if (torneio.modeloChave === "FOLHA_16" && equipes.length > 16) {
-      throw new ErroDeRegra("A tabela de até 16 times aceita no máximo 16 equipes. A tabela de 32 times não entra neste torneio.");
-    }
+    recusarAcimaDaFolha(torneio.modeloChave, equipes.length);
     const modo: ModoVagas = pedido?.modo === "RANKING" ? "RANKING" : "ALEATORIO";
     const valor = sementeDe(semente);
     let base = equipes;
@@ -360,7 +368,7 @@ async function garantirQuadra(tx: Tx, torneio: { id: string; nome: string }) {
 
 async function gravarChaveEIniciar(
   tx: Tx,
-  torneio: { id: string; modeloChave: "GENERICA" | "FOLHA_16"; equipesTravadasEm: Date | null; slug: string },
+  torneio: { id: string; modeloChave: ModeloChave; equipesTravadasEm: Date | null; slug: string },
   ordem: string[],
   sorteioId: string,
 ) {
@@ -371,9 +379,7 @@ async function gravarChaveEIniciar(
   for (let indice = 0; indice < ordem.length; indice++) {
     await tx.equipe.update({ where: { id: ordem[indice] }, data: { cabeca: indice + 1 } });
   }
-  if (torneio.modeloChave === "FOLHA_16" && ordem.length > 16) {
-    throw new ErroDeRegra("A tabela de até 16 times aceita no máximo 16 equipes. A tabela de 32 times não entra neste torneio.");
-  }
+  recusarAcimaDaFolha(torneio.modeloChave, ordem.length);
   const estado = criarEstadoInicial(ordem, torneio.modeloChave);
   await sincronizarChave(tx, torneio.id, estado);
   await tx.sorteio.update({

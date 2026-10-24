@@ -213,9 +213,9 @@ function Bloco({ titulo, partidas, vazio }: { titulo: string; partidas: PartidaR
               <SeloPartida status={partida.status} />
             </div>
             <p className="mt-2 text-lg font-bold">
-              {partida.equipeA?.nome ?? "Aguardando adversário"}{" "}
+              {partida.equipeA?.nome ?? partida.vagaA ?? "Aguardando adversário"}{" "}
               <span className="tabular-nums">{textoDoPlacar(partida)}</span>{" "}
-              {partida.equipeB?.nome ?? "Aguardando adversário"}
+              {partida.equipeB?.nome ?? partida.vagaB ?? "Aguardando adversário"}
             </p>
             <p className="text-sm text-navy/70">{partida.quadra ?? "Quadra a definir"}</p>
           </li>

@@ -48,11 +48,12 @@ function Cartao({ partida }: { partida: PartidaResumo }) {
           },
           equipe?.id ?? null,
         );
+        const vaga = indice === 0 ? partida.vagaA : partida.vagaB;
         return (
           <div key={indice} className={`mt-2 flex items-center justify-between gap-2 rounded-2xl px-3 py-2 ${venceu || avancou ? "bg-emerald-50" : "bg-white"}`}>
             <div className="min-w-0">
               <p className={`truncate font-semibold ${equipe?.situacao === "ELIMINADA" && !avancou ? "text-stone-500 line-through" : "text-navy"}`}>
-                {equipe?.nome ?? (partida.aguardandoAdversario ? "Aguardando adversário" : "Folga")}
+                {equipe?.nome ?? vaga ?? (partida.aguardandoAdversario ? "Aguardando adversário" : "Folga")}
               </p>
               {equipe && !avancou ? <SeloSituacao situacao={equipe.situacao} /> : null}
             </div>

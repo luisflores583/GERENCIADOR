@@ -23,6 +23,11 @@ export default async function Encerramento({ params }: { params: Promise<{ id: s
           <p>{painel.campeaoOuro ? `Campeão da série Ouro: ${painel.campeaoOuro}.` : "A série Ouro ainda não tem campeão."}</p>
           <p>{painel.campeaoPrata ? `Campeã da série Prata: ${painel.campeaoPrata}.` : "A série Prata ainda não tem campeã."}</p>
         </div>
+      ) : painel.modeloChave === "FOLHA_32" ? (
+        <div className="mt-3 space-y-2 text-2xl">
+          <p>Jogo 29 · Disputa de 3º lugar.</p>
+          <p>Jogo 30 · Final.</p>
+        </div>
       ) : painel.campeao ? (
         <p className="mt-3 text-2xl">Campeã: {painel.campeao}. Vice: {painel.vice}.</p>
       ) : (

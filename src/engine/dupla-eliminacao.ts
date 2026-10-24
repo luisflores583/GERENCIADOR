@@ -1,8 +1,9 @@
 import { ErroDeRegra } from "@/lib/erros";
 import { construirFolha16, LIMITE_FOLHA_16 } from "@/engine/folha-16";
+import { construirFolha32, LIMITE_FOLHA_32 } from "@/engine/folha-32";
 import { validarPlacar, type RegrasPlacar } from "@/engine/placar";
 
-export type ModeloChave = "GENERICA" | "FOLHA_16";
+export type ModeloChave = "GENERICA" | "FOLHA_16" | "FOLHA_32";
 
 export type LadoChave =
   | "VENCEDORES"
@@ -28,7 +29,21 @@ export type Origem =
   | { tipo: "CABECA"; cabeca: number }
   | { tipo: "BYE" }
   | { tipo: "VENCEDOR"; partidaId: string }
-  | { tipo: "PERDEDOR"; partidaId: string };
+  | { tipo: "PERDEDOR"; partidaId: string }
+  | { tipo: "SEM_PONTEIRO"; rotulo: string };
+
+function folhaFixa(modelo: ModeloChave): boolean {
+  return modelo === "FOLHA_16" || modelo === "FOLHA_32";
+}
+
+export function recusarAcimaDaFolha(modelo: ModeloChave, quantidade: number): void {
+  if (modelo === "FOLHA_16" && quantidade > LIMITE_FOLHA_16) {
+    throw new ErroDeRegra("A tabela de até 16 times aceita no máximo 16 equipes.");
+  }
+  if (modelo === "FOLHA_32" && quantidade > LIMITE_FOLHA_32) {
+    throw new ErroDeRegra("A tabela de até 32 times aceita no máximo 16 equipes, nas vagas 1 a 16 do arquivo.");
+  }
+}
 
 export interface PartidaMotor {
   id: string;
@@ -224,6 +239,7 @@ function mapa(partidas: PartidaMotor[]): Map<string, PartidaMotor> {
 }
 
 function resolverOrigem(origem: Origem, partidas: Map<string, PartidaMotor>, equipesIds: string[]): Resolvido {
+  if (origem.tipo === "SEM_PONTEIRO") return { tipo: "PENDENTE" };
   if (origem.tipo === "BYE") return { tipo: "BYE" };
   if (origem.tipo === "CABECA") {
     if (origem.cabeca > equipesIds.length) return { tipo: "BYE" };
@@ -415,7 +431,7 @@ export function auditarEstado(estado: EstadoChave): void {
     throw new ErroDeRegra(`As derrotas (${somaDerrotas}) não correspondem às partidas concluídas (${concluidas}).`);
   }
 
-  if (estado.modelo !== "FOLHA_16") {
+  if (!folhaFixa(estado.modelo)) {
     for (const equipeId of estado.equipesIds) {
       const derrotas = estado.derrotas[equipeId] ?? 0;
       if (derrotas >= 2 && abertas.has(equipeId)) {
@@ -432,7 +448,7 @@ export function auditarEstado(estado: EstadoChave): void {
     }
   }
 
-  if (estado.modelo === "FOLHA_16") return;
+  if (folhaFixa(estado.modelo)) return;
 
   const final = estado.partidas.find((partida) => partida.id === "F1");
   const extra = estado.partidas.find((partida) => partida.id === "F2");
@@ -536,9 +552,7 @@ export function criarEstadoInicial(equipesIds: readonly string[], modelo: Modelo
   if (equipesIds.length < 2) {
     throw new ErroDeRegra("São necessárias pelo menos duas equipes confirmadas para o sorteio.");
   }
-  if (modelo === "FOLHA_16" && equipesIds.length > LIMITE_FOLHA_16) {
-    throw new ErroDeRegra("A tabela de até 16 times aceita no máximo 16 equipes. A tabela de 32 times não entra neste torneio.");
-  }
+  recusarAcimaDaFolha(modelo, equipesIds.length);
   if (modelo === "GENERICA" && equipesIds.length > 128) {
     throw new ErroDeRegra("Este chaveamento aceita no máximo 128 equipes.");
   }
@@ -549,7 +563,8 @@ export function criarEstadoInicial(equipesIds: readonly string[], modelo: Modelo
   const estado: EstadoChave = {
     modelo,
     equipesIds: [...equipesIds],
-    partidas: modelo === "FOLHA_16" ? construirFolha16() : construirPartidas(equipesIds.length),
+    partidas:
+      modelo === "FOLHA_16" ? construirFolha16() : modelo === "FOLHA_32" ? construirFolha32() : construirPartidas(equipesIds.length),
     vitorias: {},
     derrotas: {},
     completa: false,

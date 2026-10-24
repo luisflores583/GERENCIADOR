@@ -4,6 +4,7 @@ import { Botao } from "@/components/botao";
 import { CamposTorneio } from "@/components/campos-torneio";
 import { Formulario } from "@/components/formulario";
 import { ExcluirTorneio } from "@/components/excluir-torneio";
+import { ReiniciarTorneio } from "@/components/reiniciar-torneio";
 import { IniciarTorneio } from "@/components/iniciar-torneio";
 import { MenuTorneio } from "@/components/menu-torneio";
 import { SeloStatus } from "@/components/selo";
@@ -91,11 +92,12 @@ export default async function VisaoTorneio({ params }: { params: Promise<{ id: s
         <Botao type="submit">Salvar alterações</Botao>
       </Formulario>
       <section className="mt-8 rounded-[2rem] bg-foam p-6 shadow-card">
-        <h2 className="font-display text-2xl text-navy">Excluir torneio</h2>
+        <h2 className="font-display text-2xl text-navy">Reiniciar ou excluir</h2>
         <p className="mt-2 text-navy/70">
-          Apaga este torneio e o que é dele. Atletas e quadras da arena permanecem.
+          Reiniciar tira os jogos, os resultados, a classificação e a chave. As equipes e os atletas inscritos permanecem, prontos para um novo sorteio. Excluir apaga este torneio e o que é dele. Atletas e quadras da arena permanecem.
         </p>
-        <div className="mt-4">
+        <div className="mt-4 grid items-start gap-6 lg:grid-cols-2">
+          <ReiniciarTorneio torneioId={torneio.id} />
           <ExcluirTorneio torneioId={torneio.id} nome={torneio.nome} />
         </div>
       </section>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ExcluirTorneio } from "@/components/excluir-torneio";
+import { ReiniciarTorneio } from "@/components/reiniciar-torneio";
 import { SeloStatus } from "@/components/selo";
 import { formatarData } from "@/lib/formatacao";
 import { prisma } from "@/server/db";
@@ -53,7 +54,8 @@ export default async function PainelAdmin() {
                 Configurar
               </Link>
             </div>
-            <div className="mt-4 border-t border-navy/10 pt-4">
+            <div className="mt-4 grid items-start gap-6 border-t border-navy/10 pt-4 lg:grid-cols-2">
+              <ReiniciarTorneio torneioId={torneio.id} />
               <ExcluirTorneio torneioId={torneio.id} nome={torneio.nome} />
             </div>
           </article>

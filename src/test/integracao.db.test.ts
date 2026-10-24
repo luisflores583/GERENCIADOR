@@ -146,4 +146,57 @@ describe.skipIf(!rodar)("integração com o banco", () => {
     expect(await prisma.equipe.count({ where: { torneioId: sorteado.id } })).toBe(0);
     expect(await prisma.inscricao.count({ where: { torneioId: sorteado.id, status: "APROVADA" } })).toBe(5);
   });
+
+  it("reinicia a chave e preserva atletas e equipes", async () => {
+    const { criarTorneio, reiniciarTorneio } = await import("@/server/torneios");
+    const { cadastrarEquipeSomenteComNome, inscreverAtletaDireto } = await import("@/server/inscricoes");
+    const { confirmarResultado, iniciarTorneio } = await import("@/server/competicao");
+
+    const admin = await usuario(`${prefixo}-reinicio-admin@arena.local`, "ADMIN", "Admin reinicio");
+    const atleta = await usuario(`${prefixo}-reinicio-ana@arena.local`, "ATLETA", "Ana Reinicio");
+    const torneio = await criarTorneio(admin.id, {
+      nome: `${prefixo} reinicio`,
+      descricao: "",
+      regulamento: "",
+      inicioEm: "2026-11-20T09:00",
+      local: "Quadra reinicio",
+      formato: "DUPLA",
+      formacao: "PRE_FORMADAS",
+      naipe: "MASCULINO",
+      modeloChave: "GENERICA",
+      maxAtletas: "",
+      inscricoesAte: "2026-12-20T18:00",
+      valorReais: "",
+      pontosParaVencer: "21",
+      diferencaMinima: "2",
+      pontosMaximos: "",
+      quadrasSimultaneas: "1",
+      descansoMinutos: "0",
+      permitirEquipeIncompleta: false,
+      corDestaque: "#e36a3a",
+      nomeOrganizador: "Teste",
+    });
+    criados.torneios.push(torneio.id);
+    const sol = await cadastrarEquipeSomenteComNome(admin.id, torneio.id, "Dupla Sol");
+    await cadastrarEquipeSomenteComNome(admin.id, torneio.id, "Dupla Mar");
+    await inscreverAtletaDireto(admin.id, torneio.id, atleta.atleta!.id);
+    await iniciarTorneio(admin.id, torneio.id);
+    const partida = await prisma.partida.findFirstOrThrow({
+      where: { torneioId: torneio.id, equipeAId: { not: null }, equipeBId: { not: null } },
+    });
+    await confirmarResultado(admin.id, partida.id, partida.equipeAId!);
+
+    const reiniciado = await reiniciarTorneio(admin.id, torneio.id);
+    expect(reiniciado.status).toBe("AGUARDANDO_SORTEIO");
+    expect(reiniciado.iniciadoEm).toBeNull();
+    expect(reiniciado.campeaoEquipeId).toBeNull();
+    expect(await prisma.partida.count({ where: { torneioId: torneio.id } })).toBe(0);
+    expect(await prisma.historicoResultado.count({ where: { torneioId: torneio.id } })).toBe(0);
+    expect(await prisma.inscricao.count({ where: { torneioId: torneio.id, atletaId: atleta.atleta!.id, status: "APROVADA" } })).toBe(1);
+    const equipes = await prisma.equipe.findMany({ where: { torneioId: torneio.id }, orderBy: { nome: "asc" } });
+    expect(equipes.map((equipe) => equipe.nome)).toEqual(["Dupla Mar", "Dupla Sol"]);
+    expect(equipes.every((equipe) => equipe.vitorias === 0 && equipe.derrotas === 0 && equipe.cabeca === null && equipe.status === "CONFIRMADA")).toBe(true);
+    expect(equipes.find((equipe) => equipe.id === sol.id)?.nome).toBe("Dupla Sol");
+    expect(await prisma.sorteio.count({ where: { torneioId: torneio.id, tipo: "CONFRONTOS", status: { in: ["RASCUNHO", "CONFIRMADO"] } } })).toBe(0);
+  });
 });

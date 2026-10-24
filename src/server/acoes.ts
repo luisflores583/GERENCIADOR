@@ -16,7 +16,7 @@ import { erroZod, esquemaCadastro, esquemaEdicaoInscricao, esquemaInscricaoDiret
 import { conferirSenha, gerarHash } from "@/server/senha";
 import { criarSessao, encerrarSessao, exigirAdmin, exigirAtleta } from "@/server/sessao";
 import { prisma } from "@/server/db";
-import { alterarStatus, atualizarTorneio, criarTorneio, excluirTorneio } from "@/server/torneios";
+import { alterarStatus, atualizarTorneio, criarTorneio, excluirTorneio, reiniciarTorneio } from "@/server/torneios";
 import {
   adicionarMembro,
   aprovarEquipe,
@@ -277,6 +277,20 @@ export async function acaoExcluirTorneio(_estado: EstadoAcao, form: FormData): P
     revalidatePath("/atleta");
     publicar(torneio.id, "exclusao");
     redirect("/admin");
+  } catch (erro) {
+    return falha(erro);
+  }
+}
+
+export async function acaoReiniciarTorneio(_estado: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+  try {
+    const admin = await exigirAdmin();
+    if (!marcar(form, "confirmo")) {
+      return { ok: false, erro: "Confirme o reinício. Os jogos saem e os atletas inscritos permanecem." };
+    }
+    const torneio = await reiniciarTorneio(admin.id, texto(form, "torneioId"));
+    atualizarTelas(torneio, "reinicio");
+    return { ok: true, mensagem: "Torneio reiniciado. Os jogos saíram. Os atletas inscritos permanecem." };
   } catch (erro) {
     return falha(erro);
   }

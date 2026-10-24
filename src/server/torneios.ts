@@ -145,6 +145,50 @@ export async function excluirTorneio(adminId: string, torneioId: string) {
   });
 }
 
+export async function reiniciarTorneio(adminId: string, torneioId: string) {
+  await exigirAdministrador(adminId);
+  return trancar(torneioId, async (tx) => {
+    const torneio = await tx.torneio.findUnique({ where: { id: torneioId } });
+    if (!torneio) throw new ErroDeRegra("Torneio não encontrado.", 404);
+    const partidas = await tx.partida.count({ where: { torneioId } });
+    const jaComecou = ["EM_ANDAMENTO", "PAUSADO", "FINALIZADO"].includes(torneio.status);
+    if (partidas === 0 && !jaComecou) {
+      throw new ErroDeRegra("Este torneio ainda não tem jogos para reiniciar.");
+    }
+    await tx.torneio.update({
+      where: { id: torneioId },
+      data: {
+        campeaoEquipeId: null,
+        viceEquipeId: null,
+        campeaoOuroEquipeId: null,
+        campeaoPrataEquipeId: null,
+      },
+    });
+    await tx.historicoResultado.deleteMany({ where: { torneioId } });
+    await tx.partida.deleteMany({ where: { torneioId } });
+    await tx.sorteio.updateMany({
+      where: { torneioId, tipo: "CONFRONTOS", status: { in: ["RASCUNHO", "CONFIRMADO"] } },
+      data: { status: "DESCARTADO" },
+    });
+    await tx.equipe.updateMany({
+      where: { torneioId, status: { in: ["ELIMINADA", "CAMPEA", "VICE", "CAMPEA_OURO", "CAMPEA_PRATA"] } },
+      data: { status: "CONFIRMADA" },
+    });
+    await tx.equipe.updateMany({
+      where: { torneioId },
+      data: { vitorias: 0, derrotas: 0, cabeca: null },
+    });
+    return tx.torneio.update({
+      where: { id: torneioId },
+      data: {
+        status: "AGUARDANDO_SORTEIO",
+        iniciadoEm: null,
+        finalizadoEm: null,
+      },
+    });
+  });
+}
+
 export async function alterarStatus(adminId: string, torneioId: string, acao: string) {
   await exigirAdministrador(adminId);
   return trancar(torneioId, async (tx) => {

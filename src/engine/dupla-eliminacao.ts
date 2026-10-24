@@ -41,8 +41,21 @@ export function recusarAcimaDaFolha(modelo: ModeloChave, quantidade: number): vo
     throw new ErroDeRegra("A tabela de até 16 times aceita no máximo 16 equipes.");
   }
   if (modelo === "FOLHA_32" && quantidade > LIMITE_FOLHA_32) {
-    throw new ErroDeRegra("A tabela de até 32 times aceita no máximo 16 equipes, nas vagas 1 a 16 do arquivo.");
+    throw new ErroDeRegra("A tabela de até 32 times aceita no máximo 32 equipes.");
   }
+}
+
+function repetidaPelaMesmaCabeca(estado: EstadoChave, equipeId: string, partidasAbertas: readonly string[]): boolean {
+  if (estado.modelo !== "FOLHA_32") return false;
+  const cabeca = estado.equipesIds.indexOf(equipeId) + 1;
+  if (cabeca <= 0) return false;
+  const porId = new Map(estado.partidas.map((partida) => [partida.id, partida]));
+  return partidasAbertas.every((id) => {
+    const partida = porId.get(id);
+    if (!partida) return false;
+    const origem = partida.equipeAId === equipeId ? partida.origemA : partida.origemB;
+    return origem.tipo === "CABECA" && origem.cabeca === cabeca;
+  });
 }
 
 export interface PartidaMotor {
@@ -443,7 +456,7 @@ export function auditarEstado(estado: EstadoChave): void {
   }
 
   for (const [equipeId, partidas] of abertas) {
-    if (partidas.length > 1) {
+    if (partidas.length > 1 && !repetidaPelaMesmaCabeca(estado, equipeId, partidas)) {
       throw new ErroDeRegra(`A equipe ${equipeId} está em mais de uma partida ao mesmo tempo: ${partidas.join(", ")}.`);
     }
   }

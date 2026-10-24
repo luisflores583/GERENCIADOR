@@ -25,8 +25,8 @@ export default async function Encerramento({ params }: { params: Promise<{ id: s
         </div>
       ) : painel.modeloChave === "FOLHA_32" ? (
         <div className="mt-3 space-y-2 text-2xl">
-          <p>Jogo 29 · Disputa de 3º lugar.</p>
-          <p>Jogo 30 · Final.</p>
+          <p>Jogo 61 · Finais.</p>
+          <p>Jogo 62 · Finais.</p>
         </div>
       ) : painel.campeao ? (
         <p className="mt-3 text-2xl">Campeã: {painel.campeao}. Vice: {painel.vice}.</p>

@@ -1,7 +1,6 @@
 import type { LadoChave, Origem, PartidaMotor } from "@/engine/dupla-eliminacao";
 
-export const LIMITE_FOLHA_32 = 16;
-export const JOGOS_FOLHA_32 = 30;
+export const LIMITE_FOLHA_32 = 32;
 
 function cabeca(numero: number): Origem {
   return { tipo: "CABECA", cabeca: numero };
@@ -28,37 +27,78 @@ type Definicao = {
   origemB: Origem;
 };
 
+function jogo(
+  id: string,
+  chave: LadoChave,
+  origemA: Origem,
+  origemB: Origem,
+): Definicao {
+  const numero = Number(id);
+  return { id, chave, rodada: numero <= 16 ? 1 : 2, posicao: numero, origemA, origemB };
+}
+
 const DEFINICOES: Definicao[] = [
-  { id: "1", chave: "VENCEDORES", rodada: 1, posicao: 1, origemA: cabeca(1), origemB: cabeca(16) },
-  { id: "2", chave: "VENCEDORES", rodada: 1, posicao: 2, origemA: cabeca(9), origemB: cabeca(8) },
-  { id: "3", chave: "VENCEDORES", rodada: 1, posicao: 3, origemA: cabeca(5), origemB: cabeca(12) },
-  { id: "4", chave: "VENCEDORES", rodada: 1, posicao: 4, origemA: cabeca(4), origemB: cabeca(13) },
-  { id: "5", chave: "VENCEDORES", rodada: 1, posicao: 5, origemA: cabeca(3), origemB: cabeca(14) },
-  { id: "6", chave: "VENCEDORES", rodada: 1, posicao: 6, origemA: cabeca(6), origemB: cabeca(11) },
-  { id: "7", chave: "VENCEDORES", rodada: 1, posicao: 7, origemA: cabeca(7), origemB: cabeca(10) },
-  { id: "8", chave: "VENCEDORES", rodada: 1, posicao: 8, origemA: cabeca(15), origemB: cabeca(2) },
-  { id: "9", chave: "VENCEDORES", rodada: 2, posicao: 9, origemA: vencedor("1"), origemB: vencedor("2") },
-  { id: "10", chave: "VENCEDORES", rodada: 2, posicao: 10, origemA: vencedor("3"), origemB: vencedor("4") },
-  { id: "11", chave: "VENCEDORES", rodada: 2, posicao: 11, origemA: vencedor("5"), origemB: vencedor("6") },
-  { id: "12", chave: "VENCEDORES", rodada: 2, posicao: 12, origemA: vencedor("7"), origemB: vencedor("8") },
-  { id: "13", chave: "VENCEDORES", rodada: 3, posicao: 13, origemA: vencedor("9"), origemB: vencedor("10") },
-  { id: "14", chave: "VENCEDORES", rodada: 3, posicao: 14, origemA: vencedor("11"), origemB: vencedor("12") },
-  { id: "15", chave: "VENCEDORES", rodada: 4, posicao: 15, origemA: vencedor("13"), origemB: vencedor("14") },
-  { id: "16", chave: "VENCEDORES", rodada: 5, posicao: 16, origemA: vencedor("15"), origemB: semPonteiro("Sem ponteiro") },
-  { id: "17", chave: "PERDEDORES", rodada: 1, posicao: 17, origemA: perdedor("1"), origemB: perdedor("2") },
-  { id: "18", chave: "PERDEDORES", rodada: 1, posicao: 18, origemA: perdedor("3"), origemB: perdedor("4") },
-  { id: "19", chave: "PERDEDORES", rodada: 1, posicao: 19, origemA: perdedor("5"), origemB: perdedor("6") },
-  { id: "20", chave: "PERDEDORES", rodada: 1, posicao: 20, origemA: perdedor("7"), origemB: perdedor("8") },
-  { id: "21", chave: "PERDEDORES", rodada: 2, posicao: 21, origemA: vencedor("17"), origemB: perdedor("9") },
-  { id: "22", chave: "PERDEDORES", rodada: 2, posicao: 22, origemA: vencedor("18"), origemB: perdedor("10") },
-  { id: "23", chave: "PERDEDORES", rodada: 2, posicao: 23, origemA: vencedor("19"), origemB: perdedor("11") },
-  { id: "24", chave: "PERDEDORES", rodada: 2, posicao: 24, origemA: vencedor("20"), origemB: perdedor("12") },
-  { id: "25", chave: "PERDEDORES", rodada: 3, posicao: 25, origemA: semPonteiro("Semifinalista C"), origemB: vencedor("21") },
-  { id: "26", chave: "PERDEDORES", rodada: 3, posicao: 26, origemA: semPonteiro("Semifinalista D"), origemB: vencedor("24") },
-  { id: "27", chave: "SEMIFINAL", rodada: 1, posicao: 27, origemA: semPonteiro("Semifinalista B"), origemB: semPonteiro("Semifinalista C") },
-  { id: "28", chave: "SEMIFINAL", rodada: 1, posicao: 28, origemA: semPonteiro("Semifinalista A"), origemB: semPonteiro("Semifinalista D") },
-  { id: "29", chave: "FINAL", rodada: 1, posicao: 29, origemA: perdedor("27"), origemB: perdedor("28") },
-  { id: "30", chave: "FINAL", rodada: 1, posicao: 30, origemA: vencedor("27"), origemB: vencedor("28") },
+  jogo("1", "SEM_REGIAO", cabeca(1), cabeca(32)),
+  jogo("2", "SEM_REGIAO", cabeca(17), cabeca(16)),
+  jogo("3", "SEM_REGIAO", cabeca(9), cabeca(24)),
+  jogo("4", "SEM_REGIAO", cabeca(25), cabeca(8)),
+  jogo("5", "SEM_REGIAO", cabeca(5), cabeca(28)),
+  jogo("6", "SEM_REGIAO", cabeca(21), cabeca(12)),
+  jogo("7", "SEM_REGIAO", cabeca(13), cabeca(20)),
+  jogo("8", "SEM_REGIAO", cabeca(29), cabeca(4)),
+  jogo("9", "SEM_REGIAO", cabeca(3), cabeca(30)),
+  jogo("10", "SEM_REGIAO", cabeca(19), cabeca(14)),
+  jogo("11", "SEM_REGIAO", cabeca(11), cabeca(22)),
+  jogo("12", "SEM_REGIAO", cabeca(27), cabeca(6)),
+  jogo("13", "SEM_REGIAO", cabeca(7), cabeca(26)),
+  jogo("14", "SEM_REGIAO", cabeca(10), cabeca(15)),
+  jogo("15", "SEM_REGIAO", cabeca(15), cabeca(18)),
+  jogo("16", "SEM_REGIAO", cabeca(31), cabeca(2)),
+  jogo("17", "SEM_REGIAO", perdedor("1"), perdedor("2")),
+  jogo("18", "SEM_REGIAO", vencedor("1"), vencedor("2")),
+  jogo("19", "SEM_REGIAO", perdedor("3"), perdedor("4")),
+  jogo("20", "SEM_REGIAO", vencedor("3"), vencedor("4")),
+  jogo("21", "SEM_REGIAO", perdedor("5"), perdedor("6")),
+  jogo("22", "SEM_REGIAO", vencedor("5"), vencedor("6")),
+  jogo("23", "SEM_REGIAO", perdedor("7"), perdedor("8")),
+  jogo("24", "SEM_REGIAO", vencedor("7"), vencedor("8")),
+  jogo("25", "SEM_REGIAO", perdedor("9"), perdedor("10")),
+  jogo("26", "SEM_REGIAO", vencedor("9"), vencedor("10")),
+  jogo("27", "SEM_REGIAO", perdedor("11"), perdedor("12")),
+  jogo("28", "SEM_REGIAO", vencedor("11"), vencedor("12")),
+  jogo("29", "SEM_REGIAO", perdedor("13"), perdedor("14")),
+  jogo("30", "SEM_REGIAO", vencedor("13"), vencedor("14")),
+  jogo("31", "SEM_REGIAO", perdedor("15"), perdedor("16")),
+  jogo("32", "SEM_REGIAO", vencedor("15"), vencedor("16")),
+  jogo("33", "SEM_REGIAO", vencedor("17"), perdedor("20")),
+  jogo("34", "SEM_REGIAO", vencedor("18"), vencedor("20")),
+  jogo("35", "SEM_REGIAO", vencedor("19"), perdedor("22")),
+  jogo("36", "SEM_REGIAO", vencedor("22"), vencedor("24")),
+  jogo("37", "SEM_REGIAO", vencedor("21"), perdedor("24")),
+  jogo("38", "SEM_REGIAO", vencedor("26"), vencedor("28")),
+  jogo("39", "SEM_REGIAO", vencedor("23"), perdedor("26")),
+  jogo("40", "SEM_REGIAO", vencedor("30"), vencedor("32")),
+  jogo("42", "SEMIFINALISTA_A", vencedor("34"), vencedor("36")),
+  jogo("43", "SEM_REGIAO", vencedor("27"), perdedor("30")),
+  jogo("44", "SEMIFINALISTA_B", vencedor("38"), vencedor("40")),
+  jogo("45", "SEM_REGIAO", vencedor("29"), perdedor("32")),
+  jogo("46", "SEM_REGIAO", vencedor("31"), perdedor("18")),
+  jogo("47", "SEM_REGIAO", vencedor("33"), vencedor("35")),
+  jogo("48", "SEM_REGIAO", vencedor("37"), vencedor("39")),
+  jogo("49", "SEM_REGIAO", vencedor("41"), vencedor("43")),
+  jogo("50", "SEM_REGIAO", vencedor("45"), vencedor("46")),
+  jogo("51", "SEM_REGIAO", vencedor("47"), perdedor("38")),
+  jogo("52", "SEM_REGIAO", vencedor("48"), perdedor("40")),
+  jogo("53", "SEM_REGIAO", perdedor("34"), vencedor("49")),
+  jogo("54", "SEM_REGIAO", perdedor("36"), vencedor("50")),
+  jogo("55", "SEM_REGIAO", vencedor("51"), vencedor("52")),
+  jogo("56", "SEM_REGIAO", vencedor("53"), vencedor("54")),
+  jogo("57", "SEMIFINALISTA_C", perdedor("42"), vencedor("55")),
+  jogo("58", "SEMIFINALISTA_D", vencedor("56"), perdedor("44")),
+  jogo("59", "SEMIFINAL", semPonteiro("Semifinalista B"), semPonteiro("Semifinalista C")),
+  jogo("60", "SEMIFINAL", semPonteiro("Semifinalista A"), semPonteiro("Semifinalista D")),
+  jogo("61", "FINAL", perdedor("59"), perdedor("60")),
+  jogo("62", "FINAL", vencedor("59"), vencedor("60")),
 ];
 
 function partidaVazia(definicao: Definicao): PartidaMotor {
@@ -85,22 +125,17 @@ export function construirFolha32(): PartidaMotor[] {
 }
 
 const REGIAO: Partial<Record<LadoChave, string>> = {
-  VENCEDORES: "Vencedores",
-  PERDEDORES: "Perdedores",
+  SEMIFINALISTA_A: "Semifinalista A",
+  SEMIFINALISTA_B: "Semifinalista B",
+  SEMIFINALISTA_C: "Semifinalista C",
+  SEMIFINALISTA_D: "Semifinalista D",
   SEMIFINAL: "Semifinais",
   FINAL: "Finais",
 };
 
-const OBSERVACAO: Record<string, string> = {
-  "29": "Disputa de 3º lugar",
-  "30": "Final",
-};
-
 export function rotuloDaPartida32(codigo: string, chave: LadoChave): string {
   const regiao = REGIAO[chave];
-  const observacao = OBSERVACAO[codigo];
-  const base = regiao ? `Jogo ${codigo} · ${regiao}` : `Jogo ${codigo}`;
-  return observacao ? `${base} · ${observacao}` : base;
+  return regiao ? `Jogo ${codigo} · ${regiao}` : `Jogo ${codigo}`;
 }
 
 export function textoDaVaga(origem: unknown): string | null {

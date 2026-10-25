@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { criarEstadoInicial } from "@/engine/dupla-eliminacao";
+import { apresentarChave } from "@/engine/numeracao";
 import { Botao } from "@/components/botao";
 import { Formulario } from "@/components/formulario";
 import { ListaRanking } from "@/components/lista-ranking";
@@ -39,24 +40,28 @@ export default async function Sorteio({ params }: { params: Promise<{ id: string
     .sort((a, b) => a.criadaEm.getTime() - b.criadaEm.getTime());
   const porId = new Map(torneio.equipes.map((equipe) => [equipe.id, equipe.nome]));
   const resultadoConfrontos = (rascunhoConfrontos?.resultado ?? null) as ResultadoConfrontos | null;
-  let previaChave: { codigo: string; a: string; b: string }[] = [];
+  let previaChave: { id: string; codigo: string; a: string; b: string }[] = [];
   const ordem = resultadoConfrontos?.equipes;
   if (rascunhoConfrontos && ordem) {
     const folhaNumerada = torneio.modeloChave === "FOLHA_16" || torneio.modeloChave === "FOLHA_32";
     const limiteFolha = torneio.modeloChave === "FOLHA_32" ? 32 : 16;
-    const ultimaAbertura = torneio.modeloChave === "FOLHA_32" ? 16 : 8;
     if (folhaNumerada && ordem.length > limiteFolha) {
       previaChave = [];
     } else {
       const estado = criarEstadoInicial(ordem, torneio.modeloChave);
+      const apresentacao = apresentarChave(
+        estado.partidas.map((partida) => ({ ...partida, codigo: partida.id })),
+        ordem.length,
+        torneio.modeloChave,
+      );
       previaChave = estado.partidas
-        .filter((partida) =>
-          folhaNumerada
-            ? Number(partida.id) >= 1 && Number(partida.id) <= ultimaAbertura
-            : partida.chave === "VENCEDORES" && partida.rodada === 1 && partida.status !== "VAZIA",
-        )
+        .filter((partida) => {
+          const item = apresentacao.porCodigo.get(partida.id);
+          return item?.lado === "ABERTURA" && item.aparece;
+        })
         .map((partida) => ({
-          codigo: folhaNumerada ? `Jogo ${partida.id}` : partida.id,
+          id: partida.id,
+          codigo: apresentacao.porCodigo.get(partida.id)?.rotulo ?? partida.id,
           a: partida.equipeAId ? (porId.get(partida.equipeAId) ?? "Folga") : "Folga",
           b: partida.equipeBId ? (porId.get(partida.equipeBId) ?? "Folga") : "Folga",
         }));
@@ -119,15 +124,15 @@ export default async function Sorteio({ params }: { params: Promise<{ id: string
         <h2 className="font-display text-2xl">{torneio.formacao === "SORTEADAS" ? "2. " : ""}Confrontos da primeira rodada</h2>
         {torneio.modeloChave === "FOLHA_16" ? (
           <p className="mt-2 text-navy/75">
-            Este torneio usa a tabela de até 16 times. A posição 1 do ranking é a cabeça 1 e a posição 16 é a cabeça 16. O jogo 1 é 1 contra 16, o jogo 2 é 9 contra 8, o jogo 3 é 5 contra 12, o jogo 4 é 4 contra 13, o jogo 5 é 3 contra 14, o jogo 6 é 6 contra 11, o jogo 7 é 7 contra 10 e o jogo 8 é 15 contra 2.
+            Este torneio usa a tabela de até 16 times. A posição 1 do ranking é a cabeça 1 e a posição 16 é a cabeça 16. Na tabela cheia, o jogo 1 é 1 contra 16, o jogo 2 é 9 contra 8, o jogo 3 é 5 contra 12, o jogo 4 é 4 contra 13, o jogo 5 é 3 contra 14, o jogo 6 é 6 contra 11, o jogo 7 é 7 contra 10 e o jogo 8 é 15 contra 2. Com menos equipes, a folga fica sem número. A abertura real recebe 1, 2, 3… de cima para baixo. Nas fases seguintes, os números alternam vencedores e perdedores.
           </p>
         ) : torneio.modeloChave === "FOLHA_32" ? (
           <p className="mt-2 text-navy/75">
-            Este torneio usa a tabela de até 32 times. A posição 1 é a equipe 1 e a posição 32 é a equipe 32. Os jogos 1 a 16 são 1 x 32, 17 x 16, 9 x 24, 25 x 8, 5 x 28, 21 x 12, 13 x 20, 29 x 4, 3 x 30, 19 x 14, 11 x 22, 27 x 6, 7 x 26, 23 x 10, 15 x 18 e 31 x 2.
+            Este torneio usa a tabela de até 32 times. A posição 1 é a equipe 1 e a posição 32 é a equipe 32. Na tabela cheia, os jogos 1 a 16 são 1 x 32, 17 x 16, 9 x 24, 25 x 8, 5 x 28, 21 x 12, 13 x 20, 29 x 4, 3 x 30, 19 x 14, 11 x 22, 27 x 6, 7 x 26, 23 x 10, 15 x 18 e 31 x 2. Com menos equipes, a folga fica sem número. A abertura real recebe 1, 2, 3… de cima para baixo. Nas fases seguintes, os números alternam vencedores e perdedores.
           </p>
         ) : (
           <p className="mt-2 text-navy/75">
-            As duas opções definem quem ocupa cada vaga da primeira rodada da chave automática.
+            As duas opções definem quem ocupa cada vaga da primeira rodada da chave automática. Com menos equipes do que a chave comporta, a folga fica sem número. A abertura real recebe 1, 2, 3… de cima para baixo. Nas fases seguintes, os números alternam vencedores e perdedores.
           </p>
         )}
         {prontoParaConfrontos ? (
@@ -189,7 +194,7 @@ export default async function Sorteio({ params }: { params: Promise<{ id: string
             ) : null}
             <ul className="mt-2 space-y-2">
               {previaChave.map((jogo) => (
-                <li key={jogo.codigo} className="rounded-2xl bg-white p-3">{jogo.codigo}: {jogo.a} x {jogo.b}</li>
+                <li key={jogo.id} className="rounded-2xl bg-white p-3">{jogo.codigo}: {jogo.a} x {jogo.b}</li>
               ))}
             </ul>
             <Formulario acao={acaoConfirmarConfrontos} className="mt-3">

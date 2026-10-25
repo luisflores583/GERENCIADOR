@@ -7,9 +7,7 @@ import { ReiniciarTorneio } from "@/components/reiniciar-torneio";
 import { MenuTorneio } from "@/components/menu-torneio";
 import { SeloPartida } from "@/components/selo";
 import { formatarDataHora } from "@/lib/formatacao";
-import { nomeDaFase, rodadasDaChaveDeVencedores } from "@/engine/dupla-eliminacao";
-import { rotuloDaPartida } from "@/engine/folha-16";
-import { rotuloDaPartida32, textoDaVaga } from "@/engine/folha-32";
+import { apresentarChave, comoOrigem, rotuloAdmin } from "@/engine/numeracao";
 import { ROTULO_PARTIDA } from "@/lib/rotulos";
 import {
   acaoConfirmarPlacar,
@@ -38,9 +36,23 @@ export default async function Jogos({ params }: { params: Promise<{ id: string }
     },
   });
   if (!torneio) notFound();
-  const rodadas = rodadasDaChaveDeVencedores(Math.max(2, torneio.equipes.length));
+  const apresentacao = apresentarChave(
+    torneio.partidas.map((partida) => ({
+      codigo: partida.codigo,
+      chave: partida.chave,
+      rodada: partida.rodada,
+      posicao: partida.posicao,
+      origemA: comoOrigem(partida.origemA),
+      origemB: comoOrigem(partida.origemB),
+      equipeAId: partida.equipeAId,
+      equipeBId: partida.equipeBId,
+      status: partida.status,
+    })),
+    torneio.equipes.length,
+    torneio.modeloChave,
+  );
   const partidas = torneio.partidas
-    .filter((partida) => partida.status !== "VAZIA")
+    .filter((partida) => apresentacao.porCodigo.get(partida.codigo)?.aparece)
     .sort((a, b) => a.rodada - b.rodada || a.posicao - b.posicao);
   const grupos = ["EM_ANDAMENTO", "PAUSADA", "AGENDADA", "PRONTA", "AGUARDANDO", "CONCLUIDA", "BYE", "NAO_NECESSARIA"];
   return (
@@ -101,14 +113,23 @@ export default async function Jogos({ params }: { params: Promise<{ id: string }
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <p className="text-sm font-semibold text-ocean">
-                      {torneio.modeloChave === "FOLHA_16"
-                        ? rotuloDaPartida(partida.codigo, partida.chave)
-                        : torneio.modeloChave === "FOLHA_32"
-                          ? rotuloDaPartida32(partida.codigo, partida.chave)
-                          : `${nomeDaFase(partida.chave, partida.rodada, rodadas)} · ${partida.codigo}`}
+                      {rotuloAdmin(
+                        torneio.modeloChave,
+                        apresentacao.cheia,
+                        {
+                          codigo: partida.codigo,
+                          chave: partida.chave,
+                          rodada: partida.rodada,
+                          posicao: partida.posicao,
+                          origemA: comoOrigem(partida.origemA),
+                          origemB: comoOrigem(partida.origemB),
+                        },
+                        apresentacao.porCodigo.get(partida.codigo)!,
+                        torneio.equipes.length,
+                      )}
                     </p>
                     <h2 className="text-2xl font-bold">
-                      {nomeDoLado(partida.equipeA?.nome, partida.status, textoDaVaga(partida.origemA))} x {nomeDoLado(partida.equipeB?.nome, partida.status, textoDaVaga(partida.origemB))}
+                      {nomeDoLado(partida.equipeA?.nome, partida.status, apresentacao.porCodigo.get(partida.codigo)?.vagaA)} x {nomeDoLado(partida.equipeB?.nome, partida.status, apresentacao.porCodigo.get(partida.codigo)?.vagaB)}
                     </h2>
                     <p className="text-sm text-navy/70">
                       {partida.quadra?.nome ?? "Sem quadra"}

@@ -41,10 +41,10 @@ export function gerarCsv(painel: PainelDTO): string {
       partida.codigo,
       partida.fase,
       partida.chave,
-      partida.equipeA?.nome ?? (partida.status === "BYE" ? "Folga" : ""),
+      partida.equipeA?.nome ?? partida.vagaA ?? (partida.status === "BYE" ? "Folga" : ""),
       partida.placarA ?? "",
       partida.placarB ?? "",
-      partida.equipeB?.nome ?? (partida.status === "BYE" ? "Folga" : ""),
+      partida.equipeB?.nome ?? partida.vagaB ?? (partida.status === "BYE" ? "Folga" : ""),
       partida.quadra ?? "",
       ROTULO_PARTIDA[partida.status as keyof typeof ROTULO_PARTIDA] ?? partida.status,
       partida.inicioEm ? formatarDataHora(partida.inicioEm) : "",
@@ -125,7 +125,7 @@ export async function gerarPdf(painel: PainelDTO): Promise<Uint8Array> {
             ? `vitória de ${partida.vencedorId === partida.equipeA?.id ? (partida.equipeA?.nome ?? "equipe") : (partida.equipeB?.nome ?? "equipe")}`
             : "x";
     escrever(
-      `${partida.fase}: ${partida.equipeA?.nome ?? (folga ? "Folga" : "Aguardando")} ${placar} ${partida.equipeB?.nome ?? (folga ? "Folga" : "Aguardando")} — ${partida.quadra ?? "sem quadra"} — ${ROTULO_PARTIDA[partida.status as keyof typeof ROTULO_PARTIDA] ?? partida.status}`,
+      `${partida.fase}: ${partida.equipeA?.nome ?? partida.vagaA ?? (folga ? "Folga" : "Aguardando")} ${placar} ${partida.equipeB?.nome ?? partida.vagaB ?? (folga ? "Folga" : "Aguardando")} — ${partida.quadra ?? "sem quadra"} — ${ROTULO_PARTIDA[partida.status as keyof typeof ROTULO_PARTIDA] ?? partida.status}`,
     );
   }
   escrever(`Gerado em ${formatarDataHora(painel.atualizadoEm)}.`);

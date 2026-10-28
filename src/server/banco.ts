@@ -1,5 +1,6 @@
 import { Prisma, type Partida, type StatusPartida } from "@prisma/client";
 import type { EstadoChave, PartidaMotor } from "@/engine/dupla-eliminacao";
+import { classificarLados, ordemNaFolha } from "@/engine/fila";
 import { distribuirQuadras, type PartidaOperacional } from "@/engine/quadras";
 import { ErroDeRegra } from "@/lib/erros";
 import { prisma } from "@/server/db";
@@ -212,6 +213,14 @@ export async function distribuirTorneio(tx: Tx, torneioId: string, agora = new D
     }),
   ]);
 
+  const lados = classificarLados(
+    partidas.map((partida) => ({
+      id: partida.codigo,
+      chave: partida.chave,
+      origemA: partida.origemA,
+      origemB: partida.origemB,
+    })),
+  );
   const operacionais: PartidaOperacional[] = partidas.map((partida) => ({
     id: partida.id,
     status: partida.status,
@@ -223,6 +232,8 @@ export async function distribuirTorneio(tx: Tx, torneioId: string, agora = new D
     prontaEm: partida.prontaEm?.getTime() ?? 0,
     inicioEm: partida.inicioEm?.getTime() ?? null,
     fimEm: partida.fimEm?.getTime() ?? null,
+    ladoFila: lados.get(partida.codigo) ?? "OUTRO",
+    ordem: ordemNaFolha(partida.codigo, partida.posicao),
   }));
 
   const ocupadasFora = await idsDeQuadrasOcupadas(tx, torneioId);

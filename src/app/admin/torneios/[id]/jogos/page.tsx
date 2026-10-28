@@ -8,6 +8,7 @@ import { MenuTorneio } from "@/components/menu-torneio";
 import { SeloPartida } from "@/components/selo";
 import { formatarDataHora } from "@/lib/formatacao";
 import { nomeDaFase, rodadasDaChaveDeVencedores } from "@/engine/dupla-eliminacao";
+import { classificarLados, ordenarEntradas, rotuloDoLado, type EntradaDaFila } from "@/engine/fila";
 import { rotuloDaPartida } from "@/engine/folha-16";
 import { rotuloDaPartida32, textoDaVaga } from "@/engine/folha-32";
 import { ROTULO_PARTIDA } from "@/lib/rotulos";
@@ -39,6 +40,30 @@ export default async function Jogos({ params }: { params: Promise<{ id: string }
   });
   if (!torneio) notFound();
   const rodadas = rodadasDaChaveDeVencedores(Math.max(2, torneio.equipes.length));
+  const entradasDaFila: EntradaDaFila[] = torneio.partidas.map((partida) => ({
+    id: partida.id,
+    codigo: partida.codigo,
+    chave: partida.chave,
+    rodada: partida.rodada,
+    posicao: partida.posicao,
+    origemA: partida.origemA,
+    origemB: partida.origemB,
+    status: partida.status,
+    equipeAId: partida.equipeAId,
+    equipeBId: partida.equipeBId,
+    prontaEm: partida.prontaEm?.getTime() ?? 0,
+    inicioEm: partida.inicioEm?.getTime() ?? null,
+    fimEm: partida.fimEm?.getTime() ?? null,
+  }));
+  const ladosDaFila = classificarLados(
+    entradasDaFila.map((entrada) => ({
+      id: entrada.codigo,
+      chave: entrada.chave,
+      origemA: entrada.origemA,
+      origemB: entrada.origemB,
+    })),
+  );
+  const ordemNaFila = new Map(ordenarEntradas(entradasDaFila).map((entrada, indice) => [entrada.id, indice]));
   const partidas = torneio.partidas
     .filter((partida) => partida.status !== "VAZIA")
     .sort((a, b) => a.rodada - b.rodada || a.posicao - b.posicao);
@@ -91,12 +116,18 @@ export default async function Jogos({ params }: { params: Promise<{ id: string }
         </p>
       ) : null}
       {grupos.map((status) => {
-        const lista = partidas.filter((partida) => partida.status === status);
+        const lista = partidas
+          .filter((partida) => partida.status === status)
+          .sort((a, b) =>
+            status === "PRONTA" ? (ordemNaFila.get(a.id) ?? 0) - (ordemNaFila.get(b.id) ?? 0) : 0,
+          );
         if (lista.length === 0) return null;
         return (
           <section key={status} className="mt-6 space-y-3">
             <h2 className="font-display text-2xl text-navy">{ROTULO_PARTIDA[status as keyof typeof ROTULO_PARTIDA] ?? status}</h2>
-            {lista.map((partida) => (
+            {lista.map((partida, indice) => {
+              const lado = rotuloDoLado(ladosDaFila.get(partida.codigo) ?? "OUTRO");
+              return (
               <article key={partida.id} className="rounded-3xl bg-foam p-4 shadow-card">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
@@ -107,6 +138,12 @@ export default async function Jogos({ params }: { params: Promise<{ id: string }
                           ? rotuloDaPartida32(partida.codigo, partida.chave)
                           : `${nomeDaFase(partida.chave, partida.rodada, rodadas)} · ${partida.codigo}`}
                     </p>
+                    {status === "PRONTA" || (status === "AGENDADA" && lado) ? (
+                      <p className="text-sm font-semibold text-navy">
+                        {status === "PRONTA" ? `${indice + 1}ª na fila` : "Na quadra"}
+                        {lado ? ` · ${lado}` : ""}
+                      </p>
+                    ) : null}
                     <h2 className="text-2xl font-bold">
                       {nomeDoLado(partida.equipeA?.nome, partida.status, textoDaVaga(partida.origemA))} x {nomeDoLado(partida.equipeB?.nome, partida.status, textoDaVaga(partida.origemB))}
                     </h2>
@@ -200,7 +237,8 @@ export default async function Jogos({ params }: { params: Promise<{ id: string }
                   </ul>
                 ) : null}
               </article>
-            ))}
+            );
+            })}
           </section>
         );
       })}

@@ -42,6 +42,7 @@ export type PartidaResumo = {
   aguardandoAdversario: boolean;
   vagaA?: string | null;
   vagaB?: string | null;
+  ladoDaFila?: "VENCEDORES" | "PERDEDORES" | "OUTRO";
 };
 
 export type PainelDTO = {

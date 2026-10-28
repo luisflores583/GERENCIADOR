@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ChaveVisual } from "@/components/chave-visual";
 import { SeloPartida, SeloSituacao, SeloStatus } from "@/components/selo";
 import { formatarDataHora } from "@/lib/formatacao";
+import { rotuloDoLado } from "@/engine/fila";
 import { ROTULO_FORMATO, ROTULO_FORMACAO, ROTULO_NAIPE } from "@/lib/rotulos";
 import type { PainelDTO, PartidaResumo } from "@/tipos";
 
@@ -101,9 +102,9 @@ export function PainelAoVivo({ inicial }: { inicial: PainelDTO }) {
       ) : null}
 
       <section className="mt-8 grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Bloco titulo="Em andamento" partidas={emAndamento} vazio="Nenhuma partida rolando agora." />
-        <Bloco titulo="Agendadas" partidas={agendadas} vazio="Nenhuma partida aguardando início." />
-        <Bloco titulo="Próximas da fila" partidas={painel.fila.slice(0, 4)} vazio="A fila está vazia." />
+        <Bloco titulo="Em andamento" partidas={emAndamento} vazio="Nenhuma partida rolando agora." mostrarLado />
+        <Bloco titulo="Agendadas" partidas={agendadas} vazio="Nenhuma partida aguardando início." mostrarLado />
+        <Bloco titulo="Próximas da fila" partidas={painel.fila.slice(0, 8)} vazio="A fila está vazia." mostrarLado numerar />
       </section>
 
       <section className="mt-8">
@@ -200,18 +201,39 @@ function textoDoPlacar(partida: PartidaResumo) {
   return "– x –";
 }
 
-function Bloco({ titulo, partidas, vazio }: { titulo: string; partidas: PartidaResumo[]; vazio: string }) {
+function Bloco({
+  titulo,
+  partidas,
+  vazio,
+  mostrarLado = false,
+  numerar = false,
+}: {
+  titulo: string;
+  partidas: PartidaResumo[];
+  vazio: string;
+  mostrarLado?: boolean;
+  numerar?: boolean;
+}) {
   return (
     <section className="rounded-3xl bg-foam p-4 shadow-card">
       <h2 className="font-display text-2xl text-navy">{titulo}</h2>
       {partidas.length === 0 ? <p className="mt-3 text-navy/70">{vazio}</p> : null}
       <ul className="mt-3 space-y-3">
-        {partidas.map((partida) => (
+        {partidas.map((partida, indice) => {
+          const lado = mostrarLado ? rotuloDoLado(partida.ladoDaFila ?? "OUTRO") : null;
+          return (
           <li key={partida.id} className="rounded-2xl bg-white p-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm text-ocean">{partida.fase}</p>
               <SeloPartida status={partida.status} />
             </div>
+            {numerar || lado ? (
+              <p className="mt-1 text-sm font-semibold text-navy">
+                {numerar ? `${indice + 1}ª na fila` : ""}
+                {numerar && lado ? " · " : ""}
+                {lado}
+              </p>
+            ) : null}
             <p className="mt-2 text-lg font-bold">
               {partida.equipeA?.nome ?? partida.vagaA ?? "Aguardando adversário"}{" "}
               <span className="tabular-nums">{textoDoPlacar(partida)}</span>{" "}
@@ -219,7 +241,8 @@ function Bloco({ titulo, partidas, vazio }: { titulo: string; partidas: PartidaR
             </p>
             <p className="text-sm text-navy/70">{partida.quadra ?? "Quadra a definir"}</p>
           </li>
-        ))}
+          );
+        })}
       </ul>
     </section>
   );

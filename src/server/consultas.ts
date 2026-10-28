@@ -1,5 +1,6 @@
 import { campanhaDaEquipe, situacaoDaEquipe, type SituacaoEquipe } from "@/engine/classificacao";
 import { nomeDaFase, rodadasDaChaveDeVencedores } from "@/engine/dupla-eliminacao";
+import { classificarLados, ordenarEntradas, type EntradaDaFila } from "@/engine/fila";
 import { rotuloDaPartida } from "@/engine/folha-16";
 import { rotuloDaPartida32, textoDaVaga } from "@/engine/folha-32";
 import { prisma } from "@/server/db";
@@ -65,6 +66,31 @@ export async function montarPainel(slug: string): Promise<PainelDTO | null> {
     })
     .sort((a, b) => (a.cabeca ?? 999) - (b.cabeca ?? 999) || a.nome.localeCompare(b.nome, "pt-BR"));
 
+  const entradasDaFila: EntradaDaFila[] = torneio.partidas.map((partida) => ({
+    id: partida.id,
+    codigo: partida.codigo,
+    chave: partida.chave,
+    rodada: partida.rodada,
+    posicao: partida.posicao,
+    origemA: partida.origemA,
+    origemB: partida.origemB,
+    status: partida.status,
+    equipeAId: partida.equipeAId,
+    equipeBId: partida.equipeBId,
+    prontaEm: partida.prontaEm?.getTime() ?? 0,
+    inicioEm: partida.inicioEm?.getTime() ?? null,
+    fimEm: partida.fimEm?.getTime() ?? null,
+  }));
+  const ladosDaFila = classificarLados(
+    entradasDaFila.map((entrada) => ({
+      id: entrada.codigo,
+      chave: entrada.chave,
+      origemA: entrada.origemA,
+      origemB: entrada.origemB,
+    })),
+  );
+  const ordemNaFila = new Map(ordenarEntradas(entradasDaFila).map((entrada, indice) => [entrada.id, indice]));
+
   const porId = new Map(equipes.map((equipe) => [equipe.id, equipe]));
   const resumoEquipe = (id: string | null) => {
     if (!id) return null;
@@ -100,6 +126,7 @@ export async function montarPainel(slug: string): Promise<PainelDTO | null> {
       inicioEm: partida.inicioEm?.toISOString() ?? null,
       fimEm: partida.fimEm?.toISOString() ?? null,
       aguardandoAdversario: partida.status === "AGUARDANDO",
+      ladoDaFila: ladosDaFila.get(partida.codigo) ?? "OUTRO",
     }))
     .sort(
       (a, b) =>
@@ -182,7 +209,9 @@ export async function montarPainel(slug: string): Promise<PainelDTO | null> {
       indisponivelAte: vinculo.indisponivelAte?.toISOString() ?? null,
       partidaId: ocupacao.get(vinculo.quadraId) ?? null,
     })),
-    fila: partidas.filter((partida) => partida.status === "PRONTA"),
+    fila: partidas
+      .filter((partida) => ordemNaFila.has(partida.id))
+      .sort((a, b) => (ordemNaFila.get(a.id) ?? 0) - (ordemNaFila.get(b.id) ?? 0)),
     classificacao,
     campeao: torneio.campeaoEquipeId ? (nomes.get(torneio.campeaoEquipeId) ?? null) : null,
     vice: torneio.viceEquipeId ? (nomes.get(torneio.viceEquipeId) ?? null) : null,

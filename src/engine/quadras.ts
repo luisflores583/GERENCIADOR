@@ -1,4 +1,5 @@
 import type { LadoChave } from "@/engine/dupla-eliminacao";
+import { escolherInicio, ordenarFila, type LadoDaFila } from "@/engine/fila";
 
 export type StatusOperacional =
   | "AGUARDANDO"
@@ -22,6 +23,8 @@ export interface PartidaOperacional {
   prontaEm: number;
   inicioEm: number | null;
   fimEm: number | null;
+  ladoFila?: LadoDaFila;
+  ordem?: number;
 }
 
 export interface QuadraOperacional {
@@ -32,14 +35,12 @@ export interface QuadraOperacional {
 
 const OCUPANDO = new Set<StatusOperacional>(["AGENDADA", "EM_ANDAMENTO", "PAUSADA"]);
 
-function prioridade(partida: PartidaOperacional): number {
-  if (partida.chave === "FINAL_EXTRA") return 1000;
-  if (partida.chave === "FINAL") return 900;
-  if (partida.chave === "SEMIFINAL") return 850;
-  if (partida.chave.startsWith("SEMIFINALISTA")) return 800;
-  if (partida.chave === "SEM_REGIAO") return 600 - partida.rodada;
-  if (partida.chave === "VENCEDORES") return 500 - partida.rodada;
-  return 400 - partida.rodada;
+function ladoEfetivo(partida: PartidaOperacional): LadoDaFila {
+  if (partida.ladoFila) return partida.ladoFila;
+  if (partida.chave === "VENCEDORES") return "VENCEDORES";
+  if (partida.chave === "PERDEDORES") return "PERDEDORES";
+  if (partida.chave === "FINAL" || partida.chave === "FINAL_EXTRA" || partida.chave === "SEMIFINAL") return "OUTRO";
+  return "OUTRO";
 }
 
 function emDescanso(
@@ -86,9 +87,37 @@ export function distribuirQuadras(entrada: {
   const vagas = Math.max(0, Math.min(entrada.maxSimultaneas - ativas, quadrasLivres.length));
   const descansoMs = entrada.descansoMinutos * 60_000;
 
-  const candidatas = partidas
-    .filter((partida) => partida.status === "PRONTA" && partida.equipeAId && partida.equipeBId && !partida.quadraId)
-    .sort((a, b) => prioridade(b) - prioridade(a) || a.prontaEm - b.prontaEm || a.id.localeCompare(b.id));
+  const candidatasBase = partidas.filter(
+    (partida) => partida.status === "PRONTA" && partida.equipeAId && partida.equipeBId && !partida.quadraId,
+  );
+  const itens = candidatasBase.map((partida) => ({
+    partida,
+    id: partida.id,
+    prontaEm: partida.prontaEm,
+    rodada: partida.rodada,
+    ordem: partida.ordem ?? partida.rodada * 1000,
+    lado: ladoEfetivo(partida),
+  }));
+  const ocupando = partidas.filter((partida) => OCUPANDO.has(partida.status)).map((partida) => ({ lado: ladoEfetivo(partida) }));
+  let ultimo: { lado: LadoDaFila; quando: number } | null = null;
+  for (const partida of partidas) {
+    const lado = ladoEfetivo(partida);
+    if (lado !== "VENCEDORES" && lado !== "PERDEDORES") continue;
+    const quando = OCUPANDO.has(partida.status)
+      ? (partida.inicioEm ?? partida.prontaEm)
+      : partida.status === "CONCLUIDA" && partida.fimEm != null
+        ? partida.fimEm
+        : null;
+    if (quando == null) continue;
+    if (!ultimo || quando >= ultimo.quando) ultimo = { lado, quando };
+  }
+  const inicio = escolherInicio(
+    itens.filter((item) => item.lado === "VENCEDORES"),
+    itens.filter((item) => item.lado === "PERDEDORES"),
+    ocupando,
+    ultimo?.lado ?? null,
+  );
+  const candidatas = ordenarFila(itens, inicio).map((item) => item.partida);
 
   let atribuidas = 0;
   const fila: string[] = [];

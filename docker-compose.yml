@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: voley
+      POSTGRES_PASSWORD: voley_dev
+      POSTGRES_DB: voley
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U voley -d voley"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/saude').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    environment:
+      DATABASE_URL: postgresql://voley:voley_dev@db:5432/voley
+      SESSION_SECRET: altere-esta-chave-local-antes-de-publicar
+      COOKIE_SECURE: "false"
+      SEED_ON_START: "true"
+      SEED_ADMIN_EMAIL: admin@arena.local
+      SEED_ADMIN_PASSWORD: arena-local-demo
+      SEED_ATHLETE_PASSWORD: atleta-local-demo
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/public/uploads
+
+volumes:
+  pgdata:
+  uploads:

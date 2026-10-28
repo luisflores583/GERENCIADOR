@@ -130,10 +130,9 @@ const REGIAO: Partial<Record<LadoChave, string>> = {
   FINAL: "Finais",
 };
 
-export function rotuloDaPartida32(codigo: string, chave: LadoChave, numero?: string): string {
-  const exibido = numero ?? codigo;
+export function rotuloDaPartida32(codigo: string, chave: LadoChave): string {
   const regiao = REGIAO[chave];
-  return regiao ? `Jogo ${exibido} · ${regiao}` : `Jogo ${exibido}`;
+  return regiao ? `Jogo ${codigo} · ${regiao}` : `Jogo ${codigo}`;
 }
 
 export function textoDaVaga(origem: unknown): string | null {

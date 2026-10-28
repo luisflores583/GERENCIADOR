@@ -109,12 +109,11 @@ const REGIAO: Partial<Record<LadoChave, string>> = {
   FINAL: "Finais",
 };
 
-export function rotuloDaPartida(codigo: string, chave: LadoChave, numero?: string): string {
-  const exibido = numero ?? codigo;
+export function rotuloDaPartida(codigo: string, chave: LadoChave): string {
   const regiao = REGIAO[chave];
   const serie = codigo === "29" ? " · Série Prata" : codigo === "30" ? " · Série Ouro" : "";
-  if (!regiao) return `Jogo ${exibido}`;
-  return `Jogo ${exibido} · ${regiao}${serie}`;
+  if (!regiao) return `Jogo ${codigo}`;
+  return `Jogo ${codigo} · ${regiao}${serie}`;
 }
 
 export function ehFolha16(codigos: readonly string[]): boolean {

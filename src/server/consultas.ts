@@ -1,5 +1,7 @@
 import { campanhaDaEquipe, situacaoDaEquipe, type SituacaoEquipe } from "@/engine/classificacao";
-import { apresentarChave, comoOrigem } from "@/engine/numeracao";
+import { nomeDaFase, rodadasDaChaveDeVencedores } from "@/engine/dupla-eliminacao";
+import { rotuloDaPartida } from "@/engine/folha-16";
+import { rotuloDaPartida32, textoDaVaga } from "@/engine/folha-32";
 import { prisma } from "@/server/db";
 import type { EquipeResumo, PainelDTO, PartidaResumo } from "@/tipos";
 
@@ -30,6 +32,7 @@ export async function montarPainel(slug: string): Promise<PainelDTO | null> {
   });
   if (!torneio) return null;
 
+  const rodadas = rodadasDaChaveDeVencedores(Math.max(2, torneio.equipes.length || 2));
   const segueNaTabela = (equipeId: string) =>
     torneio.partidas.some(
       (partida) =>
@@ -70,47 +73,34 @@ export async function montarPainel(slug: string): Promise<PainelDTO | null> {
     return { id: equipe.id, nome: equipe.nome, situacao: equipe.situacao };
   };
 
-  const apresentacao = apresentarChave(
-    torneio.partidas.map((partida) => ({
+  const partidas: PartidaResumo[] = torneio.partidas
+    .filter((partida) => partida.status !== "VAZIA")
+    .map((partida) => ({
+      id: partida.id,
       codigo: partida.codigo,
       chave: partida.chave,
       rodada: partida.rodada,
       posicao: partida.posicao,
-      origemA: comoOrigem(partida.origemA),
-      origemB: comoOrigem(partida.origemB),
-      equipeAId: partida.equipeAId,
-      equipeBId: partida.equipeBId,
+      fase:
+        torneio.modeloChave === "FOLHA_16"
+          ? rotuloDaPartida(partida.codigo, partida.chave)
+          : torneio.modeloChave === "FOLHA_32"
+            ? rotuloDaPartida32(partida.codigo, partida.chave)
+            : nomeDaFase(partida.chave, partida.rodada, rodadas),
+      equipeA: resumoEquipe(partida.equipeAId),
+      equipeB: resumoEquipe(partida.equipeBId),
+      vagaA: textoDaVaga(partida.origemA),
+      vagaB: textoDaVaga(partida.origemB),
+      placarA: partida.placarA,
+      placarB: partida.placarB,
+      vencedorId: partida.vencedorId,
       status: partida.status,
-    })),
-    torneio.equipes.length,
-    torneio.modeloChave,
-  );
-  const partidas: PartidaResumo[] = torneio.partidas
-    .filter((partida) => apresentacao.porCodigo.get(partida.codigo)?.aparece)
-    .map((partida) => {
-      const item = apresentacao.porCodigo.get(partida.codigo);
-      return {
-        id: partida.id,
-        codigo: partida.codigo,
-        chave: partida.chave,
-        rodada: partida.rodada,
-        posicao: partida.posicao,
-        fase: item?.rotulo ?? partida.codigo,
-        equipeA: resumoEquipe(partida.equipeAId),
-        equipeB: resumoEquipe(partida.equipeBId),
-        vagaA: item?.vagaA ?? null,
-        vagaB: item?.vagaB ?? null,
-        placarA: partida.placarA,
-        placarB: partida.placarB,
-        vencedorId: partida.vencedorId,
-        status: partida.status,
-        quadra: partida.quadra?.nome ?? null,
-        quadraId: partida.quadraId,
-        inicioEm: partida.inicioEm?.toISOString() ?? null,
-        fimEm: partida.fimEm?.toISOString() ?? null,
-        aguardandoAdversario: partida.status === "AGUARDANDO",
-      };
-    })
+      quadra: partida.quadra?.nome ?? null,
+      quadraId: partida.quadraId,
+      inicioEm: partida.inicioEm?.toISOString() ?? null,
+      fimEm: partida.fimEm?.toISOString() ?? null,
+      aguardandoAdversario: partida.status === "AGUARDANDO",
+    }))
     .sort(
       (a, b) =>
         ORDEM_CHAVE.indexOf(a.chave) - ORDEM_CHAVE.indexOf(b.chave) ||

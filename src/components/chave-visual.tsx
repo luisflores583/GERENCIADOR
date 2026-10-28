@@ -69,9 +69,7 @@ function Cartao({ partida }: { partida: PartidaResumo }) {
 }
 
 export function ChaveVisual({ partidas }: { partidas: PartidaResumo[] }) {
-  const folha32 = partidas.some((partida) => partida.codigo === "62");
-  const folha = folha32 || partidas.some((partida) => partida.codigo === "30");
-  const limiteAbertura = folha32 ? 16 : 8;
+  const folha = partidas.some((partida) => partida.codigo === "30");
   const grupos = folha ? GRUPOS_FOLHA : GRUPOS;
   return (
     <div className="space-y-8">
@@ -82,7 +80,7 @@ export function ChaveVisual({ partidas }: { partidas: PartidaResumo[] }) {
           if (!folha || grupo.chave !== "SEM_REGIAO") return true;
           const numero = Number(partida.codigo);
           const iniciais = "apenasIniciais" in grupo && grupo.apenasIniciais;
-          return iniciais ? numero <= limiteAbertura : numero > limiteAbertura;
+          return iniciais ? numero <= 8 : numero > 8;
         });
         if (doGrupo.length === 0) return null;
         const rodadas = [...new Set(doGrupo.map((partida) => `${partida.chave}-${partida.rodada}`))];

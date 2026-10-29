@@ -6,31 +6,22 @@ import { handleMessage } from './flow';
 import { logger, maskPhone } from './logger';
 import type { Store } from './store';
 import type { CalendarPort } from './types';
-import { parseWebhook, verifyMetaSignature, type WhatsAppSender } from './whatsapp';
+import { parseWebhook, type EvolutionSender } from './evolution';
 
 export interface AppDeps {
   config: AppConfig;
   store: Store;
   calendar: CalendarPort;
-  whatsapp: WhatsAppSender;
+  evolution: EvolutionSender;
   now?: () => DateTime;
 }
 
-type RequestWithRaw = express.Request & { rawBody?: Buffer };
-
 export function createApp(deps: AppDeps): express.Express {
-  const { config, store, calendar, whatsapp } = deps;
+  const { config, store, calendar, evolution } = deps;
   const now = deps.now ?? (() => DateTime.now());
   const app = express();
   app.disable('x-powered-by');
-  app.use(
-    express.json({
-      limit: '1mb',
-      verify: (req, _res, buf) => {
-        (req as RequestWithRaw).rawBody = Buffer.from(buf);
-      },
-    }),
-  );
+  app.use(express.json({ limit: '2mb' }));
 
   app.get('/', (_req, res) => {
     res.json({
@@ -45,36 +36,18 @@ export function createApp(deps: AppDeps): express.Express {
     res.json({ ok: true, service: 'gerenciador' });
   });
 
-  app.get('/webhook', (req, res) => {
-    if (!config.whatsapp.verifyToken) {
-      res.status(503).type('text/plain').send('Verify token não configurado.');
-      return;
-    }
-    const mode = hubParam(req.query, 'mode');
-    const token = hubParam(req.query, 'verify_token');
-    const challenge = hubParam(req.query, 'challenge');
-    if (mode === 'subscribe' && token === config.whatsapp.verifyToken && challenge) {
-      res.status(200).type('text/plain').send(challenge);
-      return;
-    }
-    res.status(403).type('text/plain').send('Verificação recusada.');
+  app.get('/webhook', (_req, res) => {
+    res.json({
+      ok: true,
+      webhook: 'evolution',
+      event: 'MESSAGES_UPSERT',
+    });
   });
 
   app.post('/webhook', async (req, res) => {
     try {
-      if (config.whatsapp.appSecret) {
-        const valid = verifyMetaSignature(
-          (req as RequestWithRaw).rawBody ?? Buffer.alloc(0),
-          req.header('x-hub-signature-256'),
-          config.whatsapp.appSecret,
-        );
-        if (!valid) {
-          res.status(403).type('text/plain').send('Assinatura inválida.');
-          return;
-        }
-      }
-
-      const messages = parseWebhook(req.body);
+      const expectedInstance = config.evolution.mode === 'configured' ? config.evolution.instance : undefined;
+      const messages = parseWebhook(req.body, expectedInstance);
       for (const message of messages) {
         const state = store.beginMessage(message.messageId);
         if (state !== 'new') continue;
@@ -85,12 +58,10 @@ export function createApp(deps: AppDeps): express.Express {
             store.saveReplies(message.messageId, replies);
           }
           for (const reply of replies) {
-            await whatsapp.send(message.phone, reply);
+            await evolution.send(message.phone, reply);
           }
           store.completeMessage(message.messageId);
-          await whatsapp.markRead(message.messageId).catch((err: unknown) => {
-            logger.warn('whatsapp_read', { message: err instanceof Error ? err.message : String(err) });
-          });
+          await evolution.markRead(message.messageId);
           logger.info('mensagem', { phone: maskPhone(message.phone), replies: replies.length });
         } catch (err) {
           store.abortMessage(message.messageId);
@@ -134,14 +105,8 @@ export function createApp(deps: AppDeps): express.Express {
 }
 
 export function warnIfIncomplete(config: AppConfig): void {
-  if (!config.whatsapp.accessToken || !config.whatsapp.phoneNumberId) {
-    logger.warn('WhatsApp incompleto. Defina WHATSAPP_ACCESS_TOKEN e WHATSAPP_PHONE_NUMBER_ID.');
-  }
-  if (!config.whatsapp.verifyToken) {
-    logger.warn('WHATSAPP_VERIFY_TOKEN ausente. A verificação do webhook vai falhar.');
-  }
-  if (!config.whatsapp.appSecret) {
-    logger.warn('WHATSAPP_APP_SECRET ausente. O webhook aceita POST sem assinatura.');
+  if (config.evolution.mode === 'unconfigured') {
+    logger.warn('Evolution API não configurada. Defina EVOLUTION_API_URL, EVOLUTION_INSTANCE e EVOLUTION_API_KEY.');
   }
   if (config.google.mode === 'unconfigured') {
     logger.warn('Google Calendar não configurado. Defina GOOGLE_SERVICE_ACCOUNT_JSON e GOOGLE_CALENDAR_ID.');
@@ -151,13 +116,3 @@ export function warnIfIncomplete(config: AppConfig): void {
   }
 }
 
-function hubParam(query: express.Request['query'], name: 'mode' | 'verify_token' | 'challenge'): string | undefined {
-  const flat = query[`hub.${name}`];
-  if (typeof flat === 'string') return flat;
-  const hub = query.hub;
-  if (hub && typeof hub === 'object' && name in hub) {
-    const value = (hub as Record<string, unknown>)[name];
-    if (typeof value === 'string') return value;
-  }
-  return undefined;
-}

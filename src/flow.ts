@@ -45,7 +45,7 @@ export async function handleMessage(message: IncomingMessage, deps: FlowDeps): P
   const clinic = deps.clinic;
   let patient = deps.store.getPatient(phone);
   let session = deps.store.getSession(phone) ?? freshSession(phone, deps.now());
-  const intent = toIntent(message);
+  let intent = toIntent(message);
 
   const save = (): void => {
     session.updatedAt = deps.now().toISO() ?? new Date().toISOString();
@@ -368,6 +368,7 @@ export async function handleMessage(message: IncomingMessage, deps: FlowDeps): P
   }
 
   const known = patient;
+  intent = withNumberChoice(intent, session);
 
   if (replyIdOf(intent) === 'confirm' && session.step !== 'confirming_booking') {
     try {
@@ -409,7 +410,9 @@ export async function handleMessage(message: IncomingMessage, deps: FlowDeps): P
       return booking ? [confirmCancel(booking)] : startCancel();
     }
     default:
-      return showMenu(`Não entendi, ${firstName(known.name)}. Toque em um botão ou escreva: agendar, remarcar ou cancelar.`);
+      return showMenu(
+        `Não entendi, ${firstName(known.name)}. Responda com o número da opção ou escreva: agendar, remarcar ou cancelar.`,
+      );
   }
 }
 
@@ -494,6 +497,32 @@ function cancelChoice(intent: Intent): 'yes' | 'no' | undefined {
 
 function replyIdOf(intent: Intent): string | undefined {
   return intent.kind === 'reply' ? intent.replyId : undefined;
+}
+
+function withNumberChoice(intent: Intent, session: Session): Intent {
+  if (intent.kind !== 'text' || !/^\d{1,2}$/.test(intent.normalized)) return intent;
+  const choice = Number(intent.normalized);
+  const replyId = replyIdForNumber(session, choice);
+  return replyId ? { kind: 'reply', replyId } : intent;
+}
+
+function replyIdForNumber(session: Session, choice: number): string | undefined {
+  if (choice < 1) return undefined;
+  if (session.step === 'menu') return ['book', 'reschedule', 'cancel'][choice - 1];
+  if (session.step === 'confirming_booking') return ['confirm', 'other', 'back'][choice - 1];
+  if (session.step === 'confirming_cancel') return ['cancel_yes', 'cancel_no'][choice - 1];
+  if (session.step === 'choosing_booking') {
+    const total = Math.min(session.offeredBookings?.length ?? 0, 10);
+    return choice <= total ? `booking:${choice - 1}` : undefined;
+  }
+  if (session.step === 'choosing_slot') {
+    const page = paginate(session.offeredSlots ?? [], session.page ?? 0);
+    const ids = page.items.map((_, index) => `slot:${page.offset + index}`);
+    if (page.hasPrev) ids.push('page:prev');
+    if (page.hasNext) ids.push('page:next');
+    return ids[choice - 1];
+  }
+  return undefined;
 }
 
 function indexFrom(replyId: string | undefined, prefix: string): number | undefined {

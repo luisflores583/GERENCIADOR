@@ -12,7 +12,7 @@ test('usa o expediente padrão da clínica', () => {
   assert.equal(config.clinic.daysAhead, 7);
   assert.deepEqual(config.clinic.weekdays, [1, 2, 3, 4, 5]);
   assert.equal(config.google.mode, 'unconfigured');
-  assert.equal(config.whatsapp.apiVersion, 'v25.0');
+  assert.equal(config.evolution.mode, 'unconfigured');
 });
 
 test('conta de serviço tem prioridade e o caminho do JSON é absoluto', () => {
@@ -44,7 +44,20 @@ test('usa OAuth quando não há conta de serviço', () => {
   assert.equal(config.google.mode, 'oauth');
 });
 
-test('recusa configuração incompleta', () => {
+test('lê a Evolution API e recusa configuração incompleta', () => {
+  const config = loadConfig({
+    EVOLUTION_API_URL: 'http://localhost:8080/',
+    EVOLUTION_INSTANCE: 'clinica',
+    EVOLUTION_API_KEY: 'segredo',
+  });
+  assert.equal(config.evolution.mode, 'configured');
+  if (config.evolution.mode === 'configured') {
+    assert.equal(config.evolution.baseUrl, 'http://localhost:8080');
+    assert.equal(config.evolution.instance, 'clinica');
+    assert.equal(config.evolution.apiKey, 'segredo');
+  }
+  assert.throws(() => loadConfig({ EVOLUTION_API_URL: 'http://localhost:8080' }), /EVOLUTION_INSTANCE/);
+  assert.throws(() => loadConfig({ EVOLUTION_API_URL: 'ftp://localhost' , EVOLUTION_INSTANCE: 'a', EVOLUTION_API_KEY: 'b' }), /http/);
   assert.throws(() => loadConfig({ GOOGLE_CALENDAR_ID: 'abc' }), /GOOGLE_SERVICE_ACCOUNT_JSON|OAuth/);
   assert.throws(() => loadConfig({ CLINIC_OPEN: '18:00', CLINIC_CLOSE: '08:00' }), /CLINIC_SESSION_MINUTES/);
   assert.throws(() => loadConfig({ CLINIC_TIMEZONE: 'Nao/Existe' }), /CLINIC_TIMEZONE/);

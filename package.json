@@ -2,7 +2,7 @@
   "name": "gerenciador",
   "version": "1.0.0",
   "private": true,
-  "description": "Agendamento de fisioterapia pelo WhatsApp, com a agenda no Google Calendar.",
+  "description": "Agendamento de fisioterapia pelo WhatsApp via Evolution API, com a agenda no Google Calendar.",
   "engines": {
     "node": ">=22"
   },

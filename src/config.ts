@@ -12,13 +12,9 @@ export interface ClinicConfig {
   minNoticeMinutes: number;
 }
 
-export interface WhatsAppConfig {
-  verifyToken: string;
-  accessToken: string;
-  phoneNumberId: string;
-  appSecret?: string;
-  apiVersion: string;
-}
+export type EvolutionConfig =
+  | { mode: 'configured'; baseUrl: string; instance: string; apiKey: string }
+  | { mode: 'unconfigured' };
 
 export type GoogleConfig =
   | { mode: 'service_account'; keyFile: string; calendarId: string }
@@ -29,7 +25,7 @@ export interface AppConfig {
   port: number;
   dataPath: string;
   clinic: ClinicConfig;
-  whatsapp: WhatsAppConfig;
+  evolution: EvolutionConfig;
   google: GoogleConfig;
   checkToken?: string;
 }
@@ -64,7 +60,6 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     throw new Error(`CLINIC_TIMEZONE inválido: ${timezone}`);
   }
 
-  const appSecret = env.WHATSAPP_APP_SECRET?.trim();
   const checkToken = env.INTERNAL_CHECK_TOKEN?.trim();
 
   return {
@@ -80,16 +75,30 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
       weekdays: parseWeekdays(env.CLINIC_WEEKDAYS),
       minNoticeMinutes: intEnv(env.CLINIC_MIN_NOTICE_MINUTES, 0, 0, 24 * 60, 'CLINIC_MIN_NOTICE_MINUTES'),
     },
-    whatsapp: {
-      verifyToken: env.WHATSAPP_VERIFY_TOKEN?.trim() || '',
-      accessToken: env.WHATSAPP_ACCESS_TOKEN?.trim() || '',
-      phoneNumberId: env.WHATSAPP_PHONE_NUMBER_ID?.trim() || '',
-      ...(appSecret ? { appSecret } : {}),
-      apiVersion: env.WHATSAPP_API_VERSION?.trim() || 'v25.0',
-    },
+    evolution: loadEvolution(env),
     google: loadGoogle(env),
     ...(checkToken ? { checkToken } : {}),
   };
+}
+
+function loadEvolution(env: NodeJS.ProcessEnv): EvolutionConfig {
+  const baseUrl = env.EVOLUTION_API_URL?.trim().replace(/\/+$/, '') ?? '';
+  const instance = env.EVOLUTION_INSTANCE?.trim() ?? '';
+  const apiKey = env.EVOLUTION_API_KEY?.trim() ?? '';
+  if (!baseUrl && !instance && !apiKey) return { mode: 'unconfigured' };
+  if (!baseUrl || !instance || !apiKey) {
+    throw new Error('Defina EVOLUTION_API_URL, EVOLUTION_INSTANCE e EVOLUTION_API_KEY.');
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(baseUrl);
+  } catch {
+    throw new Error('EVOLUTION_API_URL inválida.');
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error('EVOLUTION_API_URL deve começar com http:// ou https://.');
+  }
+  return { mode: 'configured', baseUrl, instance, apiKey };
 }
 
 function loadGoogle(env: NodeJS.ProcessEnv): GoogleConfig {

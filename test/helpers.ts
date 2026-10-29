@@ -1,7 +1,7 @@
 import type { ClinicConfig } from '../src/config';
 import type { BookingRef, CalendarPort, Outgoing, Slot } from '../src/types';
-import type { WhatsAppSender } from '../src/whatsapp';
-import { toWhatsAppPayload } from '../src/whatsapp';
+import type { EvolutionSender } from '../src/evolution';
+import { assertOutgoing } from '../src/evolution';
 
 export function testClinic(overrides: Partial<ClinicConfig> = {}): ClinicConfig {
   return {
@@ -19,7 +19,7 @@ export function testClinic(overrides: Partial<ClinicConfig> = {}): ClinicConfig 
 
 export function assertSendable(replies: Outgoing[]): void {
   for (const reply of replies) {
-    toWhatsAppPayload('5511999999999', reply);
+    assertOutgoing(reply);
   }
 }
 
@@ -81,7 +81,7 @@ export class FakeCalendar implements CalendarPort {
   }
 }
 
-export class FakeWhatsApp implements WhatsAppSender {
+export class FakeWhatsApp implements EvolutionSender {
   sent: { to: string; message: Outgoing }[] = [];
   fail = false;
 

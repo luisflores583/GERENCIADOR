@@ -68,6 +68,17 @@ test('pede o nome, depois mostra o menu e confirma a reserva', async () => {
   store.close();
 });
 
+test('no Baileys, o número 1 escolhe Agendar', async () => {
+  const { send, store } = await setup();
+  await send(text('Maria Silva', 'n1'));
+  const list = await send(text('1', 'n2'));
+  assert.equal(list[0]?.type, 'list');
+  const picked = await send(text('1', 'n3'));
+  assert.equal(picked[0]?.type, 'buttons');
+  assert.match((picked[0] as OutgoingButtons).body, /08:00/);
+  store.close();
+});
+
 test('quem escreve agendar antes do nome segue para os horários depois de se identificar', async () => {
   const { send, store } = await setup();
   const ask = await send(text('agendar', 'a1'));

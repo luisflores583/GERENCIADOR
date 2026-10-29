@@ -2,14 +2,16 @@
 
 Pacientes marcam, remarcam e cancelam sessões por um chatbot no WhatsApp. A agenda do Google é a fonte da verdade dos horários: o bot só oferece o que está livre e grava a sessão como evento.
 
-A conversa usa a [WhatsApp Cloud API](https://developers.facebook.com/docs/whatsapp/cloud-api) oficial (Graph API). Não há biblioteca não oficial de WhatsApp.
+O WhatsApp entra pela [Evolution API v2](https://doc.evolution-api.com/v2) ([documentação em português](https://docs.evolutionfoundation.com.br)). O caminho padrão é uma instância **Baileys** já criada, conectada por QR code. Não é preciso criar um app na Meta.
 
 ## O que o paciente vê
 
 1. Saudação e pedido do nome, se o número ainda não for conhecido.
-2. Menu com botões: **Agendar**, **Remarcar**, **Cancelar**.
-3. Horários livres dos próximos 7 dias em uma lista.
-4. Confirmação com botões antes de gravar, remarcar ou cancelar.
+2. Menu: **Agendar**, **Remarcar**, **Cancelar**.
+3. Horários livres dos próximos 7 dias.
+4. Confirmação antes de gravar, remarcar ou cancelar.
+
+Quando a instância aceita mensagem interativa, o bot envia lista (`sendList`) e botões (`sendButtons`). No Baileys isso costuma falhar: aí a mesma opção segue como menu numerado, e o paciente responde `1`, `2`, `3`.
 
 Padrão da clínica, tudo configurável por variáveis de ambiente:
 
@@ -22,9 +24,9 @@ Cancelar **apaga** o evento, para a vaga voltar a aparecer como livre.
 ## Requisitos
 
 - Node.js 22 ou superior
-- App da Meta com o produto WhatsApp
+- Evolution API v2 no ar, com uma instância Baileys já conectada
 - Projeto no Google Cloud com a API Google Calendar ativada
-- Um túnel HTTPS (ngrok ou similar) para o webhook, quando for testar no celular
+- Um túnel HTTPS (ngrok ou similar) se a Evolution não alcançar esta máquina direto
 
 ## Configuração rápida
 
@@ -40,35 +42,52 @@ O servidor sobe em `http://localhost:3000`.
 | Rota | Uso |
 | --- | --- |
 | `GET /health` | Saúde do processo |
-| `GET /webhook` | Verificação do webhook da Meta |
-| `POST /webhook` | Mensagens recebidas |
+| `POST /webhook` | Evento `MESSAGES_UPSERT` da Evolution |
 | `GET /api/calendar/availability` | Horários livres e blocos ocupados, sem enviar WhatsApp |
 
-## WhatsApp Cloud API
+No `.env`:
 
-1. Acesse [developers.facebook.com](https://developers.facebook.com/apps) e crie um app do tipo **Business**.
-2. Adicione o produto **WhatsApp**.
-3. Em **WhatsApp → API Setup** (Configuração da API), copie:
-   - **Phone number ID** → `WHATSAPP_PHONE_NUMBER_ID`
-   - o token temporário → `WHATSAPP_ACCESS_TOKEN`  
-     O token de teste expira em cerca de 24 horas. Para uso contínuo, gere um token de system user permanente no Business Manager.
-4. Escolha uma string longa e aleatória para `WHATSAPP_VERIFY_TOKEN`. O mesmo valor entra na Meta e no `.env`.
-5. Em **App settings → Basic**, copie o **App secret** para `WHATSAPP_APP_SECRET`. Com ele definido, o `POST /webhook` só aceita corpo assinado (`X-Hub-Signature-256`). Sem o segredo, o POST fica aberto — útil só em desenvolvimento local.
-6. No celular da Meta (número de teste), cadastre o seu WhatsApp em **To** / lista de destinatários. Fora dessa lista, o número de teste não entrega mensagem.
-7. Suba um túnel até a porta local:
+```bash
+EVOLUTION_API_URL=http://localhost:8080
+EVOLUTION_INSTANCE=clinica
+EVOLUTION_API_KEY=
+```
+
+`EVOLUTION_API_KEY` vai no header `apikey`. Não commite esse valor.
+
+## Evolution API (Baileys)
+
+Uma instância já criada basta. Este serviço não cria o app da Meta nem a instância.
+
+1. Suba a Evolution API v2 e crie uma instância com integração **Baileys**.
+2. Conecte o WhatsApp da clínica pelo QR code (`GET /instance/connect/{instancia}` ou o manager).
+3. Copie o nome da instância e a apikey global (ou a da instância) para o `.env`.
+4. Exponha este serviço. Na mesma rede Docker, use o nome do container. Fora dela:
 
    ```bash
    ngrok http 3000
    ```
 
-8. Em **WhatsApp → Configuration**, configure o webhook:
-   - **Callback URL:** `https://<subdominio>.ngrok-free.app/webhook`
-   - **Verify token:** o mesmo `WHATSAPP_VERIFY_TOKEN`
-   - Assine o campo **messages**
-9. A Meta chama `GET /webhook` com `hub.mode`, `hub.verify_token` e `hub.challenge`. Se o token bater, o servidor devolve o challenge.
-10. Envie "oi" do seu WhatsApp para o número de teste. O bot responde dentro da janela de 24 horas aberta por essa mensagem. Este projeto não envia modelo (template) de fora dessa janela — lembrete automático ficaria para uma etapa seguinte, com template aprovado pela Meta.
+5. Aponte o webhook da instância para `https://<tunel>/webhook` e assine só `MESSAGES_UPSERT`. Deixe o base64 desligado. Pelo manager, ou:
 
-`WHATSAPP_API_VERSION` padrão é `v25.0`. Se a Meta aposentar a versão, troque só essa variável.
+   ```bash
+   curl -X POST "$EVOLUTION_API_URL/webhook/set/$EVOLUTION_INSTANCE" \
+     -H "apikey: $EVOLUTION_API_KEY" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "webhook": {
+         "enabled": true,
+         "url": "https://SEU-TUNEL/webhook",
+         "webhookByEvents": false,
+         "webhookBase64": false,
+         "events": ["MESSAGES_UPSERT"]
+       }
+     }'
+   ```
+
+6. Envie "oi" do WhatsApp para o número conectado.
+
+O envio usa `POST /message/sendText/{instancia}`, `POST /message/sendList/{instancia}` e `POST /message/sendButtons/{instancia}`. Lista e botões que a instância recusar viram texto numerado.
 
 ## Google Calendar — conta de serviço (caminho padrão)
 
@@ -130,7 +149,7 @@ A mesma consulta por HTTP:
 curl http://localhost:3000/api/calendar/availability
 ```
 
-Se definir `INTERNAL_CHECK_TOKEN`, a rota exige `Authorization: Bearer <token>`. Sem esse token, quem alcançar a porta vê os horários. Não coloque segredo nenhum na resposta além do ID da agenda.
+Se definir `INTERNAL_CHECK_TOKEN`, a rota exige `Authorization: Bearer <token>`. Sem esse token, quem alcançar a porta vê os horários.
 
 ## Rodar em produção local
 
@@ -147,6 +166,9 @@ Veja `.env.example`. As que mudam o expediente:
 
 | Variável | Padrão | Efeito |
 | --- | --- | --- |
+| `EVOLUTION_API_URL` | — | Base da Evolution API v2 |
+| `EVOLUTION_INSTANCE` | — | Nome da instância Baileys |
+| `EVOLUTION_API_KEY` | — | Header `apikey` |
 | `CLINIC_NAME` | Consultório de Fisioterapia | Nome nas mensagens |
 | `CLINIC_TIMEZONE` | America/Sao_Paulo | Fuso dos horários |
 | `CLINIC_OPEN` / `CLINIC_CLOSE` | 08:00 / 18:00 | Expediente `HH:mm` |
@@ -162,13 +184,12 @@ npm test
 npm run typecheck
 ```
 
-Os testes cobrem a grade de horários, o fluxo da conversa, o webhook (verificação, assinatura e deduplicação) e a criação do evento. Não chamam a Meta nem o Google.
+Os testes cobrem a grade de horários, o fluxo da conversa, o webhook da Evolution e a criação do evento. Não chamam a Evolution nem o Google.
 
 ## Limitações
 
-- Sem token da Meta, sem ID do número e sem agenda compartilhada, o processo sobe, mas nenhuma reserva real acontece.
-- O número de teste da Meta só fala com destinatários autorizados no app.
-- O bot só responde a quem escreveu nas últimas 24 horas. Não manda lembrete sozinho.
-- A lista do WhatsApp tem no máximo 10 linhas; havendo mais horários, a conversa pagina.
+- Sem `EVOLUTION_API_URL`, instância, apikey e agenda compartilhada, o processo sobe, mas nenhuma reserva real acontece.
+- Lista e botões dependem da instância. No Baileys o fallback é o menu numerado.
+- A lista interativa tem no máximo 10 linhas; havendo mais horários, a conversa pagina.
 - Dois cliques no mesmo horário quase ao mesmo tempo: o segundo recebe "esse horário acabou de ser preenchido".
 - Cancelar remove o evento. Não fica um registro "cancelado" na agenda.

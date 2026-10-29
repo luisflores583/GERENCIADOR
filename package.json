@@ -1,0 +1,31 @@
+{
+  "name": "gerenciador",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Agendamento de fisioterapia pelo WhatsApp, com a agenda no Google Calendar.",
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "NODE_OPTIONS='--disable-warning=ExperimentalWarning' tsx watch src/index.ts",
+    "start": "node --disable-warning=ExperimentalWarning dist/index.js",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "NODE_OPTIONS='--disable-warning=ExperimentalWarning' node --import tsx --test test/*.test.ts",
+    "check-calendar": "NODE_OPTIONS='--disable-warning=ExperimentalWarning' tsx src/scripts/check-calendar.ts"
+  },
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "googleapis": "^144.0.0",
+    "luxon": "^3.6.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/luxon": "^3.6.2",
+    "@types/node": "^22.15.3",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}

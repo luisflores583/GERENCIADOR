@@ -1,0 +1,1174 @@
+{
+  "name": "Fisioterapia — agenda no WhatsApp",
+  "active": false,
+  "nodes": [
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000001",
+      "name": "Leia antes de ativar",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -40
+      ],
+      "parameters": {
+        "width": 460,
+        "height": 280,
+        "color": 4,
+        "content": "## Agenda da fisioterapia\n\n1. Crie as credenciais **WhatsApp Cloud API** (tipo WhatsApp API) e **Google Calendar** (OAuth2).\n2. Abra **Configuração do consultório** e preencha Phone Number ID, verify token, calendarId e horários.\n3. Associe as credenciais nos nodes do Google Calendar e no node **Enviar WhatsApp**.\n4. Ative o workflow.\n5. Na Meta, o webhook é `https://SEU-N8N/webhook/fisioterapia-whatsapp` (GET e POST).\n\nO menu tem 4 opções, então usa lista interativa. Confirmações usam até 3 botões. O paciente também pode responder 1, 2, 3, 4 ou 0."
+      }
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000002",
+      "name": "Webhook verificação",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        280
+      ],
+      "webhookId": "b1d0a001-1111-4111-8111-000000000001",
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "fisioterapia-whatsapp",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000003",
+      "name": "Webhook mensagens",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        560
+      ],
+      "webhookId": "b1d0a001-1111-4111-8111-000000000002",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "fisioterapia-whatsapp",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000004",
+      "name": "Marcar verificação",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        280,
+        280
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "const input = $input.first().json;\nreturn [{ json: Object.assign({}, input, { entrada: \"verificacao\" }) }];"
+      }
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000005",
+      "name": "Responder recebido",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        280,
+        560
+      ],
+      "parameters": {
+        "respondWith": "noData",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000006",
+      "name": "Marcar mensagem",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        560
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "const input = $input.first().json;\nreturn [{ json: Object.assign({}, input, { entrada: \"mensagem\" }) }];"
+      }
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000007",
+      "name": "Configuração do consultório",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        400
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ============================================================\n// EDITE ESTE BLOCO.\n// Phone Number ID, verify token, calendários e horário de funcionamento.\n// Não cole o token de acesso da Meta: ele fica na credencial WhatsApp Cloud API.\n// Para outro fisioterapeuta, copie um item de professionals.\n// Se alterar horários ou calendarId, repita no workflow de lembretes.\n// ============================================================\nconst CONFIG = {\n  \"_ajuda\": \"Edite este objeto no node Configuração do consultório. Não cole token de acesso aqui: o token fica na credencial WhatsApp Cloud API do n8n. Para outro fisioterapeuta, copie um item de professionals e mude id, name e calendarId.\",\n  \"clinicName\": \"Consultório de Fisioterapia\",\n  \"timezone\": \"America/Sao_Paulo\",\n  \"graphApiVersion\": \"v21.0\",\n  \"whatsappPhoneNumberId\": \"SEU_PHONE_NUMBER_ID\",\n  \"whatsappVerifyToken\": \"TROQUE_ESTE_VERIFY_TOKEN\",\n  \"location\": \"\",\n  \"businessDays\": [\n    1,\n    2,\n    3,\n    4,\n    5\n  ],\n  \"dayStart\": \"08:00\",\n  \"dayEnd\": \"18:00\",\n  \"lunchStart\": \"12:00\",\n  \"lunchEnd\": \"13:00\",\n  \"slotMinutes\": 50,\n  \"minLeadMinutes\": 60,\n  \"daysAhead\": 21,\n  \"maxDatesInList\": 8,\n  \"lookupDays\": 60,\n  \"sessionTtlMinutes\": 120,\n  \"reminderMinutes\": [\n    1440,\n    60\n  ],\n  \"reminderLookaheadHours\": 26,\n  \"reminderWindowMinutes\": 70,\n  \"eventTitlePrefix\": \"Fisioterapia\",\n  \"professionals\": [\n    {\n      \"id\": \"fisio-1\",\n      \"name\": \"Fisioterapeuta\",\n      \"calendarId\": \"SEU_CALENDAR_ID@group.calendar.google.com\"\n    }\n  ],\n  \"sessionTypes\": [\n    {\n      \"id\": \"avaliacao\",\n      \"label\": \"Avaliação\",\n      \"durationMinutes\": 50\n    },\n    {\n      \"id\": \"retorno\",\n      \"label\": \"Retorno\",\n      \"durationMinutes\": 50\n    }\n  ]\n};\n\nconst input = $input.first().json;\nreturn [{\n  json: {\n    entrada: input.entrada || 'mensagem',\n    request: {\n      headers: input.headers || {},\n      query: input.query || {},\n      body: input.body || {},\n    },\n    config: CONFIG,\n  },\n}];"
+      },
+      "notes": "Edite o objeto CONFIG. Não coloque o token de acesso da Meta aqui.",
+      "notesInFlow": true
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000008",
+      "name": "É verificação?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c0ffee00-0000-4000-8000-000000000008-cond",
+              "leftValue": "={{ $json.entrada }}",
+              "rightValue": "verificacao",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000009",
+      "name": "Validar token",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        220
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "const root = $input.first().json;\nconst query = (root.request && root.request.query) || {};\nconst hub = query.hub || {};\nconst mode = query['hub.mode'] || hub.mode || '';\nconst token = query['hub.verify_token'] || hub.verify_token || '';\nconst challenge = query['hub.challenge'] || hub.challenge || '';\nconst expected = root.config && root.config.whatsappVerifyToken;\nconst ok = mode === 'subscribe' && !!token && token === expected && String(challenge).length > 0;\nreturn [{ json: { ok: ok, challenge: ok ? String(challenge) : '' } }];\n"
+      }
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000010",
+      "name": "Token confere?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1680,
+        220
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c0ffee00-0000-4000-8000-000000000010-cond",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000011",
+      "name": "Responder challenge",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1960,
+        120
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.challenge }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/plain"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000012",
+      "name": "Responder token inválido",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1960,
+        320
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Token de verificação inválido",
+        "options": {
+          "responseCode": 403
+        }
+      }
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000013",
+      "name": "Roteador da conversa",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        560
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "/**\n * Regras do chatbot de agendamento (sem n8n, sem rede).\n * Horários em America/Sao_Paulo por padrão. Sem horário de verão desde 2019.\n */\n\nfunction defaultConfig() {\n  return {\n    _ajuda:\n      'Edite este objeto no node Configuração do consultório. Não cole token de acesso aqui: o token fica na credencial WhatsApp Cloud API do n8n. Para outro fisioterapeuta, copie um item de professionals e mude id, name e calendarId.',\n    clinicName: 'Consultório de Fisioterapia',\n    timezone: 'America/Sao_Paulo',\n    graphApiVersion: 'v21.0',\n    whatsappPhoneNumberId: 'SEU_PHONE_NUMBER_ID',\n    whatsappVerifyToken: 'TROQUE_ESTE_VERIFY_TOKEN',\n    location: '',\n    businessDays: [1, 2, 3, 4, 5],\n    dayStart: '08:00',\n    dayEnd: '18:00',\n    lunchStart: '12:00',\n    lunchEnd: '13:00',\n    slotMinutes: 50,\n    minLeadMinutes: 60,\n    daysAhead: 21,\n    maxDatesInList: 8,\n    lookupDays: 60,\n    sessionTtlMinutes: 120,\n    reminderMinutes: [1440, 60],\n    reminderLookaheadHours: 26,\n    reminderWindowMinutes: 70,\n    eventTitlePrefix: 'Fisioterapia',\n    professionals: [\n      {\n        id: 'fisio-1',\n        name: 'Fisioterapeuta',\n        calendarId: 'SEU_CALENDAR_ID@group.calendar.google.com',\n      },\n    ],\n    sessionTypes: [\n      { id: 'avaliacao', label: 'Avaliação', durationMinutes: 50 },\n      { id: 'retorno', label: 'Retorno', durationMinutes: 50 },\n    ],\n  };\n}\n\nconst WEEK_LONG = {\n  1: 'segunda-feira',\n  2: 'terça-feira',\n  3: 'quarta-feira',\n  4: 'quinta-feira',\n  5: 'sexta-feira',\n  6: 'sábado',\n  7: 'domingo',\n};\nconst WEEK_SHORT = { 1: 'seg', 2: 'ter', 3: 'qua', 4: 'qui', 5: 'sex', 6: 'sáb', 7: 'dom' };\nconst WEEK_FROM_EN = { Sun: 7, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };\nconst MENU_WORDS = new Set([\n  'menu',\n  'inicio',\n  'oi',\n  'ola',\n  'hey',\n  'ei',\n  'bom dia',\n  'boa tarde',\n  'boa noite',\n  '0',\n  'voltar',\n  'recomecar',\n  'comecar',\n  'start',\n  'ajuda',\n]);\n\nfunction registerMessage(seen, messageId) {\n  const list = Array.isArray(seen) ? seen.slice() : [];\n  if (messageId && list.includes(messageId)) return { duplicate: true, seen: list };\n  if (messageId) list.push(messageId);\n  return { duplicate: false, seen: list.length > 400 ? list.slice(-400) : list };\n}\n\nfunction publicConfig(config) {\n  const copy = JSON.parse(JSON.stringify(config));\n  delete copy.whatsappVerifyToken;\n  return copy;\n}\n\nfunction textBody(to, body) {\n  return {\n    messaging_product: 'whatsapp',\n    recipient_type: 'individual',\n    to,\n    type: 'text',\n    text: { preview_url: false, body: clip(body, 4096) },\n  };\n}\n\nfunction parseIncoming(request) {\n  const body = request && request.body;\n  if (!body || !Array.isArray(body.entry) || !body.entry.length) return null;\n  const change = body.entry[0] && body.entry[0].changes && body.entry[0].changes[0];\n  const value = change && change.value;\n  if (!value || !Array.isArray(value.messages) || !value.messages.length) return null;\n  const message = value.messages[0];\n  const phone = digits(message.from);\n  if (!phone) return null;\n  const display = digits(value.metadata && value.metadata.display_phone_number);\n  if (display && display === phone) return null;\n  const profileName =\n    (value.contacts && value.contacts[0] && value.contacts[0].profile && value.contacts[0].profile.name) || '';\n  const messageId = message.id || '';\n  if (message.type === 'reaction' || message.type === 'system') {\n    return { phone, messageId, profileName, silent: true, unsupported: false, text: '', choiceId: '' };\n  }\n  if (message.type === 'text') {\n    return {\n      phone,\n      messageId,\n      profileName,\n      silent: false,\n      unsupported: false,\n      text: String((message.text && message.text.body) || '').trim(),\n      choiceId: '',\n    };\n  }\n  if (message.type === 'interactive') {\n    const interactive = message.interactive || {};\n    if (interactive.type === 'button_reply' && interactive.button_reply) {\n      return {\n        phone,\n        messageId,\n        profileName,\n        silent: false,\n        unsupported: false,\n        text: String(interactive.button_reply.title || '').trim(),\n        choiceId: String(interactive.button_reply.id || ''),\n      };\n    }\n    if (interactive.type === 'list_reply' && interactive.list_reply) {\n      return {\n        phone,\n        messageId,\n        profileName,\n        silent: false,\n        unsupported: false,\n        text: String(interactive.list_reply.title || '').trim(),\n        choiceId: String(interactive.list_reply.id || ''),\n      };\n    }\n  }\n  return { phone, messageId, profileName, silent: false, unsupported: true, text: '', choiceId: '' };\n}\n\nfunction handleTurn({ config, session, profile, incoming, nowIso }) {\n  const now = new Date(nowIso);\n  const safeProfile = profile && profile.patientName ? { patientName: profile.patientName } : { patientName: null };\n  if (!incoming || incoming.unsupported) {\n    return menuReply(config, incoming && incoming.phone, safeProfile, nowIso, 'Envie uma mensagem de texto ou escolha uma opção do menu.');\n  }\n  let current = clone(session);\n  if (current && isExpired(current, now, config)) current = null;\n  if (!current) current = freshSession(nowIso);\n  const choice = choiceOf(incoming);\n  const phone = incoming.phone;\n\n  if (!config.professionals || !config.professionals.length || !config.sessionTypes || !config.sessionTypes.length) {\n    return sendText(config, phone, null, safeProfile, 'O consultório ainda não tem profissional ou tipo de sessão na configuração.');\n  }\n\n  if (current.step === 'ask_name') {\n    return onAskName(config, current, safeProfile, incoming, choice, nowIso);\n  }\n\n  if (current.step === 'menu') {\n    if (isMenuWord(choice)) return menuReply(config, phone, safeProfile, nowIso, null);\n    const cmd = commandFrom(choice, true);\n    if (cmd) return dispatch(config, safeProfile, phone, nowIso, cmd);\n    return menuReply(config, phone, safeProfile, nowIso, 'Não entendi essa resposta. Vamos voltar ao menu.');\n  }\n\n  const local = handleStep(config, current, safeProfile, phone, choice, nowIso);\n  if (local) return finish(local, config);\n  const cmd = commandFrom(choice, false);\n  if (cmd) return dispatch(config, safeProfile, phone, nowIso, cmd);\n  if (isMenuWord(choice)) return menuReply(config, phone, safeProfile, nowIso, null);\n  return menuReply(config, phone, safeProfile, nowIso, 'Não entendi essa resposta. Vamos voltar ao menu.');\n}\n\nfunction extractBusy(payloads) {\n  const intervals = [];\n  const list = Array.isArray(payloads) ? payloads : [payloads];\n  for (const payload of list) {\n    if (!payload || typeof payload !== 'object') continue;\n    if (Array.isArray(payload.busy)) {\n      for (const b of payload.busy) pushInterval(intervals, b);\n    }\n    if (payload.calendars && typeof payload.calendars === 'object') {\n      for (const cal of Object.values(payload.calendars)) {\n        if (cal && Array.isArray(cal.busy)) {\n          for (const b of cal.busy) pushInterval(intervals, b);\n        }\n      }\n    }\n    if (payload.start && payload.end && !payload.calendars && !payload.kind) {\n      pushInterval(intervals, payload);\n    }\n  }\n  return intervals;\n}\n\nfunction applyFreeBusy({ config, session, profile, phone, busy, nowIso, purpose, ignoreInterval }) {\n  const current = clone(session) || freshSession(nowIso);\n  const safeProfile = profile && profile.patientName ? { patientName: profile.patientName } : { patientName: null };\n  const ignore = ignoreInterval || (current.ignoreStart ? { start: current.ignoreStart, end: current.ignoreEnd } : null);\n  const freeBusy = subtractInterval(busy || [], ignore);\n\n  if (purpose === 'offer_slots') {\n    const ymd = parseYmd(current.date);\n    const duration = Number(current.durationMinutes) || 50;\n    const slots = ymd ? slotsForDate(config, ymd, duration, new Date(nowIso)) : [];\n    const free = slots.filter((slot) => isFree(slot, freeBusy));\n    if (!free.length) {\n      const dates = upcomingDates(config, new Date(nowIso), duration);\n      const next = withSession(current, nowIso, { step: 'pick_date', offeredDates: dates, offeredSlots: [], slotPage: 0, date: null });\n      const body = dates.length\n        ? 'Não há horários livres nesse dia.\\n\\n' + dateBody(config, dates)\n        : 'Não há horários livres na agenda neste período. Responda MENU para voltar.';\n      const whatsappBody = dates.length\n        ? listMessage(phone, {\n            header: config.clinicName,\n            body,\n            button: 'Ver dias',\n            sectionTitle: 'Dias',\n            rows: dates.map((d) => ({ id: d.id, title: d.title, description: d.description })),\n          })\n        : textBody(phone, body);\n      return finish(sendPayload(config, phone, dates.length ? next : null, safeProfile, whatsappBody), config);\n    }\n    const offeredSlots = free.map((slot, index) => ({\n      id: 'hora:' + index,\n      start: slot.start,\n      end: slot.end,\n      title: formatTime(slot.start, config.timezone),\n      description: 'até ' + formatTime(slot.end, config.timezone),\n    }));\n    const next = withSession(current, nowIso, { step: 'pick_time', offeredSlots, slotPage: 0 });\n    return finish(sendPayload(config, phone, next, safeProfile, slotsPayload(phone, config, offeredSlots, 0)), config);\n  }\n\n  const slot = {\n    start: current.slotStart,\n    end: current.slotEnd,\n    startMs: new Date(current.slotStart).getTime(),\n    endMs: new Date(current.slotEnd).getTime(),\n  };\n  const leadMs = (Number(config.minLeadMinutes) || 0) * 60000;\n  const stillFree = slot.startMs >= new Date(nowIso).getTime() + leadMs && isFree(slot, freeBusy);\n  if (!stillFree) {\n    const ymd = parseYmd(current.date);\n    const duration = Number(current.durationMinutes) || 50;\n    const slots = ymd ? slotsForDate(config, ymd, duration, new Date(nowIso)).filter((item) => isFree(item, freeBusy)) : [];\n    if (!slots.length) {\n      const dates = upcomingDates(config, new Date(nowIso), duration);\n      const next = withSession(current, nowIso, {\n        step: 'pick_date',\n        offeredDates: dates,\n        offeredSlots: [],\n        slotStart: null,\n        slotEnd: null,\n        date: null,\n      });\n      const body = 'Esse horário acabou de ser ocupado e não restou outro neste dia.\\n\\n' + dateBody(config, dates);\n      return finish(\n        sendPayload(\n          config,\n          phone,\n          dates.length ? next : null,\n          safeProfile,\n          dates.length\n            ? listMessage(phone, {\n                header: config.clinicName,\n                body,\n                button: 'Ver dias',\n                sectionTitle: 'Dias',\n                rows: dates.map((d) => ({ id: d.id, title: d.title, description: d.description })),\n              })\n            : textBody(phone, 'Esse horário acabou de ser ocupado. Responda MENU para voltar.'),\n        ),\n        config,\n      );\n    }\n    const offeredSlots = slots.map((item, index) => ({\n      id: 'hora:' + index,\n      start: item.start,\n      end: item.end,\n      title: formatTime(item.start, config.timezone),\n      description: 'até ' + formatTime(item.end, config.timezone),\n    }));\n    const next = withSession(current, nowIso, { step: 'pick_time', offeredSlots, slotPage: 0, slotStart: null, slotEnd: null });\n    const payload = slotsPayload(phone, config, offeredSlots, 0, 'Esse horário acabou de ser ocupado.');\n    return finish(sendPayload(config, phone, next, safeProfile, payload), config);\n  }\n\n  const drafted = draftEvent(config, current, safeProfile, phone);\n  const when = whenLabel(drafted.start, drafted.end, config.timezone);\n  const verb = purpose === 'recheck_update' ? 'Consulta remarcada.' : 'Consulta agendada.';\n  const lines = [verb, '', drafted.summary.replace(config.eventTitlePrefix + ' — ', ''), when];\n  if (config.location) lines.push(config.location);\n  lines.push('', 'O horário fica ocupado na agenda, com lembrete para o consultório.', 'Se precisar remarcar ou cancelar, responda MENU.');\n  return finish(\n    {\n      action: purpose === 'recheck_update' ? 'update_event' : 'create_event',\n      phone,\n      session: withSession(current, nowIso, { step: current.step }),\n      profile: safeProfile,\n      config: publicConfig(config),\n      calendarId: drafted.calendarId,\n      eventId: current.eventId,\n      start: drafted.start,\n      end: drafted.end,\n      summary: drafted.summary,\n      description: drafted.description,\n      location: drafted.location,\n      reminderMinutes: drafted.reminderMinutes,\n      whatsappBody: textBody(phone, lines.join('\\n')),\n    },\n    config,\n  );\n}\n\nfunction pairEvents(inputItems, expandedItems) {\n  const events = [];\n  const inputs = Array.isArray(inputItems) ? inputItems : [];\n  const expanded = Array.isArray(expandedItems) ? expandedItems : [];\n  for (const item of inputs) {\n    const ev = item && item.json ? item.json : item;\n    if (!ev || !ev.id || ev.status === 'cancelled') continue;\n    if (ev.start && ev.start.date && !ev.start.dateTime) continue;\n    let idx = 0;\n    const paired = item && item.pairedItem;\n    if (paired && typeof paired.item === 'number') idx = paired.item;\n    if (Array.isArray(paired) && paired[0] && typeof paired[0].item === 'number') idx = paired[0].item;\n    const srcRaw = expanded[idx] || expanded[0] || {};\n    const src = srcRaw.json || srcRaw;\n    events.push({\n      id: ev.id,\n      summary: ev.summary || '',\n      description: ev.description || '',\n      start: ev.start || null,\n      end: ev.end || null,\n      calendarId: field(ev.description, 'ID_CALENDARIO') || src.calendarId || '',\n      professionalName: field(ev.description, 'Profissional') || src.professionalName || '',\n    });\n  }\n  return events;\n}\n\nfunction applyEventList({ config, phone, profile, events, nowIso, purpose }) {\n  const safeProfile = profile && profile.patientName ? { patientName: profile.patientName } : { patientName: null };\n  const nowMs = new Date(nowIso).getTime();\n  const mine = (events || [])\n    .filter((event) => eventPhone(event.description) === phone)\n    .map((event) => ({ ...event, startMs: eventStartMs(event) }))\n    .filter((event) => Number.isFinite(event.startMs) && event.startMs > nowMs)\n    .sort((a, b) => a.startMs - b.startMs)\n    .slice(0, 10);\n\n  if (!mine.length) {\n    const empty =\n      purpose === 'list_for_view'\n        ? 'Você não tem consultas futuras marcadas por aqui.\\n\\nResponda MENU para agendar.'\n        : 'Não encontrei consulta futura para este telefone.\\n\\nSó aparecem horários marcados por este atendimento. Responda MENU para voltar.';\n    return finish(sendText(config, phone, null, safeProfile, empty), config);\n  }\n\n  if (purpose === 'list_for_view') {\n    const lines = ['Suas próximas consultas:', ''];\n    mine.forEach((event, index) => {\n      lines.push(index + 1 + '. ' + eventLine(config, event));\n    });\n    lines.push('', 'Para remarcar ou cancelar, responda MENU.');\n    return finish(sendText(config, phone, null, safeProfile, lines.join('\\n')), config);\n  }\n\n  const offeredEvents = mine.map((event, index) => ({\n    id: 'evt:' + index,\n    eventId: event.id,\n    calendarId: event.calendarId,\n    professionalName: event.professionalName,\n    summary: event.summary,\n    description: event.description,\n    start: asIso(event.start),\n    end: asIso(event.end),\n    title: clip(formatDayShort(asIso(event.start), config.timezone) + ' ' + formatTime(asIso(event.start), config.timezone), 24),\n    descriptionRow: clip(eventLine(config, event), 72),\n  }));\n  const step = purpose === 'list_for_cancel' ? 'pick_event_cancel' : 'pick_event_reschedule';\n  const intro = purpose === 'list_for_cancel' ? 'Qual consulta você quer cancelar?' : 'Qual consulta você quer remarcar?';\n  const session = withSession(freshSession(nowIso), nowIso, { step, offeredEvents, mode: purpose === 'list_for_cancel' ? 'cancel' : 'reschedule' });\n  const body = intro + '\\n\\n' + offeredEvents.map((event, index) => index + 1 + ' - ' + event.descriptionRow).join('\\n') + '\\n\\n0 - Menu';\n  return finish(\n    sendPayload(\n      config,\n      phone,\n      session,\n      safeProfile,\n      listMessage(phone, {\n        header: config.clinicName,\n        body,\n        button: 'Ver consultas',\n        sectionTitle: 'Consultas',\n        rows: offeredEvents.map((event) => ({ id: event.id, title: event.title, description: event.descriptionRow })),\n      }),\n    ),\n    config,\n  );\n}\n\nfunction selectReminders({ config, events, nowIso, sent }) {\n  const nowMs = new Date(nowIso).getTime();\n  const leads = (config.reminderMinutes || [1440, 60]).map(Number);\n  const windowMin = Number(config.reminderWindowMinutes) || 70;\n  const nextSent = clone(sent || {});\n  const messages = [];\n  for (const event of events || []) {\n    const phone = eventPhone(event.description);\n    const startIso = asIso(event.start);\n    const startMs = startIso ? new Date(startIso).getTime() : NaN;\n    if (!phone || !Number.isFinite(startMs)) continue;\n    const remainMin = (startMs - nowMs) / 60000;\n    if (remainMin <= 0) continue;\n    for (const lead of leads) {\n      const kind = 'm' + lead;\n      if (nextSent[event.id] && nextSent[event.id][kind]) continue;\n      if (remainMin < lead - windowMin || remainMin > lead + windowMin) continue;\n      messages.push({\n        eventId: event.id,\n        kind,\n        phone,\n        whatsappBody: textBody(phone, reminderText(config, event, lead)),\n      });\n      if (!nextSent[event.id]) nextSent[event.id] = {};\n      nextSent[event.id][kind] = nowIso;\n    }\n  }\n  const cutoff = nowMs - 3 * 86400000;\n  for (const eventId of Object.keys(nextSent)) {\n    const stamps = Object.values(nextSent[eventId] || {});\n    const newest = stamps.reduce((max, iso) => Math.max(max, new Date(iso).getTime() || 0), 0);\n    if (!newest || newest < cutoff) delete nextSent[eventId];\n  }\n  return { messages, sent: nextSent };\n}\n\nfunction handleStep(config, session, profile, phone, choice, nowIso) {\n  if (session.step === 'pick_pro') {\n    const pro = matchById(choice, config.professionals, 'pro:', session.offeredPros || config.professionals);\n    if (!pro) return null;\n    const next = withSession(session, nowIso, { professionalId: pro.id, step: 'pick_type' });\n    return typePrompt(config, next, profile, phone, nowIso);\n  }\n  if (session.step === 'pick_type') {\n    const type = matchType(choice, config.sessionTypes);\n    if (!type) return null;\n    const next = withSession(session, nowIso, {\n      sessionTypeId: type.id,\n      typeLabel: type.label,\n      durationMinutes: Number(type.durationMinutes) || Number(config.slotMinutes) || 50,\n    });\n    if (!profile.patientName) {\n      const asking = withSession(next, nowIso, { step: 'ask_name' });\n      return sendText(config, phone, asking, profile, askNameText(null));\n    }\n    return datePrompt(config, next, profile, phone, nowIso);\n  }\n  if (session.step === 'pick_date') {\n    if (choice.id === 'mais' || choice.norm === 'mais' || choice.norm === 'mais horarios') return null;\n    const date = matchDate(choice, session.offeredDates || []);\n    if (!date) return null;\n      const pro = proById(config, session.professionalId);\n      const next = withSession(session, nowIso, { date: date.date, step: 'pick_date' });\n      const calendarId = session.eventCalendarId || (pro && pro.calendarId);\n    const ymd = parseYmd(date.date);\n    const nextDay = addCalendarDays(ymd, 1);\n    return {\n      action: 'freebusy',\n      purpose: 'offer_slots',\n      phone,\n      session: next,\n      profile,\n      config: publicConfig(config),\n      calendarId,\n      timeMin: toOffsetIso(zonedLocalToUtc(ymd.year, ymd.month, ymd.day, 0, 0, config.timezone), config.timezone),\n      timeMax: toOffsetIso(zonedLocalToUtc(nextDay.year, nextDay.month, nextDay.day, 0, 0, config.timezone), config.timezone),\n      ignoreInterval: session.ignoreStart ? { start: session.ignoreStart, end: session.ignoreEnd } : null,\n    };\n  }\n  if (session.step === 'pick_time') {\n    const view = pageRows(session.offeredSlots || [], session.slotPage || 0);\n    const moreIndex = view.more ? view.visible.length + 1 : null;\n    if (choice.id === 'mais' || choice.norm === 'mais' || choice.norm === 'mais horarios' || (moreIndex && pickedIndex(choice) === moreIndex)) {\n      const page = (session.slotPage || 0) + 1;\n      const nextView = pageRows(session.offeredSlots || [], page);\n      const nextPage = nextView.visible.length ? page : 0;\n      const next = withSession(session, nowIso, { slotPage: nextPage });\n      return sendPayload(config, phone, next, profile, slotsPayload(phone, config, session.offeredSlots || [], nextPage));\n    }\n    const slot = matchSlot(choice, session.offeredSlots || [], session.slotPage || 0);\n    if (!slot) return null;\n    if (session.mode === 'reschedule' && slot.start === session.ignoreStart) {\n      return sendPayload(\n        config,\n        phone,\n        withSession(session, nowIso, {}),\n        profile,\n        slotsPayload(phone, config, session.offeredSlots || [], session.slotPage || 0, 'Esse já é o horário da sua consulta.'),\n      );\n    }\n    const step = session.mode === 'reschedule' ? 'confirm_reschedule' : 'confirm_book';\n    const next = withSession(session, nowIso, { step, slotStart: slot.start, slotEnd: slot.end });\n    return sendPayload(config, phone, next, profile, confirmPayload(config, phone, next, profile));\n  }\n  if (session.step === 'confirm_book' || session.step === 'confirm_reschedule') {\n    if (isConfirm(choice)) {\n      const pro = proById(config, session.professionalId);\n      const purpose = session.step === 'confirm_reschedule' ? 'recheck_update' : 'recheck_create';\n      return {\n        action: 'freebusy',\n        purpose,\n        phone,\n        session: withSession(session, nowIso, {}),\n        profile,\n        config: publicConfig(config),\n        calendarId: session.eventCalendarId || (pro && pro.calendarId),\n        timeMin: session.slotStart,\n        timeMax: session.slotEnd,\n        ignoreInterval: session.ignoreStart ? { start: session.ignoreStart, end: session.ignoreEnd } : null,\n      };\n    }\n    if (choice.id === 'outro' || choice.norm === 'outro' || choice.norm === 'outro horario' || pickedIndex(choice) === 2) {\n      if (session.offeredSlots && session.offeredSlots.length) {\n        const next = withSession(session, nowIso, { step: 'pick_time', slotPage: 0, slotStart: null, slotEnd: null });\n        return sendPayload(config, phone, next, profile, slotsPayload(phone, config, next.offeredSlots, 0));\n      }\n      return datePrompt(config, session, profile, phone, nowIso);\n    }\n    return null;\n  }\n  if (session.step === 'pick_event_cancel' || session.step === 'pick_event_reschedule') {\n    const event = matchEvent(choice, session.offeredEvents || []);\n    if (!event) return null;\n    if (session.step === 'pick_event_cancel') {\n      const next = withSession(session, nowIso, {\n        step: 'confirm_cancel',\n        eventId: event.eventId,\n        eventCalendarId: event.calendarId,\n        slotStart: event.start,\n        slotEnd: event.end,\n      });\n      const body =\n        'Cancelar esta consulta?\\n\\n' +\n        event.descriptionRow +\n        '\\n\\n1 - Confirmar cancelamento\\n2 - Manter\\n0 - Menu';\n      return sendPayload(\n        config,\n        phone,\n        next,\n        profile,\n        buttonMessage(phone, body, [\n          { id: 'confirmar', title: 'Confirmar' },\n          { id: 'manter', title: 'Manter' },\n          { id: 'menu', title: 'Menu' },\n        ]),\n      );\n    }\n    return startReschedule(config, session, profile, phone, event, nowIso);\n  }\n  if (session.step === 'confirm_cancel') {\n    if (isConfirm(choice) || choice.norm === 'cancelar') {\n      const when = whenLabel(session.slotStart, session.slotEnd, config.timezone);\n      return {\n        action: 'delete_event',\n        phone,\n        session: withSession(session, nowIso, {}),\n        profile,\n        config: publicConfig(config),\n        calendarId: session.eventCalendarId,\n        eventId: session.eventId,\n        whatsappBody: textBody(phone, 'Consulta cancelada.\\n\\n' + when + '\\n\\nSe quiser marcar outro horário, responda MENU.'),\n      };\n    }\n    if (choice.id === 'manter' || choice.norm === 'manter' || choice.norm === 'nao' || pickedIndex(choice) === 2) {\n      return menuReply(config, phone, profile, nowIso, 'A consulta foi mantida.');\n    }\n    return null;\n  }\n  return null;\n}\n\nfunction onAskName(config, session, profile, incoming, choice, nowIso) {\n  if (isMenuWord(choice)) return menuReply(config, incoming.phone, profile, nowIso, null);\n  const cmd = commandFrom(choice, false);\n  if (cmd) return dispatch(config, profile, incoming.phone, nowIso, cmd);\n  const name = cleanName(incoming.text);\n  if (!name) {\n    return sendText(config, incoming.phone, withSession(session, nowIso, { step: 'ask_name' }), profile, 'Preciso do nome completo do paciente, com pelo menos nome e sobrenome.\\n\\n' + askNameText(incoming.profileName));\n  }\n  const named = { patientName: name };\n  return datePrompt(config, session, named, incoming.phone, nowIso);\n}\n\nfunction dispatch(config, profile, phone, nowIso, cmd) {\n  if (cmd === 'book') return finish(beginBook(config, profile, phone, nowIso), config);\n  const purpose = cmd === 'reschedule' ? 'list_for_reschedule' : cmd === 'cancel' ? 'list_for_cancel' : 'list_for_view';\n  return finish(beginList(config, profile, phone, nowIso, purpose), config);\n}\n\nfunction beginBook(config, profile, phone, nowIso) {\n  const session = withSession(freshSession(nowIso), nowIso, { mode: 'book' });\n  if (config.professionals.length > 1) {\n    const offeredPros = config.professionals.slice(0, 10).map((pro) => ({\n      id: 'pro:' + pro.id,\n      proId: pro.id,\n      title: clip(pro.name, 24),\n      description: 'Agenda deste profissional',\n    }));\n    const next = withSession(session, nowIso, { step: 'pick_pro', offeredPros });\n    const body =\n      'Com quem você quer agendar?\\n\\n' +\n      offeredPros.map((pro, index) => index + 1 + ' - ' + pro.title).join('\\n') +\n      '\\n\\n0 - Menu';\n    return sendPayload(\n      config,\n      phone,\n      next,\n      profile,\n      listMessage(phone, {\n        header: config.clinicName,\n        body,\n        button: 'Ver profissionais',\n        sectionTitle: 'Profissionais',\n        rows: offeredPros.map((pro) => ({ id: pro.id, title: pro.title, description: pro.description })),\n      }),\n    );\n  }\n  const only = config.professionals[0];\n  const next = withSession(session, nowIso, { professionalId: only.id, step: 'pick_type' });\n  return typePrompt(config, next, profile, phone, nowIso);\n}\n\nfunction beginList(config, profile, phone, nowIso, purpose) {\n  const now = new Date(nowIso);\n  const timeMax = new Date(now.getTime() + (Number(config.lookupDays) || 60) * 86400000).toISOString();\n  return {\n    action: 'list_events',\n    purpose,\n    phone,\n    session: null,\n    profile,\n    config: publicConfig(config),\n    calendars: config.professionals.map((pro) => ({ id: pro.id, name: pro.name, calendarId: pro.calendarId })),\n    calendarId: config.professionals[0] && config.professionals[0].calendarId,\n    query: 'tel:' + phone,\n    timeMin: now.toISOString(),\n    timeMax,\n  };\n}\n\nfunction typePrompt(config, session, profile, phone, nowIso) {\n  const types = config.sessionTypes;\n  const next = withSession(session, nowIso, { step: 'pick_type' });\n  const lines = ['Qual é o tipo da sessão?', ''];\n  types.forEach((type, index) => {\n    lines.push(index + 1 + ' - ' + type.label + ' (' + type.durationMinutes + ' min)');\n  });\n  lines.push('0 - Menu');\n  if (types.length <= 2) {\n    const buttons = types.map((type) => ({ id: 'tipo:' + type.id, title: clip(type.label, 20) }));\n    buttons.push({ id: 'menu', title: 'Menu' });\n    return sendPayload(config, phone, next, profile, buttonMessage(phone, lines.join('\\n'), buttons));\n  }\n  return sendPayload(\n    config,\n    phone,\n    next,\n    profile,\n    listMessage(phone, {\n      header: config.clinicName,\n      body: lines.join('\\n'),\n      button: 'Ver tipos',\n      sectionTitle: 'Sessões',\n      rows: types.map((type) => ({\n        id: 'tipo:' + type.id,\n        title: clip(type.label, 24),\n        description: type.durationMinutes + ' min',\n      })),\n    }),\n  );\n}\n\nfunction datePrompt(config, session, profile, phone, nowIso) {\n  const duration = Number(session.durationMinutes) || 50;\n  const dates = upcomingDates(config, new Date(nowIso), duration);\n  if (!dates.length) {\n    return sendText(config, phone, null, profile, 'Não há dias com horário livre no período configurado. Responda MENU para voltar.');\n  }\n  const next = withSession(session, nowIso, { step: 'pick_date', offeredDates: dates, date: null, slotStart: null, slotEnd: null });\n  return sendPayload(\n    config,\n    phone,\n    next,\n    profile,\n    listMessage(phone, {\n      header: config.clinicName,\n      body: dateBody(config, dates),\n      button: 'Ver dias',\n      sectionTitle: 'Dias',\n      rows: dates.map((date) => ({ id: date.id, title: date.title, description: date.description })),\n    }),\n  );\n}\n\nfunction startReschedule(config, session, profile, phone, event, nowIso) {\n  const pro = proForEvent(config, event);\n  const typeLabel = field(event.description, 'Tipo') || 'Retorno';\n  const known = config.sessionTypes.find((type) => norm(type.label) === norm(typeLabel));\n  const startMs = new Date(event.start).getTime();\n  const endMs = new Date(event.end).getTime();\n  const duration = Number.isFinite(endMs - startMs) && endMs > startMs ? Math.round((endMs - startMs) / 60000) : (known && known.durationMinutes) || 50;\n  const patient = field(event.description, 'Paciente');\n  const named = patient ? { patientName: patient } : profile;\n  const next = withSession(freshSession(nowIso), nowIso, {\n    mode: 'reschedule',\n    professionalId: pro.id,\n    sessionTypeId: known ? known.id : null,\n    typeLabel,\n    durationMinutes: duration,\n    eventId: event.eventId,\n    eventCalendarId: pro.calendarId,\n    ignoreStart: event.start,\n    ignoreEnd: event.end,\n  });\n  return datePrompt(config, next, named, phone, nowIso);\n}\n\nfunction confirmPayload(config, phone, session, profile) {\n  const pro = proById(config, session.professionalId);\n  const when = whenLabel(session.slotStart, session.slotEnd, config.timezone);\n  const lines = [\n    session.mode === 'reschedule' ? 'Confira a remarcação:' : 'Confira o agendamento:',\n    '',\n    'Paciente: ' + (profile.patientName || ''),\n    'Profissional: ' + ((pro && pro.name) || 'Fisioterapeuta'),\n    'Tipo: ' + (session.typeLabel || 'Sessão') + ' (' + session.durationMinutes + ' min)',\n    'Quando: ' + when,\n  ];\n  if (config.location) lines.push('Local: ' + config.location);\n  lines.push('', 'A consulta só entra na agenda depois que você confirmar.', '1 - Confirmar', '2 - Outro horário', '0 - Menu');\n  return buttonMessage(phone, lines.join('\\n'), [\n    { id: 'confirmar', title: 'Confirmar' },\n    { id: 'outro', title: 'Outro horário' },\n    { id: 'menu', title: 'Menu' },\n  ]);\n}\n\nfunction slotsPayload(phone, config, offeredSlots, page, prefix) {\n  const view = pageRows(offeredSlots, page);\n  const lines = [];\n  if (prefix) lines.push(prefix, '');\n  lines.push('Horários livres:');\n  lines.push('');\n  view.visible.forEach((slot, index) => {\n    lines.push(index + 1 + ' - ' + slot.title + ' às ' + slot.description.replace('até ', ''));\n  });\n  if (view.more) lines.push(view.visible.length + 1 + ' - Mais horários');\n  lines.push('0 - Menu');\n  const rows = view.visible.map((slot) => ({ id: slot.id, title: slot.title, description: slot.description }));\n  if (view.more) rows.push({ id: 'mais', title: 'Mais horários', description: 'Ver os próximos' });\n  return listMessage(phone, {\n    header: config.clinicName,\n    body: lines.join('\\n'),\n    button: 'Ver horários',\n    sectionTitle: 'Livres',\n    rows,\n  });\n}\n\nfunction draftEvent(config, session, profile, phone) {\n  const fromConfig = proById(config, session.professionalId);\n  const pro = {\n    id: (fromConfig && fromConfig.id) || session.professionalId || 'fisio-1',\n    name: (fromConfig && fromConfig.name) || 'Fisioterapeuta',\n    calendarId: session.eventCalendarId || (fromConfig && fromConfig.calendarId),\n  };\n  const typeLabel = session.typeLabel || 'Sessão';\n  const summary = config.eventTitlePrefix + ' — ' + profile.patientName + ' (' + typeLabel + ')';\n  const description = [\n    'Paciente: ' + profile.patientName,\n    'Telefone: ' + phone,\n    'ID_PACIENTE: tel:' + phone,\n    'Tipo: ' + typeLabel,\n    'Profissional: ' + pro.name,\n    'ID_PROFISSIONAL: ' + pro.id,\n    'ID_CALENDARIO: ' + pro.calendarId,\n    'Duração: ' + session.durationMinutes + ' min',\n    'Canal: WhatsApp',\n  ].join('\\n');\n  const reminders = reminderPair(config);\n  return {\n    summary,\n    description,\n    start: session.slotStart,\n    end: session.slotEnd,\n    calendarId: pro.calendarId,\n    location: config.location || '',\n    reminderMinutes: reminders,\n  };\n}\n\nfunction reminderPair(config) {\n  const list = Array.isArray(config.reminderMinutes) && config.reminderMinutes.length ? config.reminderMinutes.map(Number) : [1440, 60];\n  if (list.length === 1) list.push(list[0]);\n  return [list[0], list[1]];\n}\n\nfunction reminderText(config, event, lead) {\n  const startIso = asIso(event.start);\n  const endIso = asIso(event.end) || startIso;\n  const when = whenLabel(startIso, endIso, config.timezone);\n  const patient = field(event.description, 'Paciente');\n  const tipo = field(event.description, 'Tipo');\n  const pro = field(event.description, 'Profissional');\n  const head = lead >= 120 ? 'Lembrete: você tem atendimento amanhã no ' + config.clinicName + '.' : 'Lembrete: seu atendimento no ' + config.clinicName + ' é daqui a cerca de 1 hora.';\n  return [head, '', [patient, tipo && pro ? tipo + ' com ' + pro : tipo || pro].filter(Boolean).join('\\n'), when, '', 'Se precisar remarcar ou cancelar, responda aqui.'].join('\\n');\n}\n\nfunction upcomingDates(config, now, durationMinutes) {\n  const today = localDateParts(now, config.timezone);\n  const dates = [];\n  const horizon = Number(config.daysAhead) || 21;\n  const limit = Math.min(Number(config.maxDatesInList) || 8, 10);\n  for (let offset = 0; offset <= horizon && dates.length < limit; offset += 1) {\n    const ymd = addCalendarDays(today, offset);\n    const weekday = weekdayOfLocalDate(ymd.year, ymd.month, ymd.day, config.timezone);\n    if (!(config.businessDays || []).includes(weekday)) continue;\n    const slots = slotsForDate(config, ymd, durationMinutes, now);\n    if (!slots.length) continue;\n    dates.push({\n      id: 'data:' + ymdString(ymd),\n      date: ymdString(ymd),\n      title: WEEK_SHORT[weekday] + ' ' + pad(ymd.day) + '/' + pad(ymd.month),\n      description: 'Horários de ' + durationMinutes + ' min',\n    });\n  }\n  return dates;\n}\n\nfunction slotsForDate(config, ymd, durationMinutes, now) {\n  const duration = Number(durationMinutes) || Number(config.slotMinutes) || 50;\n  const step = Math.max(Number(config.slotMinutes) || duration, duration);\n  const windows = [\n    [parseMinutes(config.dayStart), parseMinutes(config.lunchStart)],\n    [parseMinutes(config.lunchEnd), parseMinutes(config.dayEnd)],\n  ];\n  const lead = new Date(now.getTime() + (Number(config.minLeadMinutes) || 0) * 60000);\n  const slots = [];\n  for (const [open, close] of windows) {\n    if (!(open < close)) continue;\n    for (let minute = open; minute + duration <= close; minute += step) {\n      const start = zonedLocalToUtc(ymd.year, ymd.month, ymd.day, Math.floor(minute / 60), minute % 60, config.timezone);\n      const end = new Date(start.getTime() + duration * 60000);\n      if (start < lead) continue;\n      slots.push({\n        start: toOffsetIso(start, config.timezone),\n        end: toOffsetIso(end, config.timezone),\n        startMs: start.getTime(),\n        endMs: end.getTime(),\n      });\n    }\n  }\n  return slots;\n}\n\nfunction dateBody(config, dates) {\n  const lines = ['Escolha o dia:', ''];\n  dates.forEach((date, index) => lines.push(index + 1 + ' - ' + date.title));\n  lines.push('0 - Menu');\n  lines.push('', config.clinicName + ' · seg a sex, ' + config.dayStart + '–' + config.dayEnd + ', almoço ' + config.lunchStart + '–' + config.lunchEnd + '.');\n  return lines.join('\\n');\n}\n\nfunction menuReply(config, phone, profile, nowIso, prefix) {\n  const lines = [];\n  if (prefix) lines.push(prefix, '');\n  lines.push('Olá! Aqui é o atendimento do ' + config.clinicName + '.');\n  lines.push('');\n  lines.push('Como posso ajudar?');\n  lines.push('1 - Agendar');\n  lines.push('2 - Remarcar');\n  lines.push('3 - Cancelar');\n  lines.push('4 - Ver meus horários');\n  lines.push('');\n  lines.push('Toque em Ver opções ou responda com o número.');\n  return sendPayload(\n    config,\n    phone,\n    null,\n    profile,\n    listMessage(phone, {\n      header: config.clinicName,\n      body: lines.join('\\n'),\n      button: 'Ver opções',\n      sectionTitle: 'Atendimento',\n      rows: [\n        { id: 'agendar', title: 'Agendar', description: 'Marcar avaliação ou retorno' },\n        { id: 'remarcar', title: 'Remarcar', description: 'Mudar data ou horário' },\n        { id: 'cancelar', title: 'Cancelar', description: 'Desmarcar uma consulta' },\n        { id: 'meus', title: 'Meus horários', description: 'Ver próximas consultas' },\n      ],\n    }),\n  );\n}\n\nfunction sendText(config, phone, session, profile, body) {\n  return sendPayload(config, phone, session, profile, textBody(phone, body));\n}\n\nfunction sendPayload(config, phone, session, profile, whatsappBody) {\n  return {\n    action: 'send',\n    phone,\n    session: session && session.step && session.step !== 'menu' ? session : null,\n    profile,\n    config: publicConfig(config),\n    whatsappBody,\n  };\n}\n\nfunction finish(result, config) {\n  if (!result || result.action === 'send' || result.action === 'ignore') return result;\n  const ids = [];\n  if (result.calendarId) ids.push(result.calendarId);\n  for (const calendar of result.calendars || []) ids.push(calendar.calendarId);\n  if (!ids.length || ids.some(isPlaceholderCalendar)) {\n    return sendText(\n      config,\n      result.phone,\n      null,\n      result.profile,\n      'Ainda não consigo ver a agenda do consultório.\\n\\nQuem administra o n8n precisa preencher o calendarId no node \"Configuração do consultório\".\\n\\nResponda MENU quando estiver pronto.',\n    );\n  }\n  return result;\n}\n\nfunction eventLine(config, event) {\n  const start = asIso(event.start);\n  const end = asIso(event.end);\n  const tipo = field(event.description, 'Tipo');\n  const pro = field(event.description, 'Profissional') || event.professionalName;\n  return whenLabel(start, end, config.timezone) + (tipo || pro ? ' · ' + [tipo, pro].filter(Boolean).join(' com ') : '');\n}\n\nfunction askNameText(profileName) {\n  const hint = profileName ? '\\n\\nSe estiver certo, pode responder: ' + profileName : '';\n  return 'Qual é o nome completo do paciente?' + hint + '\\n\\nPara voltar, responda MENU.';\n}\n\nfunction isConfirm(choice) {\n  return choice.id === 'confirmar' || choice.norm === 'confirmar' || choice.norm === 'sim' || pickedIndex(choice) === 1;\n}\n\nfunction commandFrom(choice, allowNumbers) {\n  if (choice.id === 'agendar' || ['agendar', 'marcar', 'marcacao'].includes(choice.norm)) return 'book';\n  if (choice.id === 'remarcar' || ['remarcar', 'reagendar'].includes(choice.norm)) return 'reschedule';\n  if (choice.id === 'cancelar' || choice.id === 'desmarcar' || ['cancelar', 'desmarcar'].includes(choice.norm)) return 'cancel';\n  if (choice.id === 'meus' || ['meus', 'meus horarios', 'ver', 'ver horarios', 'ver meus horarios', 'agenda'].includes(choice.norm)) return 'view';\n  if (allowNumbers) {\n    const n = pickedIndex(choice);\n    if (n === 1) return 'book';\n    if (n === 2) return 'reschedule';\n    if (n === 3) return 'cancel';\n    if (n === 4) return 'view';\n  }\n  return null;\n}\n\nfunction isMenuWord(choice) {\n  return choice.id === 'menu' || MENU_WORDS.has(choice.norm);\n}\n\nfunction choiceOf(incoming) {\n  return {\n    id: String(incoming.choiceId || ''),\n    text: String(incoming.text || '').trim(),\n    norm: norm(incoming.text || incoming.choiceId || ''),\n  };\n}\n\nfunction matchType(choice, types) {\n  if (choice.id.startsWith('tipo:')) return types.find((type) => choice.id === 'tipo:' + type.id) || null;\n  const n = pickedIndex(choice);\n  if (n && types[n - 1]) return types[n - 1];\n  return types.find((type) => choice.norm === norm(type.label) || choice.norm === norm(type.id)) || null;\n}\n\nfunction matchById(choice, professionals, prefix, offered) {\n  const list = offered && offered.length ? offered : professionals.map((pro) => ({ id: prefix + pro.id, proId: pro.id }));\n  let found = null;\n  if (choice.id.startsWith(prefix)) found = list.find((item) => item.id === choice.id);\n  if (!found) {\n    const n = pickedIndex(choice);\n    if (n && list[n - 1]) found = list[n - 1];\n  }\n  if (!found) return null;\n  const id = found.proId || String(found.id).replace(prefix, '');\n  return professionals.find((pro) => pro.id === id) || null;\n}\n\nfunction matchDate(choice, offered) {\n  if (choice.id.startsWith('data:')) return offered.find((date) => date.id === choice.id) || null;\n  const n = pickedIndex(choice);\n  if (n && offered[n - 1]) return offered[n - 1];\n  return offered.find((date) => norm(date.title) === choice.norm) || null;\n}\n\nfunction matchSlot(choice, offered, page) {\n  const view = pageRows(offered, page);\n  if (choice.id.startsWith('hora:')) return offered.find((slot) => slot.id === choice.id) || null;\n  const n = pickedIndex(choice);\n  if (n && view.visible[n - 1]) return view.visible[n - 1];\n  return null;\n}\n\nfunction matchEvent(choice, offered) {\n  if (choice.id.startsWith('evt:')) return offered.find((event) => event.id === choice.id) || null;\n  const n = pickedIndex(choice);\n  if (n && offered[n - 1]) return offered[n - 1];\n  return null;\n}\n\nfunction pageRows(items, page) {\n  const size = items.length > 10 ? 9 : 10;\n  const start = Math.max(0, page) * size;\n  const visible = items.slice(start, start + size);\n  return { visible, more: start + size < items.length };\n}\n\nfunction cleanName(text) {\n  const name = String(text || '').replace(/\\s+/g, ' ').trim();\n  if (name.length < 5 || name.length > 80) return '';\n  if (!/[A-Za-zÀ-ÿ]/.test(name)) return '';\n  if (!name.includes(' ')) return '';\n  const asChoice = choiceOf({ text: name, choiceId: '' });\n  if (commandFrom(asChoice, false) || isMenuWord(asChoice)) return '';\n  return name;\n}\n\nfunction proById(config, id) {\n  return (config.professionals || []).find((pro) => pro.id === id) || null;\n}\n\nfunction proForEvent(config, event) {\n  const id = field(event.description, 'ID_PROFISSIONAL');\n  const calendarId = field(event.description, 'ID_CALENDARIO') || event.calendarId;\n  const known =\n    (config.professionals || []).find((pro) => pro.id === id) ||\n    (config.professionals || []).find((pro) => pro.calendarId === calendarId);\n  return {\n    id: (known && known.id) || id || 'evento',\n    name: (known && known.name) || field(event.description, 'Profissional') || event.professionalName || 'Fisioterapeuta',\n    calendarId: calendarId || (known && known.calendarId) || '',\n  };\n}\n\nfunction eventPhone(description) {\n  const tagged = field(description, 'ID_PACIENTE').replace(/^tel:/i, '');\n  if (digits(tagged)) return digits(tagged);\n  return digits(field(description, 'Telefone'));\n}\n\nfunction eventStartMs(event) {\n  const iso = asIso(event.start);\n  if (!iso || (event.start && event.start.date && !event.start.dateTime)) return NaN;\n  return new Date(iso).getTime();\n}\n\nfunction field(description, name) {\n  const prefix = name + ':';\n  for (const line of String(description || '').split(/\\r?\\n/)) {\n    if (line.startsWith(prefix)) return line.slice(prefix.length).trim();\n  }\n  return '';\n}\n\nfunction subtractInterval(busy, ignore) {\n  if (!ignore || !ignore.start || !ignore.end) return busy || [];\n  const i0 = new Date(ignore.start).getTime();\n  const i1 = new Date(ignore.end).getTime();\n  const out = [];\n  for (const block of busy || []) {\n    const b0 = new Date(block.start).getTime();\n    const b1 = new Date(block.end).getTime();\n    if (!(b0 < i1 && b1 > i0)) {\n      out.push(block);\n      continue;\n    }\n    if (b0 < i0) out.push({ start: block.start, end: ignore.start });\n    if (b1 > i1) out.push({ start: ignore.end, end: block.end });\n  }\n  return out;\n}\n\nfunction isFree(slot, busy) {\n  return !(busy || []).some((block) => slot.startMs < new Date(block.end).getTime() && slot.endMs > new Date(block.start).getTime());\n}\n\nfunction pushInterval(intervals, block) {\n  const start = asIso(block && (block.start || block.from));\n  const end = asIso(block && (block.end || block.to));\n  if (start && end) intervals.push({ start, end });\n}\n\nfunction asIso(value) {\n  if (!value) return null;\n  if (typeof value === 'string') return value;\n  if (value.dateTime) return value.dateTime;\n  if (value.date) return value.date;\n  return null;\n}\n\nfunction isPlaceholderCalendar(id) {\n  const value = String(id || '').trim();\n  if (!value) return true;\n  if (value.includes('SEU_CALENDAR_ID')) return true;\n  if (value.includes('COLOQUE_')) return true;\n  return false;\n}\n\nfunction isExpired(session, now, config) {\n  if (!session || !session.updatedAt) return false;\n  const ttl = (Number(config.sessionTtlMinutes) || 120) * 60000;\n  return now.getTime() - new Date(session.updatedAt).getTime() > ttl;\n}\n\nfunction freshSession(nowIso) {\n  return {\n    step: 'menu',\n    mode: null,\n    professionalId: null,\n    sessionTypeId: null,\n    typeLabel: null,\n    durationMinutes: null,\n    date: null,\n    slotStart: null,\n    slotEnd: null,\n    eventId: null,\n    eventCalendarId: null,\n    ignoreStart: null,\n    ignoreEnd: null,\n    offeredDates: [],\n    offeredSlots: [],\n    offeredEvents: [],\n    offeredPros: [],\n    slotPage: 0,\n    updatedAt: nowIso,\n  };\n}\n\nfunction withSession(session, nowIso, patch) {\n  return { ...session, ...patch, updatedAt: nowIso };\n}\n\nfunction listMessage(to, { header, body, button, sectionTitle, rows }) {\n  const payload = {\n    messaging_product: 'whatsapp',\n    recipient_type: 'individual',\n    to,\n    type: 'interactive',\n    interactive: {\n      type: 'list',\n      body: { text: clip(body, 1024) },\n      footer: { text: 'Responda com o número se preferir' },\n      action: {\n        button: clip(button, 20),\n        sections: [\n          {\n            title: clip(sectionTitle || 'Opções', 24),\n            rows: rows.slice(0, 10).map((row) => {\n              const item = { id: clip(String(row.id), 200), title: clip(row.title, 24) };\n              if (row.description) item.description = clip(row.description, 72);\n              return item;\n            }),\n          },\n        ],\n      },\n    },\n  };\n  if (header) payload.interactive.header = { type: 'text', text: clip(header, 60) };\n  return payload;\n}\n\nfunction buttonMessage(to, body, buttons) {\n  return {\n    messaging_product: 'whatsapp',\n    recipient_type: 'individual',\n    to,\n    type: 'interactive',\n    interactive: {\n      type: 'button',\n      body: { text: clip(body, 1024) },\n      action: {\n        buttons: buttons.slice(0, 3).map((button) => ({\n          type: 'reply',\n          reply: { id: clip(String(button.id), 256), title: clip(button.title, 20) },\n        })),\n      },\n    },\n  };\n}\n\nfunction whenLabel(startIso, endIso, timeZone) {\n  return formatLong(startIso, timeZone) + ', ' + formatTime(startIso, timeZone) + ' às ' + formatTime(endIso, timeZone);\n}\n\nfunction formatLong(iso, timeZone) {\n  const ymd = localDateParts(new Date(iso), timeZone);\n  const weekday = weekdayOfLocalDate(ymd.year, ymd.month, ymd.day, timeZone);\n  return WEEK_LONG[weekday] + ', ' + pad(ymd.day) + '/' + pad(ymd.month) + '/' + ymd.year;\n}\n\nfunction formatDayShort(iso, timeZone) {\n  const ymd = localDateParts(new Date(iso), timeZone);\n  return pad(ymd.day) + '/' + pad(ymd.month);\n}\n\nfunction formatTime(iso, timeZone) {\n  const parts = zonedParts(new Date(iso), timeZone);\n  return pad(Number(parts.hour)) + ':' + pad(Number(parts.minute));\n}\n\nfunction localDateParts(date, timeZone) {\n  const parts = zonedParts(date, timeZone);\n  return { year: Number(parts.year), month: Number(parts.month), day: Number(parts.day) };\n}\n\nfunction weekdayOfLocalDate(year, month, day, timeZone) {\n  const instant = zonedLocalToUtc(year, month, day, 12, 0, timeZone);\n  const short = new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short' }).format(instant);\n  return WEEK_FROM_EN[short];\n}\n\nfunction addCalendarDays(parts, days) {\n  const utc = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + days));\n  return { year: utc.getUTCFullYear(), month: utc.getUTCMonth() + 1, day: utc.getUTCDate() };\n}\n\nfunction ymdString(ymd) {\n  return ymd.year + '-' + pad(ymd.month) + '-' + pad(ymd.day);\n}\n\nfunction parseYmd(value) {\n  const match = String(value || '').match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);\n  if (!match) return null;\n  return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };\n}\n\nfunction parseMinutes(hm) {\n  const [hour, minute] = String(hm || '0:0').split(':').map(Number);\n  return hour * 60 + minute;\n}\n\nfunction zonedLocalToUtc(year, month, day, hour, minute, timeZone) {\n  const guess = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));\n  const offset = timeZoneOffsetMs(timeZone, guess);\n  const utc = new Date(guess.getTime() - offset);\n  const offset2 = timeZoneOffsetMs(timeZone, utc);\n  if (offset2 !== offset) return new Date(guess.getTime() - offset2);\n  return utc;\n}\n\nfunction timeZoneOffsetMs(timeZone, date) {\n  const parts = zonedParts(date, timeZone);\n  const asUtc = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute), Number(parts.second));\n  return asUtc - date.getTime();\n}\n\nfunction toOffsetIso(date, timeZone) {\n  const parts = zonedParts(date, timeZone);\n  const offset = timeZoneOffsetMs(timeZone, date);\n  const sign = offset >= 0 ? '+' : '-';\n  const abs = Math.abs(offset);\n  const hours = Math.floor(abs / 3600000);\n  const minutes = Math.floor((abs % 3600000) / 60000);\n  return (\n    parts.year +\n    '-' +\n    parts.month +\n    '-' +\n    parts.day +\n    'T' +\n    parts.hour +\n    ':' +\n    parts.minute +\n    ':' +\n    parts.second +\n    sign +\n    pad(hours) +\n    ':' +\n    pad(minutes)\n  );\n}\n\nfunction zonedParts(date, timeZone) {\n  const fmt = new Intl.DateTimeFormat('en-US', {\n    timeZone,\n    hourCycle: 'h23',\n    year: 'numeric',\n    month: '2-digit',\n    day: '2-digit',\n    hour: '2-digit',\n    minute: '2-digit',\n    second: '2-digit',\n  });\n  const out = {};\n  for (const part of fmt.formatToParts(date)) {\n    if (part.type !== 'literal') out[part.type] = part.value;\n  }\n  if (out.hour === '24') out.hour = '00';\n  return out;\n}\n\nfunction pickedIndex(choice) {\n  if (/^\\d{1,2}$/.test(choice.text)) return Number(choice.text);\n  return null;\n}\n\nfunction norm(value) {\n  return String(value || '')\n    .toLowerCase()\n    .normalize('NFD')\n    .replace(/[\\u0300-\\u036f]/g, '')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nfunction digits(value) {\n  return String(value || '').replace(/\\D/g, '');\n}\n\nfunction pad(value) {\n  return String(value).padStart(2, '0');\n}\n\nfunction clip(value, max) {\n  const text = String(value || '');\n  return text.length <= max ? text : text.slice(0, max);\n}\n\nfunction clone(value) {\n  return value == null ? value : JSON.parse(JSON.stringify(value));\n}\n\nconst root = $input.first().json;\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.sessions) staticData.sessions = {};\nif (!staticData.profiles) staticData.profiles = {};\nif (!staticData.seen) staticData.seen = [];\n\nconst incoming = parseIncoming(root.request);\nif (!incoming) {\n  return [{ json: { action: 'ignore' } }];\n}\n\nconst noted = registerMessage(staticData.seen, incoming.messageId);\nstaticData.seen = noted.seen;\nif (noted.duplicate || incoming.silent) {\n  return [{ json: { action: 'ignore', duplicate: noted.duplicate === true } }];\n}\n\nconst phone = incoming.phone;\nconst nowMs = Date.now();\nconst ttlMs = (Number(root.config.sessionTtlMinutes) || 120) * 60000;\nfor (const key of Object.keys(staticData.sessions)) {\n  const sess = staticData.sessions[key];\n  const at = sess && sess.updatedAt ? new Date(sess.updatedAt).getTime() : 0;\n  if (!at || nowMs - at > ttlMs) delete staticData.sessions[key];\n}\n\nconst result = handleTurn({\n  config: root.config,\n  session: staticData.sessions[phone] || null,\n  profile: staticData.profiles[phone] || null,\n  incoming: incoming,\n  nowIso: new Date().toISOString(),\n});\n\nif (result.profile && result.profile.patientName) {\n  staticData.profiles[phone] = { patientName: result.profile.patientName };\n}\nif (result.session && result.session.step && result.session.step !== 'menu') {\n  staticData.sessions[phone] = result.session;\n} else {\n  delete staticData.sessions[phone];\n}\n\nreturn [{ json: result }];\n"
+      }
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000014",
+      "name": "Escolher ação",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1720,
+        560
+      ],
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "rule-send",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "send",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "send"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "rule-freebusy",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "freebusy",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "freebusy"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "rule-list",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "list_events",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "list_events"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "rule-delete",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "delete_event",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "delete_event"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "rule-ignore",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "ignore",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ignore"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      }
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000015",
+      "name": "Consultar disponibilidade",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        2040,
+        360
+      ],
+      "parameters": {
+        "resource": "calendar",
+        "operation": "availability",
+        "calendar": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.calendarId }}"
+        },
+        "timeMin": "={{ $json.timeMin }}",
+        "timeMax": "={{ $json.timeMax }}",
+        "options": {
+          "outputFormat": "raw",
+          "timezone": {
+            "__rl": true,
+            "mode": "id",
+            "value": "={{ $('Configuração do consultório').first().json.config.timezone }}"
+          }
+        }
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "PREENCHER_GOOGLE_CALENDAR",
+          "name": "Google Calendar"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000016",
+      "name": "Montar horários livres",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2320,
+        360
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "/**\n * Regras do chatbot de agendamento (sem n8n, sem rede).\n * Horários em America/Sao_Paulo por padrão. Sem horário de verão desde 2019.\n */\n\nfunction defaultConfig() {\n  return {\n    _ajuda:\n      'Edite este objeto no node Configuração do consultório. Não cole token de acesso aqui: o token fica na credencial WhatsApp Cloud API do n8n. Para outro fisioterapeuta, copie um item de professionals e mude id, name e calendarId.',\n    clinicName: 'Consultório de Fisioterapia',\n    timezone: 'America/Sao_Paulo',\n    graphApiVersion: 'v21.0',\n    whatsappPhoneNumberId: 'SEU_PHONE_NUMBER_ID',\n    whatsappVerifyToken: 'TROQUE_ESTE_VERIFY_TOKEN',\n    location: '',\n    businessDays: [1, 2, 3, 4, 5],\n    dayStart: '08:00',\n    dayEnd: '18:00',\n    lunchStart: '12:00',\n    lunchEnd: '13:00',\n    slotMinutes: 50,\n    minLeadMinutes: 60,\n    daysAhead: 21,\n    maxDatesInList: 8,\n    lookupDays: 60,\n    sessionTtlMinutes: 120,\n    reminderMinutes: [1440, 60],\n    reminderLookaheadHours: 26,\n    reminderWindowMinutes: 70,\n    eventTitlePrefix: 'Fisioterapia',\n    professionals: [\n      {\n        id: 'fisio-1',\n        name: 'Fisioterapeuta',\n        calendarId: 'SEU_CALENDAR_ID@group.calendar.google.com',\n      },\n    ],\n    sessionTypes: [\n      { id: 'avaliacao', label: 'Avaliação', durationMinutes: 50 },\n      { id: 'retorno', label: 'Retorno', durationMinutes: 50 },\n    ],\n  };\n}\n\nconst WEEK_LONG = {\n  1: 'segunda-feira',\n  2: 'terça-feira',\n  3: 'quarta-feira',\n  4: 'quinta-feira',\n  5: 'sexta-feira',\n  6: 'sábado',\n  7: 'domingo',\n};\nconst WEEK_SHORT = { 1: 'seg', 2: 'ter', 3: 'qua', 4: 'qui', 5: 'sex', 6: 'sáb', 7: 'dom' };\nconst WEEK_FROM_EN = { Sun: 7, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };\nconst MENU_WORDS = new Set([\n  'menu',\n  'inicio',\n  'oi',\n  'ola',\n  'hey',\n  'ei',\n  'bom dia',\n  'boa tarde',\n  'boa noite',\n  '0',\n  'voltar',\n  'recomecar',\n  'comecar',\n  'start',\n  'ajuda',\n]);\n\nfunction registerMessage(seen, messageId) {\n  const list = Array.isArray(seen) ? seen.slice() : [];\n  if (messageId && list.includes(messageId)) return { duplicate: true, seen: list };\n  if (messageId) list.push(messageId);\n  return { duplicate: false, seen: list.length > 400 ? list.slice(-400) : list };\n}\n\nfunction publicConfig(config) {\n  const copy = JSON.parse(JSON.stringify(config));\n  delete copy.whatsappVerifyToken;\n  return copy;\n}\n\nfunction textBody(to, body) {\n  return {\n    messaging_product: 'whatsapp',\n    recipient_type: 'individual',\n    to,\n    type: 'text',\n    text: { preview_url: false, body: clip(body, 4096) },\n  };\n}\n\nfunction parseIncoming(request) {\n  const body = request && request.body;\n  if (!body || !Array.isArray(body.entry) || !body.entry.length) return null;\n  const change = body.entry[0] && body.entry[0].changes && body.entry[0].changes[0];\n  const value = change && change.value;\n  if (!value || !Array.isArray(value.messages) || !value.messages.length) return null;\n  const message = value.messages[0];\n  const phone = digits(message.from);\n  if (!phone) return null;\n  const display = digits(value.metadata && value.metadata.display_phone_number);\n  if (display && display === phone) return null;\n  const profileName =\n    (value.contacts && value.contacts[0] && value.contacts[0].profile && value.contacts[0].profile.name) || '';\n  const messageId = message.id || '';\n  if (message.type === 'reaction' || message.type === 'system') {\n    return { phone, messageId, profileName, silent: true, unsupported: false, text: '', choiceId: '' };\n  }\n  if (message.type === 'text') {\n    return {\n      phone,\n      messageId,\n      profileName,\n      silent: false,\n      unsupported: false,\n      text: String((message.text && message.text.body) || '').trim(),\n      choiceId: '',\n    };\n  }\n  if (message.type === 'interactive') {\n    const interactive = message.interactive || {};\n    if (interactive.type === 'button_reply' && interactive.button_reply) {\n      return {\n        phone,\n        messageId,\n        profileName,\n        silent: false,\n        unsupported: false,\n        text: String(interactive.button_reply.title || '').trim(),\n        choiceId: String(interactive.button_reply.id || ''),\n      };\n    }\n    if (interactive.type === 'list_reply' && interactive.list_reply) {\n      return {\n        phone,\n        messageId,\n        profileName,\n        silent: false,\n        unsupported: false,\n        text: String(interactive.list_reply.title || '').trim(),\n        choiceId: String(interactive.list_reply.id || ''),\n      };\n    }\n  }\n  return { phone, messageId, profileName, silent: false, unsupported: true, text: '', choiceId: '' };\n}\n\nfunction handleTurn({ config, session, profile, incoming, nowIso }) {\n  const now = new Date(nowIso);\n  const safeProfile = profile && profile.patientName ? { patientName: profile.patientName } : { patientName: null };\n  if (!incoming || incoming.unsupported) {\n    return menuReply(config, incoming && incoming.phone, safeProfile, nowIso, 'Envie uma mensagem de texto ou escolha uma opção do menu.');\n  }\n  let current = clone(session);\n  if (current && isExpired(current, now, config)) current = null;\n  if (!current) current = freshSession(nowIso);\n  const choice = choiceOf(incoming);\n  const phone = incoming.phone;\n\n  if (!config.professionals || !config.professionals.length || !config.sessionTypes || !config.sessionTypes.length) {\n    return sendText(config, phone, null, safeProfile, 'O consultório ainda não tem profissional ou tipo de sessão na configuração.');\n  }\n\n  if (current.step === 'ask_name') {\n    return onAskName(config, current, safeProfile, incoming, choice, nowIso);\n  }\n\n  if (current.step === 'menu') {\n    if (isMenuWord(choice)) return menuReply(config, phone, safeProfile, nowIso, null);\n    const cmd = commandFrom(choice, true);\n    if (cmd) return dispatch(config, safeProfile, phone, nowIso, cmd);\n    return menuReply(config, phone, safeProfile, nowIso, 'Não entendi essa resposta. Vamos voltar ao menu.');\n  }\n\n  const local = handleStep(config, current, safeProfile, phone, choice, nowIso);\n  if (local) return finish(local, config);\n  const cmd = commandFrom(choice, false);\n  if (cmd) return dispatch(config, safeProfile, phone, nowIso, cmd);\n  if (isMenuWord(choice)) return menuReply(config, phone, safeProfile, nowIso, null);\n  return menuReply(config, phone, safeProfile, nowIso, 'Não entendi essa resposta. Vamos voltar ao menu.');\n}\n\nfunction extractBusy(payloads) {\n  const intervals = [];\n  const list = Array.isArray(payloads) ? payloads : [payloads];\n  for (const payload of list) {\n    if (!payload || typeof payload !== 'object') continue;\n    if (Array.isArray(payload.busy)) {\n      for (const b of payload.busy) pushInterval(intervals, b);\n    }\n    if (payload.calendars && typeof payload.calendars === 'object') {\n      for (const cal of Object.values(payload.calendars)) {\n        if (cal && Array.isArray(cal.busy)) {\n          for (const b of cal.busy) pushInterval(intervals, b);\n        }\n      }\n    }\n    if (payload.start && payload.end && !payload.calendars && !payload.kind) {\n      pushInterval(intervals, payload);\n    }\n  }\n  return intervals;\n}\n\nfunction applyFreeBusy({ config, session, profile, phone, busy, nowIso, purpose, ignoreInterval }) {\n  const current = clone(session) || freshSession(nowIso);\n  const safeProfile = profile && profile.patientName ? { patientName: profile.patientName } : { patientName: null };\n  const ignore = ignoreInterval || (current.ignoreStart ? { start: current.ignoreStart, end: current.ignoreEnd } : null);\n  const freeBusy = subtractInterval(busy || [], ignore);\n\n  if (purpose === 'offer_slots') {\n    const ymd = parseYmd(current.date);\n    const duration = Number(current.durationMinutes) || 50;\n    const slots = ymd ? slotsForDate(config, ymd, duration, new Date(nowIso)) : [];\n    const free = slots.filter((slot) => isFree(slot, freeBusy));\n    if (!free.length) {\n      const dates = upcomingDates(config, new Date(nowIso), duration);\n      const next = withSession(current, nowIso, { step: 'pick_date', offeredDates: dates, offeredSlots: [], slotPage: 0, date: null });\n      const body = dates.length\n        ? 'Não há horários livres nesse dia.\\n\\n' + dateBody(config, dates)\n        : 'Não há horários livres na agenda neste período. Responda MENU para voltar.';\n      const whatsappBody = dates.length\n        ? listMessage(phone, {\n            header: config.clinicName,\n            body,\n            button: 'Ver dias',\n            sectionTitle: 'Dias',\n            rows: dates.map((d) => ({ id: d.id, title: d.title, description: d.description })),\n          })\n        : textBody(phone, body);\n      return finish(sendPayload(config, phone, dates.length ? next : null, safeProfile, whatsappBody), config);\n    }\n    const offeredSlots = free.map((slot, index) => ({\n      id: 'hora:' + index,\n      start: slot.start,\n      end: slot.end,\n      title: formatTime(slot.start, config.timezone),\n      description: 'até ' + formatTime(slot.end, config.timezone),\n    }));\n    const next = withSession(current, nowIso, { step: 'pick_time', offeredSlots, slotPage: 0 });\n    return finish(sendPayload(config, phone, next, safeProfile, slotsPayload(phone, config, offeredSlots, 0)), config);\n  }\n\n  const slot = {\n    start: current.slotStart,\n    end: current.slotEnd,\n    startMs: new Date(current.slotStart).getTime(),\n    endMs: new Date(current.slotEnd).getTime(),\n  };\n  const leadMs = (Number(config.minLeadMinutes) || 0) * 60000;\n  const stillFree = slot.startMs >= new Date(nowIso).getTime() + leadMs && isFree(slot, freeBusy);\n  if (!stillFree) {\n    const ymd = parseYmd(current.date);\n    const duration = Number(current.durationMinutes) || 50;\n    const slots = ymd ? slotsForDate(config, ymd, duration, new Date(nowIso)).filter((item) => isFree(item, freeBusy)) : [];\n    if (!slots.length) {\n      const dates = upcomingDates(config, new Date(nowIso), duration);\n      const next = withSession(current, nowIso, {\n        step: 'pick_date',\n        offeredDates: dates,\n        offeredSlots: [],\n        slotStart: null,\n        slotEnd: null,\n        date: null,\n      });\n      const body = 'Esse horário acabou de ser ocupado e não restou outro neste dia.\\n\\n' + dateBody(config, dates);\n      return finish(\n        sendPayload(\n          config,\n          phone,\n          dates.length ? next : null,\n          safeProfile,\n          dates.length\n            ? listMessage(phone, {\n                header: config.clinicName,\n                body,\n                button: 'Ver dias',\n                sectionTitle: 'Dias',\n                rows: dates.map((d) => ({ id: d.id, title: d.title, description: d.description })),\n              })\n            : textBody(phone, 'Esse horário acabou de ser ocupado. Responda MENU para voltar.'),\n        ),\n        config,\n      );\n    }\n    const offeredSlots = slots.map((item, index) => ({\n      id: 'hora:' + index,\n      start: item.start,\n      end: item.end,\n      title: formatTime(item.start, config.timezone),\n      description: 'até ' + formatTime(item.end, config.timezone),\n    }));\n    const next = withSession(current, nowIso, { step: 'pick_time', offeredSlots, slotPage: 0, slotStart: null, slotEnd: null });\n    const payload = slotsPayload(phone, config, offeredSlots, 0, 'Esse horário acabou de ser ocupado.');\n    return finish(sendPayload(config, phone, next, safeProfile, payload), config);\n  }\n\n  const drafted = draftEvent(config, current, safeProfile, phone);\n  const when = whenLabel(drafted.start, drafted.end, config.timezone);\n  const verb = purpose === 'recheck_update' ? 'Consulta remarcada.' : 'Consulta agendada.';\n  const lines = [verb, '', drafted.summary.replace(config.eventTitlePrefix + ' — ', ''), when];\n  if (config.location) lines.push(config.location);\n  lines.push('', 'O horário fica ocupado na agenda, com lembrete para o consultório.', 'Se precisar remarcar ou cancelar, responda MENU.');\n  return finish(\n    {\n      action: purpose === 'recheck_update' ? 'update_event' : 'create_event',\n      phone,\n      session: withSession(current, nowIso, { step: current.step }),\n      profile: safeProfile,\n      config: publicConfig(config),\n      calendarId: drafted.calendarId,\n      eventId: current.eventId,\n      start: drafted.start,\n      end: drafted.end,\n      summary: drafted.summary,\n      description: drafted.description,\n      location: drafted.location,\n      reminderMinutes: drafted.reminderMinutes,\n      whatsappBody: textBody(phone, lines.join('\\n')),\n    },\n    config,\n  );\n}\n\nfunction pairEvents(inputItems, expandedItems) {\n  const events = [];\n  const inputs = Array.isArray(inputItems) ? inputItems : [];\n  const expanded = Array.isArray(expandedItems) ? expandedItems : [];\n  for (const item of inputs) {\n    const ev = item && item.json ? item.json : item;\n    if (!ev || !ev.id || ev.status === 'cancelled') continue;\n    if (ev.start && ev.start.date && !ev.start.dateTime) continue;\n    let idx = 0;\n    const paired = item && item.pairedItem;\n    if (paired && typeof paired.item === 'number') idx = paired.item;\n    if (Array.isArray(paired) && paired[0] && typeof paired[0].item === 'number') idx = paired[0].item;\n    const srcRaw = expanded[idx] || expanded[0] || {};\n    const src = srcRaw.json || srcRaw;\n    events.push({\n      id: ev.id,\n      summary: ev.summary || '',\n      description: ev.description || '',\n      start: ev.start || null,\n      end: ev.end || null,\n      calendarId: field(ev.description, 'ID_CALENDARIO') || src.calendarId || '',\n      professionalName: field(ev.description, 'Profissional') || src.professionalName || '',\n    });\n  }\n  return events;\n}\n\nfunction applyEventList({ config, phone, profile, events, nowIso, purpose }) {\n  const safeProfile = profile && profile.patientName ? { patientName: profile.patientName } : { patientName: null };\n  const nowMs = new Date(nowIso).getTime();\n  const mine = (events || [])\n    .filter((event) => eventPhone(event.description) === phone)\n    .map((event) => ({ ...event, startMs: eventStartMs(event) }))\n    .filter((event) => Number.isFinite(event.startMs) && event.startMs > nowMs)\n    .sort((a, b) => a.startMs - b.startMs)\n    .slice(0, 10);\n\n  if (!mine.length) {\n    const empty =\n      purpose === 'list_for_view'\n        ? 'Você não tem consultas futuras marcadas por aqui.\\n\\nResponda MENU para agendar.'\n        : 'Não encontrei consulta futura para este telefone.\\n\\nSó aparecem horários marcados por este atendimento. Responda MENU para voltar.';\n    return finish(sendText(config, phone, null, safeProfile, empty), config);\n  }\n\n  if (purpose === 'list_for_view') {\n    const lines = ['Suas próximas consultas:', ''];\n    mine.forEach((event, index) => {\n      lines.push(index + 1 + '. ' + eventLine(config, event));\n    });\n    lines.push('', 'Para remarcar ou cancelar, responda MENU.');\n    return finish(sendText(config, phone, null, safeProfile, lines.join('\\n')), config);\n  }\n\n  const offeredEvents = mine.map((event, index) => ({\n    id: 'evt:' + index,\n    eventId: event.id,\n    calendarId: event.calendarId,\n    professionalName: event.professionalName,\n    summary: event.summary,\n    description: event.description,\n    start: asIso(event.start),\n    end: asIso(event.end),\n    title: clip(formatDayShort(asIso(event.start), config.timezone) + ' ' + formatTime(asIso(event.start), config.timezone), 24),\n    descriptionRow: clip(eventLine(config, event), 72),\n  }));\n  const step = purpose === 'list_for_cancel' ? 'pick_event_cancel' : 'pick_event_reschedule';\n  const intro = purpose === 'list_for_cancel' ? 'Qual consulta você quer cancelar?' : 'Qual consulta você quer remarcar?';\n  const session = withSession(freshSession(nowIso), nowIso, { step, offeredEvents, mode: purpose === 'list_for_cancel' ? 'cancel' : 'reschedule' });\n  const body = intro + '\\n\\n' + offeredEvents.map((event, index) => index + 1 + ' - ' + event.descriptionRow).join('\\n') + '\\n\\n0 - Menu';\n  return finish(\n    sendPayload(\n      config,\n      phone,\n      session,\n      safeProfile,\n      listMessage(phone, {\n        header: config.clinicName,\n        body,\n        button: 'Ver consultas',\n        sectionTitle: 'Consultas',\n        rows: offeredEvents.map((event) => ({ id: event.id, title: event.title, description: event.descriptionRow })),\n      }),\n    ),\n    config,\n  );\n}\n\nfunction selectReminders({ config, events, nowIso, sent }) {\n  const nowMs = new Date(nowIso).getTime();\n  const leads = (config.reminderMinutes || [1440, 60]).map(Number);\n  const windowMin = Number(config.reminderWindowMinutes) || 70;\n  const nextSent = clone(sent || {});\n  const messages = [];\n  for (const event of events || []) {\n    const phone = eventPhone(event.description);\n    const startIso = asIso(event.start);\n    const startMs = startIso ? new Date(startIso).getTime() : NaN;\n    if (!phone || !Number.isFinite(startMs)) continue;\n    const remainMin = (startMs - nowMs) / 60000;\n    if (remainMin <= 0) continue;\n    for (const lead of leads) {\n      const kind = 'm' + lead;\n      if (nextSent[event.id] && nextSent[event.id][kind]) continue;\n      if (remainMin < lead - windowMin || remainMin > lead + windowMin) continue;\n      messages.push({\n        eventId: event.id,\n        kind,\n        phone,\n        whatsappBody: textBody(phone, reminderText(config, event, lead)),\n      });\n      if (!nextSent[event.id]) nextSent[event.id] = {};\n      nextSent[event.id][kind] = nowIso;\n    }\n  }\n  const cutoff = nowMs - 3 * 86400000;\n  for (const eventId of Object.keys(nextSent)) {\n    const stamps = Object.values(nextSent[eventId] || {});\n    const newest = stamps.reduce((max, iso) => Math.max(max, new Date(iso).getTime() || 0), 0);\n    if (!newest || newest < cutoff) delete nextSent[eventId];\n  }\n  return { messages, sent: nextSent };\n}\n\nfunction handleStep(config, session, profile, phone, choice, nowIso) {\n  if (session.step === 'pick_pro') {\n    const pro = matchById(choice, config.professionals, 'pro:', session.offeredPros || config.professionals);\n    if (!pro) return null;\n    const next = withSession(session, nowIso, { professionalId: pro.id, step: 'pick_type' });\n    return typePrompt(config, next, profile, phone, nowIso);\n  }\n  if (session.step === 'pick_type') {\n    const type = matchType(choice, config.sessionTypes);\n    if (!type) return null;\n    const next = withSession(session, nowIso, {\n      sessionTypeId: type.id,\n      typeLabel: type.label,\n      durationMinutes: Number(type.durationMinutes) || Number(config.slotMinutes) || 50,\n    });\n    if (!profile.patientName) {\n      const asking = withSession(next, nowIso, { step: 'ask_name' });\n      return sendText(config, phone, asking, profile, askNameText(null));\n    }\n    return datePrompt(config, next, profile, phone, nowIso);\n  }\n  if (session.step === 'pick_date') {\n    if (choice.id === 'mais' || choice.norm === 'mais' || choice.norm === 'mais horarios') return null;\n    const date = matchDate(choice, session.offeredDates || []);\n    if (!date) return null;\n      const pro = proById(config, session.professionalId);\n      const next = withSession(session, nowIso, { date: date.date, step: 'pick_date' });\n      const calendarId = session.eventCalendarId || (pro && pro.calendarId);\n    const ymd = parseYmd(date.date);\n    const nextDay = addCalendarDays(ymd, 1);\n    return {\n      action: 'freebusy',\n      purpose: 'offer_slots',\n      phone,\n      session: next,\n      profile,\n      config: publicConfig(config),\n      calendarId,\n      timeMin: toOffsetIso(zonedLocalToUtc(ymd.year, ymd.month, ymd.day, 0, 0, config.timezone), config.timezone),\n      timeMax: toOffsetIso(zonedLocalToUtc(nextDay.year, nextDay.month, nextDay.day, 0, 0, config.timezone), config.timezone),\n      ignoreInterval: session.ignoreStart ? { start: session.ignoreStart, end: session.ignoreEnd } : null,\n    };\n  }\n  if (session.step === 'pick_time') {\n    const view = pageRows(session.offeredSlots || [], session.slotPage || 0);\n    const moreIndex = view.more ? view.visible.length + 1 : null;\n    if (choice.id === 'mais' || choice.norm === 'mais' || choice.norm === 'mais horarios' || (moreIndex && pickedIndex(choice) === moreIndex)) {\n      const page = (session.slotPage || 0) + 1;\n      const nextView = pageRows(session.offeredSlots || [], page);\n      const nextPage = nextView.visible.length ? page : 0;\n      const next = withSession(session, nowIso, { slotPage: nextPage });\n      return sendPayload(config, phone, next, profile, slotsPayload(phone, config, session.offeredSlots || [], nextPage));\n    }\n    const slot = matchSlot(choice, session.offeredSlots || [], session.slotPage || 0);\n    if (!slot) return null;\n    if (session.mode === 'reschedule' && slot.start === session.ignoreStart) {\n      return sendPayload(\n        config,\n        phone,\n        withSession(session, nowIso, {}),\n        profile,\n        slotsPayload(phone, config, session.offeredSlots || [], session.slotPage || 0, 'Esse já é o horário da sua consulta.'),\n      );\n    }\n    const step = session.mode === 'reschedule' ? 'confirm_reschedule' : 'confirm_book';\n    const next = withSession(session, nowIso, { step, slotStart: slot.start, slotEnd: slot.end });\n    return sendPayload(config, phone, next, profile, confirmPayload(config, phone, next, profile));\n  }\n  if (session.step === 'confirm_book' || session.step === 'confirm_reschedule') {\n    if (isConfirm(choice)) {\n      const pro = proById(config, session.professionalId);\n      const purpose = session.step === 'confirm_reschedule' ? 'recheck_update' : 'recheck_create';\n      return {\n        action: 'freebusy',\n        purpose,\n        phone,\n        session: withSession(session, nowIso, {}),\n        profile,\n        config: publicConfig(config),\n        calendarId: session.eventCalendarId || (pro && pro.calendarId),\n        timeMin: session.slotStart,\n        timeMax: session.slotEnd,\n        ignoreInterval: session.ignoreStart ? { start: session.ignoreStart, end: session.ignoreEnd } : null,\n      };\n    }\n    if (choice.id === 'outro' || choice.norm === 'outro' || choice.norm === 'outro horario' || pickedIndex(choice) === 2) {\n      if (session.offeredSlots && session.offeredSlots.length) {\n        const next = withSession(session, nowIso, { step: 'pick_time', slotPage: 0, slotStart: null, slotEnd: null });\n        return sendPayload(config, phone, next, profile, slotsPayload(phone, config, next.offeredSlots, 0));\n      }\n      return datePrompt(config, session, profile, phone, nowIso);\n    }\n    return null;\n  }\n  if (session.step === 'pick_event_cancel' || session.step === 'pick_event_reschedule') {\n    const event = matchEvent(choice, session.offeredEvents || []);\n    if (!event) return null;\n    if (session.step === 'pick_event_cancel') {\n      const next = withSession(session, nowIso, {\n        step: 'confirm_cancel',\n        eventId: event.eventId,\n        eventCalendarId: event.calendarId,\n        slotStart: event.start,\n        slotEnd: event.end,\n      });\n      const body =\n        'Cancelar esta consulta?\\n\\n' +\n        event.descriptionRow +\n        '\\n\\n1 - Confirmar cancelamento\\n2 - Manter\\n0 - Menu';\n      return sendPayload(\n        config,\n        phone,\n        next,\n        profile,\n        buttonMessage(phone, body, [\n          { id: 'confirmar', title: 'Confirmar' },\n          { id: 'manter', title: 'Manter' },\n          { id: 'menu', title: 'Menu' },\n        ]),\n      );\n    }\n    return startReschedule(config, session, profile, phone, event, nowIso);\n  }\n  if (session.step === 'confirm_cancel') {\n    if (isConfirm(choice) || choice.norm === 'cancelar') {\n      const when = whenLabel(session.slotStart, session.slotEnd, config.timezone);\n      return {\n        action: 'delete_event',\n        phone,\n        session: withSession(session, nowIso, {}),\n        profile,\n        config: publicConfig(config),\n        calendarId: session.eventCalendarId,\n        eventId: session.eventId,\n        whatsappBody: textBody(phone, 'Consulta cancelada.\\n\\n' + when + '\\n\\nSe quiser marcar outro horário, responda MENU.'),\n      };\n    }\n    if (choice.id === 'manter' || choice.norm === 'manter' || choice.norm === 'nao' || pickedIndex(choice) === 2) {\n      return menuReply(config, phone, profile, nowIso, 'A consulta foi mantida.');\n    }\n    return null;\n  }\n  return null;\n}\n\nfunction onAskName(config, session, profile, incoming, choice, nowIso) {\n  if (isMenuWord(choice)) return menuReply(config, incoming.phone, profile, nowIso, null);\n  const cmd = commandFrom(choice, false);\n  if (cmd) return dispatch(config, profile, incoming.phone, nowIso, cmd);\n  const name = cleanName(incoming.text);\n  if (!name) {\n    return sendText(config, incoming.phone, withSession(session, nowIso, { step: 'ask_name' }), profile, 'Preciso do nome completo do paciente, com pelo menos nome e sobrenome.\\n\\n' + askNameText(incoming.profileName));\n  }\n  const named = { patientName: name };\n  return datePrompt(config, session, named, incoming.phone, nowIso);\n}\n\nfunction dispatch(config, profile, phone, nowIso, cmd) {\n  if (cmd === 'book') return finish(beginBook(config, profile, phone, nowIso), config);\n  const purpose = cmd === 'reschedule' ? 'list_for_reschedule' : cmd === 'cancel' ? 'list_for_cancel' : 'list_for_view';\n  return finish(beginList(config, profile, phone, nowIso, purpose), config);\n}\n\nfunction beginBook(config, profile, phone, nowIso) {\n  const session = withSession(freshSession(nowIso), nowIso, { mode: 'book' });\n  if (config.professionals.length > 1) {\n    const offeredPros = config.professionals.slice(0, 10).map((pro) => ({\n      id: 'pro:' + pro.id,\n      proId: pro.id,\n      title: clip(pro.name, 24),\n      description: 'Agenda deste profissional',\n    }));\n    const next = withSession(session, nowIso, { step: 'pick_pro', offeredPros });\n    const body =\n      'Com quem você quer agendar?\\n\\n' +\n      offeredPros.map((pro, index) => index + 1 + ' - ' + pro.title).join('\\n') +\n      '\\n\\n0 - Menu';\n    return sendPayload(\n      config,\n      phone,\n      next,\n      profile,\n      listMessage(phone, {\n        header: config.clinicName,\n        body,\n        button: 'Ver profissionais',\n        sectionTitle: 'Profissionais',\n        rows: offeredPros.map((pro) => ({ id: pro.id, title: pro.title, description: pro.description })),\n      }),\n    );\n  }\n  const only = config.professionals[0];\n  const next = withSession(session, nowIso, { professionalId: only.id, step: 'pick_type' });\n  return typePrompt(config, next, profile, phone, nowIso);\n}\n\nfunction beginList(config, profile, phone, nowIso, purpose) {\n  const now = new Date(nowIso);\n  const timeMax = new Date(now.getTime() + (Number(config.lookupDays) || 60) * 86400000).toISOString();\n  return {\n    action: 'list_events',\n    purpose,\n    phone,\n    session: null,\n    profile,\n    config: publicConfig(config),\n    calendars: config.professionals.map((pro) => ({ id: pro.id, name: pro.name, calendarId: pro.calendarId })),\n    calendarId: config.professionals[0] && config.professionals[0].calendarId,\n    query: 'tel:' + phone,\n    timeMin: now.toISOString(),\n    timeMax,\n  };\n}\n\nfunction typePrompt(config, session, profile, phone, nowIso) {\n  const types = config.sessionTypes;\n  const next = withSession(session, nowIso, { step: 'pick_type' });\n  const lines = ['Qual é o tipo da sessão?', ''];\n  types.forEach((type, index) => {\n    lines.push(index + 1 + ' - ' + type.label + ' (' + type.durationMinutes + ' min)');\n  });\n  lines.push('0 - Menu');\n  if (types.length <= 2) {\n    const buttons = types.map((type) => ({ id: 'tipo:' + type.id, title: clip(type.label, 20) }));\n    buttons.push({ id: 'menu', title: 'Menu' });\n    return sendPayload(config, phone, next, profile, buttonMessage(phone, lines.join('\\n'), buttons));\n  }\n  return sendPayload(\n    config,\n    phone,\n    next,\n    profile,\n    listMessage(phone, {\n      header: config.clinicName,\n      body: lines.join('\\n'),\n      button: 'Ver tipos',\n      sectionTitle: 'Sessões',\n      rows: types.map((type) => ({\n        id: 'tipo:' + type.id,\n        title: clip(type.label, 24),\n        description: type.durationMinutes + ' min',\n      })),\n    }),\n  );\n}\n\nfunction datePrompt(config, session, profile, phone, nowIso) {\n  const duration = Number(session.durationMinutes) || 50;\n  const dates = upcomingDates(config, new Date(nowIso), duration);\n  if (!dates.length) {\n    return sendText(config, phone, null, profile, 'Não há dias com horário livre no período configurado. Responda MENU para voltar.');\n  }\n  const next = withSession(session, nowIso, { step: 'pick_date', offeredDates: dates, date: null, slotStart: null, slotEnd: null });\n  return sendPayload(\n    config,\n    phone,\n    next,\n    profile,\n    listMessage(phone, {\n      header: config.clinicName,\n      body: dateBody(config, dates),\n      button: 'Ver dias',\n      sectionTitle: 'Dias',\n      rows: dates.map((date) => ({ id: date.id, title: date.title, description: date.description })),\n    }),\n  );\n}\n\nfunction startReschedule(config, session, profile, phone, event, nowIso) {\n  const pro = proForEvent(config, event);\n  const typeLabel = field(event.description, 'Tipo') || 'Retorno';\n  const known = config.sessionTypes.find((type) => norm(type.label) === norm(typeLabel));\n  const startMs = new Date(event.start).getTime();\n  const endMs = new Date(event.end).getTime();\n  const duration = Number.isFinite(endMs - startMs) && endMs > startMs ? Math.round((endMs - startMs) / 60000) : (known && known.durationMinutes) || 50;\n  const patient = field(event.description, 'Paciente');\n  const named = patient ? { patientName: patient } : profile;\n  const next = withSession(freshSession(nowIso), nowIso, {\n    mode: 'reschedule',\n    professionalId: pro.id,\n    sessionTypeId: known ? known.id : null,\n    typeLabel,\n    durationMinutes: duration,\n    eventId: event.eventId,\n    eventCalendarId: pro.calendarId,\n    ignoreStart: event.start,\n    ignoreEnd: event.end,\n  });\n  return datePrompt(config, next, named, phone, nowIso);\n}\n\nfunction confirmPayload(config, phone, session, profile) {\n  const pro = proById(config, session.professionalId);\n  const when = whenLabel(session.slotStart, session.slotEnd, config.timezone);\n  const lines = [\n    session.mode === 'reschedule' ? 'Confira a remarcação:' : 'Confira o agendamento:',\n    '',\n    'Paciente: ' + (profile.patientName || ''),\n    'Profissional: ' + ((pro && pro.name) || 'Fisioterapeuta'),\n    'Tipo: ' + (session.typeLabel || 'Sessão') + ' (' + session.durationMinutes + ' min)',\n    'Quando: ' + when,\n  ];\n  if (config.location) lines.push('Local: ' + config.location);\n  lines.push('', 'A consulta só entra na agenda depois que você confirmar.', '1 - Confirmar', '2 - Outro horário', '0 - Menu');\n  return buttonMessage(phone, lines.join('\\n'), [\n    { id: 'confirmar', title: 'Confirmar' },\n    { id: 'outro', title: 'Outro horário' },\n    { id: 'menu', title: 'Menu' },\n  ]);\n}\n\nfunction slotsPayload(phone, config, offeredSlots, page, prefix) {\n  const view = pageRows(offeredSlots, page);\n  const lines = [];\n  if (prefix) lines.push(prefix, '');\n  lines.push('Horários livres:');\n  lines.push('');\n  view.visible.forEach((slot, index) => {\n    lines.push(index + 1 + ' - ' + slot.title + ' às ' + slot.description.replace('até ', ''));\n  });\n  if (view.more) lines.push(view.visible.length + 1 + ' - Mais horários');\n  lines.push('0 - Menu');\n  const rows = view.visible.map((slot) => ({ id: slot.id, title: slot.title, description: slot.description }));\n  if (view.more) rows.push({ id: 'mais', title: 'Mais horários', description: 'Ver os próximos' });\n  return listMessage(phone, {\n    header: config.clinicName,\n    body: lines.join('\\n'),\n    button: 'Ver horários',\n    sectionTitle: 'Livres',\n    rows,\n  });\n}\n\nfunction draftEvent(config, session, profile, phone) {\n  const fromConfig = proById(config, session.professionalId);\n  const pro = {\n    id: (fromConfig && fromConfig.id) || session.professionalId || 'fisio-1',\n    name: (fromConfig && fromConfig.name) || 'Fisioterapeuta',\n    calendarId: session.eventCalendarId || (fromConfig && fromConfig.calendarId),\n  };\n  const typeLabel = session.typeLabel || 'Sessão';\n  const summary = config.eventTitlePrefix + ' — ' + profile.patientName + ' (' + typeLabel + ')';\n  const description = [\n    'Paciente: ' + profile.patientName,\n    'Telefone: ' + phone,\n    'ID_PACIENTE: tel:' + phone,\n    'Tipo: ' + typeLabel,\n    'Profissional: ' + pro.name,\n    'ID_PROFISSIONAL: ' + pro.id,\n    'ID_CALENDARIO: ' + pro.calendarId,\n    'Duração: ' + session.durationMinutes + ' min',\n    'Canal: WhatsApp',\n  ].join('\\n');\n  const reminders = reminderPair(config);\n  return {\n    summary,\n    description,\n    start: session.slotStart,\n    end: session.slotEnd,\n    calendarId: pro.calendarId,\n    location: config.location || '',\n    reminderMinutes: reminders,\n  };\n}\n\nfunction reminderPair(config) {\n  const list = Array.isArray(config.reminderMinutes) && config.reminderMinutes.length ? config.reminderMinutes.map(Number) : [1440, 60];\n  if (list.length === 1) list.push(list[0]);\n  return [list[0], list[1]];\n}\n\nfunction reminderText(config, event, lead) {\n  const startIso = asIso(event.start);\n  const endIso = asIso(event.end) || startIso;\n  const when = whenLabel(startIso, endIso, config.timezone);\n  const patient = field(event.description, 'Paciente');\n  const tipo = field(event.description, 'Tipo');\n  const pro = field(event.description, 'Profissional');\n  const head = lead >= 120 ? 'Lembrete: você tem atendimento amanhã no ' + config.clinicName + '.' : 'Lembrete: seu atendimento no ' + config.clinicName + ' é daqui a cerca de 1 hora.';\n  return [head, '', [patient, tipo && pro ? tipo + ' com ' + pro : tipo || pro].filter(Boolean).join('\\n'), when, '', 'Se precisar remarcar ou cancelar, responda aqui.'].join('\\n');\n}\n\nfunction upcomingDates(config, now, durationMinutes) {\n  const today = localDateParts(now, config.timezone);\n  const dates = [];\n  const horizon = Number(config.daysAhead) || 21;\n  const limit = Math.min(Number(config.maxDatesInList) || 8, 10);\n  for (let offset = 0; offset <= horizon && dates.length < limit; offset += 1) {\n    const ymd = addCalendarDays(today, offset);\n    const weekday = weekdayOfLocalDate(ymd.year, ymd.month, ymd.day, config.timezone);\n    if (!(config.businessDays || []).includes(weekday)) continue;\n    const slots = slotsForDate(config, ymd, durationMinutes, now);\n    if (!slots.length) continue;\n    dates.push({\n      id: 'data:' + ymdString(ymd),\n      date: ymdString(ymd),\n      title: WEEK_SHORT[weekday] + ' ' + pad(ymd.day) + '/' + pad(ymd.month),\n      description: 'Horários de ' + durationMinutes + ' min',\n    });\n  }\n  return dates;\n}\n\nfunction slotsForDate(config, ymd, durationMinutes, now) {\n  const duration = Number(durationMinutes) || Number(config.slotMinutes) || 50;\n  const step = Math.max(Number(config.slotMinutes) || duration, duration);\n  const windows = [\n    [parseMinutes(config.dayStart), parseMinutes(config.lunchStart)],\n    [parseMinutes(config.lunchEnd), parseMinutes(config.dayEnd)],\n  ];\n  const lead = new Date(now.getTime() + (Number(config.minLeadMinutes) || 0) * 60000);\n  const slots = [];\n  for (const [open, close] of windows) {\n    if (!(open < close)) continue;\n    for (let minute = open; minute + duration <= close; minute += step) {\n      const start = zonedLocalToUtc(ymd.year, ymd.month, ymd.day, Math.floor(minute / 60), minute % 60, config.timezone);\n      const end = new Date(start.getTime() + duration * 60000);\n      if (start < lead) continue;\n      slots.push({\n        start: toOffsetIso(start, config.timezone),\n        end: toOffsetIso(end, config.timezone),\n        startMs: start.getTime(),\n        endMs: end.getTime(),\n      });\n    }\n  }\n  return slots;\n}\n\nfunction dateBody(config, dates) {\n  const lines = ['Escolha o dia:', ''];\n  dates.forEach((date, index) => lines.push(index + 1 + ' - ' + date.title));\n  lines.push('0 - Menu');\n  lines.push('', config.clinicName + ' · seg a sex, ' + config.dayStart + '–' + config.dayEnd + ', almoço ' + config.lunchStart + '–' + config.lunchEnd + '.');\n  return lines.join('\\n');\n}\n\nfunction menuReply(config, phone, profile, nowIso, prefix) {\n  const lines = [];\n  if (prefix) lines.push(prefix, '');\n  lines.push('Olá! Aqui é o atendimento do ' + config.clinicName + '.');\n  lines.push('');\n  lines.push('Como posso ajudar?');\n  lines.push('1 - Agendar');\n  lines.push('2 - Remarcar');\n  lines.push('3 - Cancelar');\n  lines.push('4 - Ver meus horários');\n  lines.push('');\n  lines.push('Toque em Ver opções ou responda com o número.');\n  return sendPayload(\n    config,\n    phone,\n    null,\n    profile,\n    listMessage(phone, {\n      header: config.clinicName,\n      body: lines.join('\\n'),\n      button: 'Ver opções',\n      sectionTitle: 'Atendimento',\n      rows: [\n        { id: 'agendar', title: 'Agendar', description: 'Marcar avaliação ou retorno' },\n        { id: 'remarcar', title: 'Remarcar', description: 'Mudar data ou horário' },\n        { id: 'cancelar', title: 'Cancelar', description: 'Desmarcar uma consulta' },\n        { id: 'meus', title: 'Meus horários', description: 'Ver próximas consultas' },\n      ],\n    }),\n  );\n}\n\nfunction sendText(config, phone, session, profile, body) {\n  return sendPayload(config, phone, session, profile, textBody(phone, body));\n}\n\nfunction sendPayload(config, phone, session, profile, whatsappBody) {\n  return {\n    action: 'send',\n    phone,\n    session: session && session.step && session.step !== 'menu' ? session : null,\n    profile,\n    config: publicConfig(config),\n    whatsappBody,\n  };\n}\n\nfunction finish(result, config) {\n  if (!result || result.action === 'send' || result.action === 'ignore') return result;\n  const ids = [];\n  if (result.calendarId) ids.push(result.calendarId);\n  for (const calendar of result.calendars || []) ids.push(calendar.calendarId);\n  if (!ids.length || ids.some(isPlaceholderCalendar)) {\n    return sendText(\n      config,\n      result.phone,\n      null,\n      result.profile,\n      'Ainda não consigo ver a agenda do consultório.\\n\\nQuem administra o n8n precisa preencher o calendarId no node \"Configuração do consultório\".\\n\\nResponda MENU quando estiver pronto.',\n    );\n  }\n  return result;\n}\n\nfunction eventLine(config, event) {\n  const start = asIso(event.start);\n  const end = asIso(event.end);\n  const tipo = field(event.description, 'Tipo');\n  const pro = field(event.description, 'Profissional') || event.professionalName;\n  return whenLabel(start, end, config.timezone) + (tipo || pro ? ' · ' + [tipo, pro].filter(Boolean).join(' com ') : '');\n}\n\nfunction askNameText(profileName) {\n  const hint = profileName ? '\\n\\nSe estiver certo, pode responder: ' + profileName : '';\n  return 'Qual é o nome completo do paciente?' + hint + '\\n\\nPara voltar, responda MENU.';\n}\n\nfunction isConfirm(choice) {\n  return choice.id === 'confirmar' || choice.norm === 'confirmar' || choice.norm === 'sim' || pickedIndex(choice) === 1;\n}\n\nfunction commandFrom(choice, allowNumbers) {\n  if (choice.id === 'agendar' || ['agendar', 'marcar', 'marcacao'].includes(choice.norm)) return 'book';\n  if (choice.id === 'remarcar' || ['remarcar', 'reagendar'].includes(choice.norm)) return 'reschedule';\n  if (choice.id === 'cancelar' || choice.id === 'desmarcar' || ['cancelar', 'desmarcar'].includes(choice.norm)) return 'cancel';\n  if (choice.id === 'meus' || ['meus', 'meus horarios', 'ver', 'ver horarios', 'ver meus horarios', 'agenda'].includes(choice.norm)) return 'view';\n  if (allowNumbers) {\n    const n = pickedIndex(choice);\n    if (n === 1) return 'book';\n    if (n === 2) return 'reschedule';\n    if (n === 3) return 'cancel';\n    if (n === 4) return 'view';\n  }\n  return null;\n}\n\nfunction isMenuWord(choice) {\n  return choice.id === 'menu' || MENU_WORDS.has(choice.norm);\n}\n\nfunction choiceOf(incoming) {\n  return {\n    id: String(incoming.choiceId || ''),\n    text: String(incoming.text || '').trim(),\n    norm: norm(incoming.text || incoming.choiceId || ''),\n  };\n}\n\nfunction matchType(choice, types) {\n  if (choice.id.startsWith('tipo:')) return types.find((type) => choice.id === 'tipo:' + type.id) || null;\n  const n = pickedIndex(choice);\n  if (n && types[n - 1]) return types[n - 1];\n  return types.find((type) => choice.norm === norm(type.label) || choice.norm === norm(type.id)) || null;\n}\n\nfunction matchById(choice, professionals, prefix, offered) {\n  const list = offered && offered.length ? offered : professionals.map((pro) => ({ id: prefix + pro.id, proId: pro.id }));\n  let found = null;\n  if (choice.id.startsWith(prefix)) found = list.find((item) => item.id === choice.id);\n  if (!found) {\n    const n = pickedIndex(choice);\n    if (n && list[n - 1]) found = list[n - 1];\n  }\n  if (!found) return null;\n  const id = found.proId || String(found.id).replace(prefix, '');\n  return professionals.find((pro) => pro.id === id) || null;\n}\n\nfunction matchDate(choice, offered) {\n  if (choice.id.startsWith('data:')) return offered.find((date) => date.id === choice.id) || null;\n  const n = pickedIndex(choice);\n  if (n && offered[n - 1]) return offered[n - 1];\n  return offered.find((date) => norm(date.title) === choice.norm) || null;\n}\n\nfunction matchSlot(choice, offered, page) {\n  const view = pageRows(offered, page);\n  if (choice.id.startsWith('hora:')) return offered.find((slot) => slot.id === choice.id) || null;\n  const n = pickedIndex(choice);\n  if (n && view.visible[n - 1]) return view.visible[n - 1];\n  return null;\n}\n\nfunction matchEvent(choice, offered) {\n  if (choice.id.startsWith('evt:')) return offered.find((event) => event.id === choice.id) || null;\n  const n = pickedIndex(choice);\n  if (n && offered[n - 1]) return offered[n - 1];\n  return null;\n}\n\nfunction pageRows(items, page) {\n  const size = items.length > 10 ? 9 : 10;\n  const start = Math.max(0, page) * size;\n  const visible = items.slice(start, start + size);\n  return { visible, more: start + size < items.length };\n}\n\nfunction cleanName(text) {\n  const name = String(text || '').replace(/\\s+/g, ' ').trim();\n  if (name.length < 5 || name.length > 80) return '';\n  if (!/[A-Za-zÀ-ÿ]/.test(name)) return '';\n  if (!name.includes(' ')) return '';\n  const asChoice = choiceOf({ text: name, choiceId: '' });\n  if (commandFrom(asChoice, false) || isMenuWord(asChoice)) return '';\n  return name;\n}\n\nfunction proById(config, id) {\n  return (config.professionals || []).find((pro) => pro.id === id) || null;\n}\n\nfunction proForEvent(config, event) {\n  const id = field(event.description, 'ID_PROFISSIONAL');\n  const calendarId = field(event.description, 'ID_CALENDARIO') || event.calendarId;\n  const known =\n    (config.professionals || []).find((pro) => pro.id === id) ||\n    (config.professionals || []).find((pro) => pro.calendarId === calendarId);\n  return {\n    id: (known && known.id) || id || 'evento',\n    name: (known && known.name) || field(event.description, 'Profissional') || event.professionalName || 'Fisioterapeuta',\n    calendarId: calendarId || (known && known.calendarId) || '',\n  };\n}\n\nfunction eventPhone(description) {\n  const tagged = field(description, 'ID_PACIENTE').replace(/^tel:/i, '');\n  if (digits(tagged)) return digits(tagged);\n  return digits(field(description, 'Telefone'));\n}\n\nfunction eventStartMs(event) {\n  const iso = asIso(event.start);\n  if (!iso || (event.start && event.start.date && !event.start.dateTime)) return NaN;\n  return new Date(iso).getTime();\n}\n\nfunction field(description, name) {\n  const prefix = name + ':';\n  for (const line of String(description || '').split(/\\r?\\n/)) {\n    if (line.startsWith(prefix)) return line.slice(prefix.length).trim();\n  }\n  return '';\n}\n\nfunction subtractInterval(busy, ignore) {\n  if (!ignore || !ignore.start || !ignore.end) return busy || [];\n  const i0 = new Date(ignore.start).getTime();\n  const i1 = new Date(ignore.end).getTime();\n  const out = [];\n  for (const block of busy || []) {\n    const b0 = new Date(block.start).getTime();\n    const b1 = new Date(block.end).getTime();\n    if (!(b0 < i1 && b1 > i0)) {\n      out.push(block);\n      continue;\n    }\n    if (b0 < i0) out.push({ start: block.start, end: ignore.start });\n    if (b1 > i1) out.push({ start: ignore.end, end: block.end });\n  }\n  return out;\n}\n\nfunction isFree(slot, busy) {\n  return !(busy || []).some((block) => slot.startMs < new Date(block.end).getTime() && slot.endMs > new Date(block.start).getTime());\n}\n\nfunction pushInterval(intervals, block) {\n  const start = asIso(block && (block.start || block.from));\n  const end = asIso(block && (block.end || block.to));\n  if (start && end) intervals.push({ start, end });\n}\n\nfunction asIso(value) {\n  if (!value) return null;\n  if (typeof value === 'string') return value;\n  if (value.dateTime) return value.dateTime;\n  if (value.date) return value.date;\n  return null;\n}\n\nfunction isPlaceholderCalendar(id) {\n  const value = String(id || '').trim();\n  if (!value) return true;\n  if (value.includes('SEU_CALENDAR_ID')) return true;\n  if (value.includes('COLOQUE_')) return true;\n  return false;\n}\n\nfunction isExpired(session, now, config) {\n  if (!session || !session.updatedAt) return false;\n  const ttl = (Number(config.sessionTtlMinutes) || 120) * 60000;\n  return now.getTime() - new Date(session.updatedAt).getTime() > ttl;\n}\n\nfunction freshSession(nowIso) {\n  return {\n    step: 'menu',\n    mode: null,\n    professionalId: null,\n    sessionTypeId: null,\n    typeLabel: null,\n    durationMinutes: null,\n    date: null,\n    slotStart: null,\n    slotEnd: null,\n    eventId: null,\n    eventCalendarId: null,\n    ignoreStart: null,\n    ignoreEnd: null,\n    offeredDates: [],\n    offeredSlots: [],\n    offeredEvents: [],\n    offeredPros: [],\n    slotPage: 0,\n    updatedAt: nowIso,\n  };\n}\n\nfunction withSession(session, nowIso, patch) {\n  return { ...session, ...patch, updatedAt: nowIso };\n}\n\nfunction listMessage(to, { header, body, button, sectionTitle, rows }) {\n  const payload = {\n    messaging_product: 'whatsapp',\n    recipient_type: 'individual',\n    to,\n    type: 'interactive',\n    interactive: {\n      type: 'list',\n      body: { text: clip(body, 1024) },\n      footer: { text: 'Responda com o número se preferir' },\n      action: {\n        button: clip(button, 20),\n        sections: [\n          {\n            title: clip(sectionTitle || 'Opções', 24),\n            rows: rows.slice(0, 10).map((row) => {\n              const item = { id: clip(String(row.id), 200), title: clip(row.title, 24) };\n              if (row.description) item.description = clip(row.description, 72);\n              return item;\n            }),\n          },\n        ],\n      },\n    },\n  };\n  if (header) payload.interactive.header = { type: 'text', text: clip(header, 60) };\n  return payload;\n}\n\nfunction buttonMessage(to, body, buttons) {\n  return {\n    messaging_product: 'whatsapp',\n    recipient_type: 'individual',\n    to,\n    type: 'interactive',\n    interactive: {\n      type: 'button',\n      body: { text: clip(body, 1024) },\n      action: {\n        buttons: buttons.slice(0, 3).map((button) => ({\n          type: 'reply',\n          reply: { id: clip(String(button.id), 256), title: clip(button.title, 20) },\n        })),\n      },\n    },\n  };\n}\n\nfunction whenLabel(startIso, endIso, timeZone) {\n  return formatLong(startIso, timeZone) + ', ' + formatTime(startIso, timeZone) + ' às ' + formatTime(endIso, timeZone);\n}\n\nfunction formatLong(iso, timeZone) {\n  const ymd = localDateParts(new Date(iso), timeZone);\n  const weekday = weekdayOfLocalDate(ymd.year, ymd.month, ymd.day, timeZone);\n  return WEEK_LONG[weekday] + ', ' + pad(ymd.day) + '/' + pad(ymd.month) + '/' + ymd.year;\n}\n\nfunction formatDayShort(iso, timeZone) {\n  const ymd = localDateParts(new Date(iso), timeZone);\n  return pad(ymd.day) + '/' + pad(ymd.month);\n}\n\nfunction formatTime(iso, timeZone) {\n  const parts = zonedParts(new Date(iso), timeZone);\n  return pad(Number(parts.hour)) + ':' + pad(Number(parts.minute));\n}\n\nfunction localDateParts(date, timeZone) {\n  const parts = zonedParts(date, timeZone);\n  return { year: Number(parts.year), month: Number(parts.month), day: Number(parts.day) };\n}\n\nfunction weekdayOfLocalDate(year, month, day, timeZone) {\n  const instant = zonedLocalToUtc(year, month, day, 12, 0, timeZone);\n  const short = new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short' }).format(instant);\n  return WEEK_FROM_EN[short];\n}\n\nfunction addCalendarDays(parts, days) {\n  const utc = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + days));\n  return { year: utc.getUTCFullYear(), month: utc.getUTCMonth() + 1, day: utc.getUTCDate() };\n}\n\nfunction ymdString(ymd) {\n  return ymd.year + '-' + pad(ymd.month) + '-' + pad(ymd.day);\n}\n\nfunction parseYmd(value) {\n  const match = String(value || '').match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);\n  if (!match) return null;\n  return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };\n}\n\nfunction parseMinutes(hm) {\n  const [hour, minute] = String(hm || '0:0').split(':').map(Number);\n  return hour * 60 + minute;\n}\n\nfunction zonedLocalToUtc(year, month, day, hour, minute, timeZone) {\n  const guess = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));\n  const offset = timeZoneOffsetMs(timeZone, guess);\n  const utc = new Date(guess.getTime() - offset);\n  const offset2 = timeZoneOffsetMs(timeZone, utc);\n  if (offset2 !== offset) return new Date(guess.getTime() - offset2);\n  return utc;\n}\n\nfunction timeZoneOffsetMs(timeZone, date) {\n  const parts = zonedParts(date, timeZone);\n  const asUtc = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute), Number(parts.second));\n  return asUtc - date.getTime();\n}\n\nfunction toOffsetIso(date, timeZone) {\n  const parts = zonedParts(date, timeZone);\n  const offset = timeZoneOffsetMs(timeZone, date);\n  const sign = offset >= 0 ? '+' : '-';\n  const abs = Math.abs(offset);\n  const hours = Math.floor(abs / 3600000);\n  const minutes = Math.floor((abs % 3600000) / 60000);\n  return (\n    parts.year +\n    '-' +\n    parts.month +\n    '-' +\n    parts.day +\n    'T' +\n    parts.hour +\n    ':' +\n    parts.minute +\n    ':' +\n    parts.second +\n    sign +\n    pad(hours) +\n    ':' +\n    pad(minutes)\n  );\n}\n\nfunction zonedParts(date, timeZone) {\n  const fmt = new Intl.DateTimeFormat('en-US', {\n    timeZone,\n    hourCycle: 'h23',\n    year: 'numeric',\n    month: '2-digit',\n    day: '2-digit',\n    hour: '2-digit',\n    minute: '2-digit',\n    second: '2-digit',\n  });\n  const out = {};\n  for (const part of fmt.formatToParts(date)) {\n    if (part.type !== 'literal') out[part.type] = part.value;\n  }\n  if (out.hour === '24') out.hour = '00';\n  return out;\n}\n\nfunction pickedIndex(choice) {\n  if (/^\\d{1,2}$/.test(choice.text)) return Number(choice.text);\n  return null;\n}\n\nfunction norm(value) {\n  return String(value || '')\n    .toLowerCase()\n    .normalize('NFD')\n    .replace(/[\\u0300-\\u036f]/g, '')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nfunction digits(value) {\n  return String(value || '').replace(/\\D/g, '');\n}\n\nfunction pad(value) {\n  return String(value).padStart(2, '0');\n}\n\nfunction clip(value, max) {\n  const text = String(value || '');\n  return text.length <= max ? text : text.slice(0, max);\n}\n\nfunction clone(value) {\n  return value == null ? value : JSON.parse(JSON.stringify(value));\n}\n\nconst routed = $('Roteador da conversa').first().json;\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.sessions) staticData.sessions = {};\nif (!staticData.profiles) staticData.profiles = {};\n\nconst payloads = $input.all().map((item) => item.json);\nconst busy = extractBusy(payloads);\nfor (let i = 0; i < payloads.length; i += 1) {\n  const payload = payloads[i];\n  if (payload && payload.available === false && !payload.busy && !payload.calendars) {\n    busy.push({ start: routed.timeMin, end: routed.timeMax });\n  }\n}\n\nconst result = applyFreeBusy({\n  config: routed.config,\n  session: routed.session,\n  profile: routed.profile,\n  phone: routed.phone,\n  busy: busy,\n  nowIso: new Date().toISOString(),\n  purpose: routed.purpose,\n  ignoreInterval: routed.ignoreInterval || null,\n});\n\nconst phone = result.phone || routed.phone;\nif (result.profile && result.profile.patientName && phone) {\n  staticData.profiles[phone] = { patientName: result.profile.patientName };\n}\nif (phone && result.session && result.session.step && result.session.step !== 'menu') {\n  staticData.sessions[phone] = result.session;\n} else if (phone) {\n  delete staticData.sessions[phone];\n}\n\nreturn [{ json: result }];\n"
+      }
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000017",
+      "name": "Depois da disponibilidade",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        2600,
+        360
+      ],
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "rule-slots-send",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "send",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "send"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "rule-create",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "create_event",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "create_event"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "rule-update",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "update_event",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "update_event"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      }
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000018",
+      "name": "Criar evento",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        2920,
+        180
+      ],
+      "parameters": {
+        "resource": "event",
+        "operation": "create",
+        "calendar": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.calendarId }}"
+        },
+        "start": "={{ $json.start }}",
+        "end": "={{ $json.end }}",
+        "useDefaultReminders": false,
+        "additionalFields": {
+          "summary": "={{ $json.summary }}",
+          "description": "={{ $json.description }}",
+          "location": "={{ $json.location }}",
+          "showMeAs": "opaque",
+          "sendUpdates": "none"
+        },
+        "remindersUi": {
+          "remindersValues": [
+            {
+              "method": "popup",
+              "minutes": "={{ $json.reminderMinutes[0] }}"
+            },
+            {
+              "method": "popup",
+              "minutes": "={{ $json.reminderMinutes[1] }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "PREENCHER_GOOGLE_CALENDAR",
+          "name": "Google Calendar"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000019",
+      "name": "Atualizar evento",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        2920,
+        420
+      ],
+      "parameters": {
+        "resource": "event",
+        "operation": "update",
+        "calendar": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.calendarId }}"
+        },
+        "eventId": "={{ $json.eventId }}",
+        "useDefaultReminders": false,
+        "updateFields": {
+          "start": "={{ $json.start }}",
+          "end": "={{ $json.end }}",
+          "summary": "={{ $json.summary }}",
+          "description": "={{ $json.description }}",
+          "location": "={{ $json.location }}",
+          "showMeAs": "opaque",
+          "sendUpdates": "none"
+        },
+        "remindersUi": {
+          "remindersValues": [
+            {
+              "method": "popup",
+              "minutes": "={{ $json.reminderMinutes[0] }}"
+            },
+            {
+              "method": "popup",
+              "minutes": "={{ $json.reminderMinutes[1] }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "PREENCHER_GOOGLE_CALENDAR",
+          "name": "Google Calendar"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000020",
+      "name": "Preparar calendários",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2040,
+        700
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "const routed = $input.first().json;\nconst list = routed.calendars && routed.calendars.length\n  ? routed.calendars\n  : [{ id: routed.professionalId, name: '', calendarId: routed.calendarId }];\nreturn list.map((calendar) => ({\n  json: {\n    calendarId: calendar.calendarId,\n    professionalId: calendar.id,\n    professionalName: calendar.name,\n    timeMin: routed.timeMin,\n    timeMax: routed.timeMax,\n    query: routed.query,\n  },\n}));\n"
+      }
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000021",
+      "name": "Buscar consultas",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        2320,
+        700
+      ],
+      "parameters": {
+        "resource": "event",
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.calendarId }}"
+        },
+        "returnAll": false,
+        "limit": 20,
+        "timeMin": "={{ $json.timeMin }}",
+        "timeMax": "={{ $json.timeMax }}",
+        "options": {
+          "query": "={{ $json.query }}",
+          "recurringEventHandling": "expand",
+          "timeZone": {
+            "__rl": true,
+            "mode": "id",
+            "value": "={{ $('Configuração do consultório').first().json.config.timezone }}"
+          }
+        }
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "PREENCHER_GOOGLE_CALENDAR",
+          "name": "Google Calendar"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000022",
+      "name": "Montar consultas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2600,
+        700
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "/**\n * Regras do chatbot de agendamento (sem n8n, sem rede).\n * Horários em America/Sao_Paulo por padrão. Sem horário de verão desde 2019.\n */\n\nfunction defaultConfig() {\n  return {\n    _ajuda:\n      'Edite este objeto no node Configuração do consultório. Não cole token de acesso aqui: o token fica na credencial WhatsApp Cloud API do n8n. Para outro fisioterapeuta, copie um item de professionals e mude id, name e calendarId.',\n    clinicName: 'Consultório de Fisioterapia',\n    timezone: 'America/Sao_Paulo',\n    graphApiVersion: 'v21.0',\n    whatsappPhoneNumberId: 'SEU_PHONE_NUMBER_ID',\n    whatsappVerifyToken: 'TROQUE_ESTE_VERIFY_TOKEN',\n    location: '',\n    businessDays: [1, 2, 3, 4, 5],\n    dayStart: '08:00',\n    dayEnd: '18:00',\n    lunchStart: '12:00',\n    lunchEnd: '13:00',\n    slotMinutes: 50,\n    minLeadMinutes: 60,\n    daysAhead: 21,\n    maxDatesInList: 8,\n    lookupDays: 60,\n    sessionTtlMinutes: 120,\n    reminderMinutes: [1440, 60],\n    reminderLookaheadHours: 26,\n    reminderWindowMinutes: 70,\n    eventTitlePrefix: 'Fisioterapia',\n    professionals: [\n      {\n        id: 'fisio-1',\n        name: 'Fisioterapeuta',\n        calendarId: 'SEU_CALENDAR_ID@group.calendar.google.com',\n      },\n    ],\n    sessionTypes: [\n      { id: 'avaliacao', label: 'Avaliação', durationMinutes: 50 },\n      { id: 'retorno', label: 'Retorno', durationMinutes: 50 },\n    ],\n  };\n}\n\nconst WEEK_LONG = {\n  1: 'segunda-feira',\n  2: 'terça-feira',\n  3: 'quarta-feira',\n  4: 'quinta-feira',\n  5: 'sexta-feira',\n  6: 'sábado',\n  7: 'domingo',\n};\nconst WEEK_SHORT = { 1: 'seg', 2: 'ter', 3: 'qua', 4: 'qui', 5: 'sex', 6: 'sáb', 7: 'dom' };\nconst WEEK_FROM_EN = { Sun: 7, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };\nconst MENU_WORDS = new Set([\n  'menu',\n  'inicio',\n  'oi',\n  'ola',\n  'hey',\n  'ei',\n  'bom dia',\n  'boa tarde',\n  'boa noite',\n  '0',\n  'voltar',\n  'recomecar',\n  'comecar',\n  'start',\n  'ajuda',\n]);\n\nfunction registerMessage(seen, messageId) {\n  const list = Array.isArray(seen) ? seen.slice() : [];\n  if (messageId && list.includes(messageId)) return { duplicate: true, seen: list };\n  if (messageId) list.push(messageId);\n  return { duplicate: false, seen: list.length > 400 ? list.slice(-400) : list };\n}\n\nfunction publicConfig(config) {\n  const copy = JSON.parse(JSON.stringify(config));\n  delete copy.whatsappVerifyToken;\n  return copy;\n}\n\nfunction textBody(to, body) {\n  return {\n    messaging_product: 'whatsapp',\n    recipient_type: 'individual',\n    to,\n    type: 'text',\n    text: { preview_url: false, body: clip(body, 4096) },\n  };\n}\n\nfunction parseIncoming(request) {\n  const body = request && request.body;\n  if (!body || !Array.isArray(body.entry) || !body.entry.length) return null;\n  const change = body.entry[0] && body.entry[0].changes && body.entry[0].changes[0];\n  const value = change && change.value;\n  if (!value || !Array.isArray(value.messages) || !value.messages.length) return null;\n  const message = value.messages[0];\n  const phone = digits(message.from);\n  if (!phone) return null;\n  const display = digits(value.metadata && value.metadata.display_phone_number);\n  if (display && display === phone) return null;\n  const profileName =\n    (value.contacts && value.contacts[0] && value.contacts[0].profile && value.contacts[0].profile.name) || '';\n  const messageId = message.id || '';\n  if (message.type === 'reaction' || message.type === 'system') {\n    return { phone, messageId, profileName, silent: true, unsupported: false, text: '', choiceId: '' };\n  }\n  if (message.type === 'text') {\n    return {\n      phone,\n      messageId,\n      profileName,\n      silent: false,\n      unsupported: false,\n      text: String((message.text && message.text.body) || '').trim(),\n      choiceId: '',\n    };\n  }\n  if (message.type === 'interactive') {\n    const interactive = message.interactive || {};\n    if (interactive.type === 'button_reply' && interactive.button_reply) {\n      return {\n        phone,\n        messageId,\n        profileName,\n        silent: false,\n        unsupported: false,\n        text: String(interactive.button_reply.title || '').trim(),\n        choiceId: String(interactive.button_reply.id || ''),\n      };\n    }\n    if (interactive.type === 'list_reply' && interactive.list_reply) {\n      return {\n        phone,\n        messageId,\n        profileName,\n        silent: false,\n        unsupported: false,\n        text: String(interactive.list_reply.title || '').trim(),\n        choiceId: String(interactive.list_reply.id || ''),\n      };\n    }\n  }\n  return { phone, messageId, profileName, silent: false, unsupported: true, text: '', choiceId: '' };\n}\n\nfunction handleTurn({ config, session, profile, incoming, nowIso }) {\n  const now = new Date(nowIso);\n  const safeProfile = profile && profile.patientName ? { patientName: profile.patientName } : { patientName: null };\n  if (!incoming || incoming.unsupported) {\n    return menuReply(config, incoming && incoming.phone, safeProfile, nowIso, 'Envie uma mensagem de texto ou escolha uma opção do menu.');\n  }\n  let current = clone(session);\n  if (current && isExpired(current, now, config)) current = null;\n  if (!current) current = freshSession(nowIso);\n  const choice = choiceOf(incoming);\n  const phone = incoming.phone;\n\n  if (!config.professionals || !config.professionals.length || !config.sessionTypes || !config.sessionTypes.length) {\n    return sendText(config, phone, null, safeProfile, 'O consultório ainda não tem profissional ou tipo de sessão na configuração.');\n  }\n\n  if (current.step === 'ask_name') {\n    return onAskName(config, current, safeProfile, incoming, choice, nowIso);\n  }\n\n  if (current.step === 'menu') {\n    if (isMenuWord(choice)) return menuReply(config, phone, safeProfile, nowIso, null);\n    const cmd = commandFrom(choice, true);\n    if (cmd) return dispatch(config, safeProfile, phone, nowIso, cmd);\n    return menuReply(config, phone, safeProfile, nowIso, 'Não entendi essa resposta. Vamos voltar ao menu.');\n  }\n\n  const local = handleStep(config, current, safeProfile, phone, choice, nowIso);\n  if (local) return finish(local, config);\n  const cmd = commandFrom(choice, false);\n  if (cmd) return dispatch(config, safeProfile, phone, nowIso, cmd);\n  if (isMenuWord(choice)) return menuReply(config, phone, safeProfile, nowIso, null);\n  return menuReply(config, phone, safeProfile, nowIso, 'Não entendi essa resposta. Vamos voltar ao menu.');\n}\n\nfunction extractBusy(payloads) {\n  const intervals = [];\n  const list = Array.isArray(payloads) ? payloads : [payloads];\n  for (const payload of list) {\n    if (!payload || typeof payload !== 'object') continue;\n    if (Array.isArray(payload.busy)) {\n      for (const b of payload.busy) pushInterval(intervals, b);\n    }\n    if (payload.calendars && typeof payload.calendars === 'object') {\n      for (const cal of Object.values(payload.calendars)) {\n        if (cal && Array.isArray(cal.busy)) {\n          for (const b of cal.busy) pushInterval(intervals, b);\n        }\n      }\n    }\n    if (payload.start && payload.end && !payload.calendars && !payload.kind) {\n      pushInterval(intervals, payload);\n    }\n  }\n  return intervals;\n}\n\nfunction applyFreeBusy({ config, session, profile, phone, busy, nowIso, purpose, ignoreInterval }) {\n  const current = clone(session) || freshSession(nowIso);\n  const safeProfile = profile && profile.patientName ? { patientName: profile.patientName } : { patientName: null };\n  const ignore = ignoreInterval || (current.ignoreStart ? { start: current.ignoreStart, end: current.ignoreEnd } : null);\n  const freeBusy = subtractInterval(busy || [], ignore);\n\n  if (purpose === 'offer_slots') {\n    const ymd = parseYmd(current.date);\n    const duration = Number(current.durationMinutes) || 50;\n    const slots = ymd ? slotsForDate(config, ymd, duration, new Date(nowIso)) : [];\n    const free = slots.filter((slot) => isFree(slot, freeBusy));\n    if (!free.length) {\n      const dates = upcomingDates(config, new Date(nowIso), duration);\n      const next = withSession(current, nowIso, { step: 'pick_date', offeredDates: dates, offeredSlots: [], slotPage: 0, date: null });\n      const body = dates.length\n        ? 'Não há horários livres nesse dia.\\n\\n' + dateBody(config, dates)\n        : 'Não há horários livres na agenda neste período. Responda MENU para voltar.';\n      const whatsappBody = dates.length\n        ? listMessage(phone, {\n            header: config.clinicName,\n            body,\n            button: 'Ver dias',\n            sectionTitle: 'Dias',\n            rows: dates.map((d) => ({ id: d.id, title: d.title, description: d.description })),\n          })\n        : textBody(phone, body);\n      return finish(sendPayload(config, phone, dates.length ? next : null, safeProfile, whatsappBody), config);\n    }\n    const offeredSlots = free.map((slot, index) => ({\n      id: 'hora:' + index,\n      start: slot.start,\n      end: slot.end,\n      title: formatTime(slot.start, config.timezone),\n      description: 'até ' + formatTime(slot.end, config.timezone),\n    }));\n    const next = withSession(current, nowIso, { step: 'pick_time', offeredSlots, slotPage: 0 });\n    return finish(sendPayload(config, phone, next, safeProfile, slotsPayload(phone, config, offeredSlots, 0)), config);\n  }\n\n  const slot = {\n    start: current.slotStart,\n    end: current.slotEnd,\n    startMs: new Date(current.slotStart).getTime(),\n    endMs: new Date(current.slotEnd).getTime(),\n  };\n  const leadMs = (Number(config.minLeadMinutes) || 0) * 60000;\n  const stillFree = slot.startMs >= new Date(nowIso).getTime() + leadMs && isFree(slot, freeBusy);\n  if (!stillFree) {\n    const ymd = parseYmd(current.date);\n    const duration = Number(current.durationMinutes) || 50;\n    const slots = ymd ? slotsForDate(config, ymd, duration, new Date(nowIso)).filter((item) => isFree(item, freeBusy)) : [];\n    if (!slots.length) {\n      const dates = upcomingDates(config, new Date(nowIso), duration);\n      const next = withSession(current, nowIso, {\n        step: 'pick_date',\n        offeredDates: dates,\n        offeredSlots: [],\n        slotStart: null,\n        slotEnd: null,\n        date: null,\n      });\n      const body = 'Esse horário acabou de ser ocupado e não restou outro neste dia.\\n\\n' + dateBody(config, dates);\n      return finish(\n        sendPayload(\n          config,\n          phone,\n          dates.length ? next : null,\n          safeProfile,\n          dates.length\n            ? listMessage(phone, {\n                header: config.clinicName,\n                body,\n                button: 'Ver dias',\n                sectionTitle: 'Dias',\n                rows: dates.map((d) => ({ id: d.id, title: d.title, description: d.description })),\n              })\n            : textBody(phone, 'Esse horário acabou de ser ocupado. Responda MENU para voltar.'),\n        ),\n        config,\n      );\n    }\n    const offeredSlots = slots.map((item, index) => ({\n      id: 'hora:' + index,\n      start: item.start,\n      end: item.end,\n      title: formatTime(item.start, config.timezone),\n      description: 'até ' + formatTime(item.end, config.timezone),\n    }));\n    const next = withSession(current, nowIso, { step: 'pick_time', offeredSlots, slotPage: 0, slotStart: null, slotEnd: null });\n    const payload = slotsPayload(phone, config, offeredSlots, 0, 'Esse horário acabou de ser ocupado.');\n    return finish(sendPayload(config, phone, next, safeProfile, payload), config);\n  }\n\n  const drafted = draftEvent(config, current, safeProfile, phone);\n  const when = whenLabel(drafted.start, drafted.end, config.timezone);\n  const verb = purpose === 'recheck_update' ? 'Consulta remarcada.' : 'Consulta agendada.';\n  const lines = [verb, '', drafted.summary.replace(config.eventTitlePrefix + ' — ', ''), when];\n  if (config.location) lines.push(config.location);\n  lines.push('', 'O horário fica ocupado na agenda, com lembrete para o consultório.', 'Se precisar remarcar ou cancelar, responda MENU.');\n  return finish(\n    {\n      action: purpose === 'recheck_update' ? 'update_event' : 'create_event',\n      phone,\n      session: withSession(current, nowIso, { step: current.step }),\n      profile: safeProfile,\n      config: publicConfig(config),\n      calendarId: drafted.calendarId,\n      eventId: current.eventId,\n      start: drafted.start,\n      end: drafted.end,\n      summary: drafted.summary,\n      description: drafted.description,\n      location: drafted.location,\n      reminderMinutes: drafted.reminderMinutes,\n      whatsappBody: textBody(phone, lines.join('\\n')),\n    },\n    config,\n  );\n}\n\nfunction pairEvents(inputItems, expandedItems) {\n  const events = [];\n  const inputs = Array.isArray(inputItems) ? inputItems : [];\n  const expanded = Array.isArray(expandedItems) ? expandedItems : [];\n  for (const item of inputs) {\n    const ev = item && item.json ? item.json : item;\n    if (!ev || !ev.id || ev.status === 'cancelled') continue;\n    if (ev.start && ev.start.date && !ev.start.dateTime) continue;\n    let idx = 0;\n    const paired = item && item.pairedItem;\n    if (paired && typeof paired.item === 'number') idx = paired.item;\n    if (Array.isArray(paired) && paired[0] && typeof paired[0].item === 'number') idx = paired[0].item;\n    const srcRaw = expanded[idx] || expanded[0] || {};\n    const src = srcRaw.json || srcRaw;\n    events.push({\n      id: ev.id,\n      summary: ev.summary || '',\n      description: ev.description || '',\n      start: ev.start || null,\n      end: ev.end || null,\n      calendarId: field(ev.description, 'ID_CALENDARIO') || src.calendarId || '',\n      professionalName: field(ev.description, 'Profissional') || src.professionalName || '',\n    });\n  }\n  return events;\n}\n\nfunction applyEventList({ config, phone, profile, events, nowIso, purpose }) {\n  const safeProfile = profile && profile.patientName ? { patientName: profile.patientName } : { patientName: null };\n  const nowMs = new Date(nowIso).getTime();\n  const mine = (events || [])\n    .filter((event) => eventPhone(event.description) === phone)\n    .map((event) => ({ ...event, startMs: eventStartMs(event) }))\n    .filter((event) => Number.isFinite(event.startMs) && event.startMs > nowMs)\n    .sort((a, b) => a.startMs - b.startMs)\n    .slice(0, 10);\n\n  if (!mine.length) {\n    const empty =\n      purpose === 'list_for_view'\n        ? 'Você não tem consultas futuras marcadas por aqui.\\n\\nResponda MENU para agendar.'\n        : 'Não encontrei consulta futura para este telefone.\\n\\nSó aparecem horários marcados por este atendimento. Responda MENU para voltar.';\n    return finish(sendText(config, phone, null, safeProfile, empty), config);\n  }\n\n  if (purpose === 'list_for_view') {\n    const lines = ['Suas próximas consultas:', ''];\n    mine.forEach((event, index) => {\n      lines.push(index + 1 + '. ' + eventLine(config, event));\n    });\n    lines.push('', 'Para remarcar ou cancelar, responda MENU.');\n    return finish(sendText(config, phone, null, safeProfile, lines.join('\\n')), config);\n  }\n\n  const offeredEvents = mine.map((event, index) => ({\n    id: 'evt:' + index,\n    eventId: event.id,\n    calendarId: event.calendarId,\n    professionalName: event.professionalName,\n    summary: event.summary,\n    description: event.description,\n    start: asIso(event.start),\n    end: asIso(event.end),\n    title: clip(formatDayShort(asIso(event.start), config.timezone) + ' ' + formatTime(asIso(event.start), config.timezone), 24),\n    descriptionRow: clip(eventLine(config, event), 72),\n  }));\n  const step = purpose === 'list_for_cancel' ? 'pick_event_cancel' : 'pick_event_reschedule';\n  const intro = purpose === 'list_for_cancel' ? 'Qual consulta você quer cancelar?' : 'Qual consulta você quer remarcar?';\n  const session = withSession(freshSession(nowIso), nowIso, { step, offeredEvents, mode: purpose === 'list_for_cancel' ? 'cancel' : 'reschedule' });\n  const body = intro + '\\n\\n' + offeredEvents.map((event, index) => index + 1 + ' - ' + event.descriptionRow).join('\\n') + '\\n\\n0 - Menu';\n  return finish(\n    sendPayload(\n      config,\n      phone,\n      session,\n      safeProfile,\n      listMessage(phone, {\n        header: config.clinicName,\n        body,\n        button: 'Ver consultas',\n        sectionTitle: 'Consultas',\n        rows: offeredEvents.map((event) => ({ id: event.id, title: event.title, description: event.descriptionRow })),\n      }),\n    ),\n    config,\n  );\n}\n\nfunction selectReminders({ config, events, nowIso, sent }) {\n  const nowMs = new Date(nowIso).getTime();\n  const leads = (config.reminderMinutes || [1440, 60]).map(Number);\n  const windowMin = Number(config.reminderWindowMinutes) || 70;\n  const nextSent = clone(sent || {});\n  const messages = [];\n  for (const event of events || []) {\n    const phone = eventPhone(event.description);\n    const startIso = asIso(event.start);\n    const startMs = startIso ? new Date(startIso).getTime() : NaN;\n    if (!phone || !Number.isFinite(startMs)) continue;\n    const remainMin = (startMs - nowMs) / 60000;\n    if (remainMin <= 0) continue;\n    for (const lead of leads) {\n      const kind = 'm' + lead;\n      if (nextSent[event.id] && nextSent[event.id][kind]) continue;\n      if (remainMin < lead - windowMin || remainMin > lead + windowMin) continue;\n      messages.push({\n        eventId: event.id,\n        kind,\n        phone,\n        whatsappBody: textBody(phone, reminderText(config, event, lead)),\n      });\n      if (!nextSent[event.id]) nextSent[event.id] = {};\n      nextSent[event.id][kind] = nowIso;\n    }\n  }\n  const cutoff = nowMs - 3 * 86400000;\n  for (const eventId of Object.keys(nextSent)) {\n    const stamps = Object.values(nextSent[eventId] || {});\n    const newest = stamps.reduce((max, iso) => Math.max(max, new Date(iso).getTime() || 0), 0);\n    if (!newest || newest < cutoff) delete nextSent[eventId];\n  }\n  return { messages, sent: nextSent };\n}\n\nfunction handleStep(config, session, profile, phone, choice, nowIso) {\n  if (session.step === 'pick_pro') {\n    const pro = matchById(choice, config.professionals, 'pro:', session.offeredPros || config.professionals);\n    if (!pro) return null;\n    const next = withSession(session, nowIso, { professionalId: pro.id, step: 'pick_type' });\n    return typePrompt(config, next, profile, phone, nowIso);\n  }\n  if (session.step === 'pick_type') {\n    const type = matchType(choice, config.sessionTypes);\n    if (!type) return null;\n    const next = withSession(session, nowIso, {\n      sessionTypeId: type.id,\n      typeLabel: type.label,\n      durationMinutes: Number(type.durationMinutes) || Number(config.slotMinutes) || 50,\n    });\n    if (!profile.patientName) {\n      const asking = withSession(next, nowIso, { step: 'ask_name' });\n      return sendText(config, phone, asking, profile, askNameText(null));\n    }\n    return datePrompt(config, next, profile, phone, nowIso);\n  }\n  if (session.step === 'pick_date') {\n    if (choice.id === 'mais' || choice.norm === 'mais' || choice.norm === 'mais horarios') return null;\n    const date = matchDate(choice, session.offeredDates || []);\n    if (!date) return null;\n      const pro = proById(config, session.professionalId);\n      const next = withSession(session, nowIso, { date: date.date, step: 'pick_date' });\n      const calendarId = session.eventCalendarId || (pro && pro.calendarId);\n    const ymd = parseYmd(date.date);\n    const nextDay = addCalendarDays(ymd, 1);\n    return {\n      action: 'freebusy',\n      purpose: 'offer_slots',\n      phone,\n      session: next,\n      profile,\n      config: publicConfig(config),\n      calendarId,\n      timeMin: toOffsetIso(zonedLocalToUtc(ymd.year, ymd.month, ymd.day, 0, 0, config.timezone), config.timezone),\n      timeMax: toOffsetIso(zonedLocalToUtc(nextDay.year, nextDay.month, nextDay.day, 0, 0, config.timezone), config.timezone),\n      ignoreInterval: session.ignoreStart ? { start: session.ignoreStart, end: session.ignoreEnd } : null,\n    };\n  }\n  if (session.step === 'pick_time') {\n    const view = pageRows(session.offeredSlots || [], session.slotPage || 0);\n    const moreIndex = view.more ? view.visible.length + 1 : null;\n    if (choice.id === 'mais' || choice.norm === 'mais' || choice.norm === 'mais horarios' || (moreIndex && pickedIndex(choice) === moreIndex)) {\n      const page = (session.slotPage || 0) + 1;\n      const nextView = pageRows(session.offeredSlots || [], page);\n      const nextPage = nextView.visible.length ? page : 0;\n      const next = withSession(session, nowIso, { slotPage: nextPage });\n      return sendPayload(config, phone, next, profile, slotsPayload(phone, config, session.offeredSlots || [], nextPage));\n    }\n    const slot = matchSlot(choice, session.offeredSlots || [], session.slotPage || 0);\n    if (!slot) return null;\n    if (session.mode === 'reschedule' && slot.start === session.ignoreStart) {\n      return sendPayload(\n        config,\n        phone,\n        withSession(session, nowIso, {}),\n        profile,\n        slotsPayload(phone, config, session.offeredSlots || [], session.slotPage || 0, 'Esse já é o horário da sua consulta.'),\n      );\n    }\n    const step = session.mode === 'reschedule' ? 'confirm_reschedule' : 'confirm_book';\n    const next = withSession(session, nowIso, { step, slotStart: slot.start, slotEnd: slot.end });\n    return sendPayload(config, phone, next, profile, confirmPayload(config, phone, next, profile));\n  }\n  if (session.step === 'confirm_book' || session.step === 'confirm_reschedule') {\n    if (isConfirm(choice)) {\n      const pro = proById(config, session.professionalId);\n      const purpose = session.step === 'confirm_reschedule' ? 'recheck_update' : 'recheck_create';\n      return {\n        action: 'freebusy',\n        purpose,\n        phone,\n        session: withSession(session, nowIso, {}),\n        profile,\n        config: publicConfig(config),\n        calendarId: session.eventCalendarId || (pro && pro.calendarId),\n        timeMin: session.slotStart,\n        timeMax: session.slotEnd,\n        ignoreInterval: session.ignoreStart ? { start: session.ignoreStart, end: session.ignoreEnd } : null,\n      };\n    }\n    if (choice.id === 'outro' || choice.norm === 'outro' || choice.norm === 'outro horario' || pickedIndex(choice) === 2) {\n      if (session.offeredSlots && session.offeredSlots.length) {\n        const next = withSession(session, nowIso, { step: 'pick_time', slotPage: 0, slotStart: null, slotEnd: null });\n        return sendPayload(config, phone, next, profile, slotsPayload(phone, config, next.offeredSlots, 0));\n      }\n      return datePrompt(config, session, profile, phone, nowIso);\n    }\n    return null;\n  }\n  if (session.step === 'pick_event_cancel' || session.step === 'pick_event_reschedule') {\n    const event = matchEvent(choice, session.offeredEvents || []);\n    if (!event) return null;\n    if (session.step === 'pick_event_cancel') {\n      const next = withSession(session, nowIso, {\n        step: 'confirm_cancel',\n        eventId: event.eventId,\n        eventCalendarId: event.calendarId,\n        slotStart: event.start,\n        slotEnd: event.end,\n      });\n      const body =\n        'Cancelar esta consulta?\\n\\n' +\n        event.descriptionRow +\n        '\\n\\n1 - Confirmar cancelamento\\n2 - Manter\\n0 - Menu';\n      return sendPayload(\n        config,\n        phone,\n        next,\n        profile,\n        buttonMessage(phone, body, [\n          { id: 'confirmar', title: 'Confirmar' },\n          { id: 'manter', title: 'Manter' },\n          { id: 'menu', title: 'Menu' },\n        ]),\n      );\n    }\n    return startReschedule(config, session, profile, phone, event, nowIso);\n  }\n  if (session.step === 'confirm_cancel') {\n    if (isConfirm(choice) || choice.norm === 'cancelar') {\n      const when = whenLabel(session.slotStart, session.slotEnd, config.timezone);\n      return {\n        action: 'delete_event',\n        phone,\n        session: withSession(session, nowIso, {}),\n        profile,\n        config: publicConfig(config),\n        calendarId: session.eventCalendarId,\n        eventId: session.eventId,\n        whatsappBody: textBody(phone, 'Consulta cancelada.\\n\\n' + when + '\\n\\nSe quiser marcar outro horário, responda MENU.'),\n      };\n    }\n    if (choice.id === 'manter' || choice.norm === 'manter' || choice.norm === 'nao' || pickedIndex(choice) === 2) {\n      return menuReply(config, phone, profile, nowIso, 'A consulta foi mantida.');\n    }\n    return null;\n  }\n  return null;\n}\n\nfunction onAskName(config, session, profile, incoming, choice, nowIso) {\n  if (isMenuWord(choice)) return menuReply(config, incoming.phone, profile, nowIso, null);\n  const cmd = commandFrom(choice, false);\n  if (cmd) return dispatch(config, profile, incoming.phone, nowIso, cmd);\n  const name = cleanName(incoming.text);\n  if (!name) {\n    return sendText(config, incoming.phone, withSession(session, nowIso, { step: 'ask_name' }), profile, 'Preciso do nome completo do paciente, com pelo menos nome e sobrenome.\\n\\n' + askNameText(incoming.profileName));\n  }\n  const named = { patientName: name };\n  return datePrompt(config, session, named, incoming.phone, nowIso);\n}\n\nfunction dispatch(config, profile, phone, nowIso, cmd) {\n  if (cmd === 'book') return finish(beginBook(config, profile, phone, nowIso), config);\n  const purpose = cmd === 'reschedule' ? 'list_for_reschedule' : cmd === 'cancel' ? 'list_for_cancel' : 'list_for_view';\n  return finish(beginList(config, profile, phone, nowIso, purpose), config);\n}\n\nfunction beginBook(config, profile, phone, nowIso) {\n  const session = withSession(freshSession(nowIso), nowIso, { mode: 'book' });\n  if (config.professionals.length > 1) {\n    const offeredPros = config.professionals.slice(0, 10).map((pro) => ({\n      id: 'pro:' + pro.id,\n      proId: pro.id,\n      title: clip(pro.name, 24),\n      description: 'Agenda deste profissional',\n    }));\n    const next = withSession(session, nowIso, { step: 'pick_pro', offeredPros });\n    const body =\n      'Com quem você quer agendar?\\n\\n' +\n      offeredPros.map((pro, index) => index + 1 + ' - ' + pro.title).join('\\n') +\n      '\\n\\n0 - Menu';\n    return sendPayload(\n      config,\n      phone,\n      next,\n      profile,\n      listMessage(phone, {\n        header: config.clinicName,\n        body,\n        button: 'Ver profissionais',\n        sectionTitle: 'Profissionais',\n        rows: offeredPros.map((pro) => ({ id: pro.id, title: pro.title, description: pro.description })),\n      }),\n    );\n  }\n  const only = config.professionals[0];\n  const next = withSession(session, nowIso, { professionalId: only.id, step: 'pick_type' });\n  return typePrompt(config, next, profile, phone, nowIso);\n}\n\nfunction beginList(config, profile, phone, nowIso, purpose) {\n  const now = new Date(nowIso);\n  const timeMax = new Date(now.getTime() + (Number(config.lookupDays) || 60) * 86400000).toISOString();\n  return {\n    action: 'list_events',\n    purpose,\n    phone,\n    session: null,\n    profile,\n    config: publicConfig(config),\n    calendars: config.professionals.map((pro) => ({ id: pro.id, name: pro.name, calendarId: pro.calendarId })),\n    calendarId: config.professionals[0] && config.professionals[0].calendarId,\n    query: 'tel:' + phone,\n    timeMin: now.toISOString(),\n    timeMax,\n  };\n}\n\nfunction typePrompt(config, session, profile, phone, nowIso) {\n  const types = config.sessionTypes;\n  const next = withSession(session, nowIso, { step: 'pick_type' });\n  const lines = ['Qual é o tipo da sessão?', ''];\n  types.forEach((type, index) => {\n    lines.push(index + 1 + ' - ' + type.label + ' (' + type.durationMinutes + ' min)');\n  });\n  lines.push('0 - Menu');\n  if (types.length <= 2) {\n    const buttons = types.map((type) => ({ id: 'tipo:' + type.id, title: clip(type.label, 20) }));\n    buttons.push({ id: 'menu', title: 'Menu' });\n    return sendPayload(config, phone, next, profile, buttonMessage(phone, lines.join('\\n'), buttons));\n  }\n  return sendPayload(\n    config,\n    phone,\n    next,\n    profile,\n    listMessage(phone, {\n      header: config.clinicName,\n      body: lines.join('\\n'),\n      button: 'Ver tipos',\n      sectionTitle: 'Sessões',\n      rows: types.map((type) => ({\n        id: 'tipo:' + type.id,\n        title: clip(type.label, 24),\n        description: type.durationMinutes + ' min',\n      })),\n    }),\n  );\n}\n\nfunction datePrompt(config, session, profile, phone, nowIso) {\n  const duration = Number(session.durationMinutes) || 50;\n  const dates = upcomingDates(config, new Date(nowIso), duration);\n  if (!dates.length) {\n    return sendText(config, phone, null, profile, 'Não há dias com horário livre no período configurado. Responda MENU para voltar.');\n  }\n  const next = withSession(session, nowIso, { step: 'pick_date', offeredDates: dates, date: null, slotStart: null, slotEnd: null });\n  return sendPayload(\n    config,\n    phone,\n    next,\n    profile,\n    listMessage(phone, {\n      header: config.clinicName,\n      body: dateBody(config, dates),\n      button: 'Ver dias',\n      sectionTitle: 'Dias',\n      rows: dates.map((date) => ({ id: date.id, title: date.title, description: date.description })),\n    }),\n  );\n}\n\nfunction startReschedule(config, session, profile, phone, event, nowIso) {\n  const pro = proForEvent(config, event);\n  const typeLabel = field(event.description, 'Tipo') || 'Retorno';\n  const known = config.sessionTypes.find((type) => norm(type.label) === norm(typeLabel));\n  const startMs = new Date(event.start).getTime();\n  const endMs = new Date(event.end).getTime();\n  const duration = Number.isFinite(endMs - startMs) && endMs > startMs ? Math.round((endMs - startMs) / 60000) : (known && known.durationMinutes) || 50;\n  const patient = field(event.description, 'Paciente');\n  const named = patient ? { patientName: patient } : profile;\n  const next = withSession(freshSession(nowIso), nowIso, {\n    mode: 'reschedule',\n    professionalId: pro.id,\n    sessionTypeId: known ? known.id : null,\n    typeLabel,\n    durationMinutes: duration,\n    eventId: event.eventId,\n    eventCalendarId: pro.calendarId,\n    ignoreStart: event.start,\n    ignoreEnd: event.end,\n  });\n  return datePrompt(config, next, named, phone, nowIso);\n}\n\nfunction confirmPayload(config, phone, session, profile) {\n  const pro = proById(config, session.professionalId);\n  const when = whenLabel(session.slotStart, session.slotEnd, config.timezone);\n  const lines = [\n    session.mode === 'reschedule' ? 'Confira a remarcação:' : 'Confira o agendamento:',\n    '',\n    'Paciente: ' + (profile.patientName || ''),\n    'Profissional: ' + ((pro && pro.name) || 'Fisioterapeuta'),\n    'Tipo: ' + (session.typeLabel || 'Sessão') + ' (' + session.durationMinutes + ' min)',\n    'Quando: ' + when,\n  ];\n  if (config.location) lines.push('Local: ' + config.location);\n  lines.push('', 'A consulta só entra na agenda depois que você confirmar.', '1 - Confirmar', '2 - Outro horário', '0 - Menu');\n  return buttonMessage(phone, lines.join('\\n'), [\n    { id: 'confirmar', title: 'Confirmar' },\n    { id: 'outro', title: 'Outro horário' },\n    { id: 'menu', title: 'Menu' },\n  ]);\n}\n\nfunction slotsPayload(phone, config, offeredSlots, page, prefix) {\n  const view = pageRows(offeredSlots, page);\n  const lines = [];\n  if (prefix) lines.push(prefix, '');\n  lines.push('Horários livres:');\n  lines.push('');\n  view.visible.forEach((slot, index) => {\n    lines.push(index + 1 + ' - ' + slot.title + ' às ' + slot.description.replace('até ', ''));\n  });\n  if (view.more) lines.push(view.visible.length + 1 + ' - Mais horários');\n  lines.push('0 - Menu');\n  const rows = view.visible.map((slot) => ({ id: slot.id, title: slot.title, description: slot.description }));\n  if (view.more) rows.push({ id: 'mais', title: 'Mais horários', description: 'Ver os próximos' });\n  return listMessage(phone, {\n    header: config.clinicName,\n    body: lines.join('\\n'),\n    button: 'Ver horários',\n    sectionTitle: 'Livres',\n    rows,\n  });\n}\n\nfunction draftEvent(config, session, profile, phone) {\n  const fromConfig = proById(config, session.professionalId);\n  const pro = {\n    id: (fromConfig && fromConfig.id) || session.professionalId || 'fisio-1',\n    name: (fromConfig && fromConfig.name) || 'Fisioterapeuta',\n    calendarId: session.eventCalendarId || (fromConfig && fromConfig.calendarId),\n  };\n  const typeLabel = session.typeLabel || 'Sessão';\n  const summary = config.eventTitlePrefix + ' — ' + profile.patientName + ' (' + typeLabel + ')';\n  const description = [\n    'Paciente: ' + profile.patientName,\n    'Telefone: ' + phone,\n    'ID_PACIENTE: tel:' + phone,\n    'Tipo: ' + typeLabel,\n    'Profissional: ' + pro.name,\n    'ID_PROFISSIONAL: ' + pro.id,\n    'ID_CALENDARIO: ' + pro.calendarId,\n    'Duração: ' + session.durationMinutes + ' min',\n    'Canal: WhatsApp',\n  ].join('\\n');\n  const reminders = reminderPair(config);\n  return {\n    summary,\n    description,\n    start: session.slotStart,\n    end: session.slotEnd,\n    calendarId: pro.calendarId,\n    location: config.location || '',\n    reminderMinutes: reminders,\n  };\n}\n\nfunction reminderPair(config) {\n  const list = Array.isArray(config.reminderMinutes) && config.reminderMinutes.length ? config.reminderMinutes.map(Number) : [1440, 60];\n  if (list.length === 1) list.push(list[0]);\n  return [list[0], list[1]];\n}\n\nfunction reminderText(config, event, lead) {\n  const startIso = asIso(event.start);\n  const endIso = asIso(event.end) || startIso;\n  const when = whenLabel(startIso, endIso, config.timezone);\n  const patient = field(event.description, 'Paciente');\n  const tipo = field(event.description, 'Tipo');\n  const pro = field(event.description, 'Profissional');\n  const head = lead >= 120 ? 'Lembrete: você tem atendimento amanhã no ' + config.clinicName + '.' : 'Lembrete: seu atendimento no ' + config.clinicName + ' é daqui a cerca de 1 hora.';\n  return [head, '', [patient, tipo && pro ? tipo + ' com ' + pro : tipo || pro].filter(Boolean).join('\\n'), when, '', 'Se precisar remarcar ou cancelar, responda aqui.'].join('\\n');\n}\n\nfunction upcomingDates(config, now, durationMinutes) {\n  const today = localDateParts(now, config.timezone);\n  const dates = [];\n  const horizon = Number(config.daysAhead) || 21;\n  const limit = Math.min(Number(config.maxDatesInList) || 8, 10);\n  for (let offset = 0; offset <= horizon && dates.length < limit; offset += 1) {\n    const ymd = addCalendarDays(today, offset);\n    const weekday = weekdayOfLocalDate(ymd.year, ymd.month, ymd.day, config.timezone);\n    if (!(config.businessDays || []).includes(weekday)) continue;\n    const slots = slotsForDate(config, ymd, durationMinutes, now);\n    if (!slots.length) continue;\n    dates.push({\n      id: 'data:' + ymdString(ymd),\n      date: ymdString(ymd),\n      title: WEEK_SHORT[weekday] + ' ' + pad(ymd.day) + '/' + pad(ymd.month),\n      description: 'Horários de ' + durationMinutes + ' min',\n    });\n  }\n  return dates;\n}\n\nfunction slotsForDate(config, ymd, durationMinutes, now) {\n  const duration = Number(durationMinutes) || Number(config.slotMinutes) || 50;\n  const step = Math.max(Number(config.slotMinutes) || duration, duration);\n  const windows = [\n    [parseMinutes(config.dayStart), parseMinutes(config.lunchStart)],\n    [parseMinutes(config.lunchEnd), parseMinutes(config.dayEnd)],\n  ];\n  const lead = new Date(now.getTime() + (Number(config.minLeadMinutes) || 0) * 60000);\n  const slots = [];\n  for (const [open, close] of windows) {\n    if (!(open < close)) continue;\n    for (let minute = open; minute + duration <= close; minute += step) {\n      const start = zonedLocalToUtc(ymd.year, ymd.month, ymd.day, Math.floor(minute / 60), minute % 60, config.timezone);\n      const end = new Date(start.getTime() + duration * 60000);\n      if (start < lead) continue;\n      slots.push({\n        start: toOffsetIso(start, config.timezone),\n        end: toOffsetIso(end, config.timezone),\n        startMs: start.getTime(),\n        endMs: end.getTime(),\n      });\n    }\n  }\n  return slots;\n}\n\nfunction dateBody(config, dates) {\n  const lines = ['Escolha o dia:', ''];\n  dates.forEach((date, index) => lines.push(index + 1 + ' - ' + date.title));\n  lines.push('0 - Menu');\n  lines.push('', config.clinicName + ' · seg a sex, ' + config.dayStart + '–' + config.dayEnd + ', almoço ' + config.lunchStart + '–' + config.lunchEnd + '.');\n  return lines.join('\\n');\n}\n\nfunction menuReply(config, phone, profile, nowIso, prefix) {\n  const lines = [];\n  if (prefix) lines.push(prefix, '');\n  lines.push('Olá! Aqui é o atendimento do ' + config.clinicName + '.');\n  lines.push('');\n  lines.push('Como posso ajudar?');\n  lines.push('1 - Agendar');\n  lines.push('2 - Remarcar');\n  lines.push('3 - Cancelar');\n  lines.push('4 - Ver meus horários');\n  lines.push('');\n  lines.push('Toque em Ver opções ou responda com o número.');\n  return sendPayload(\n    config,\n    phone,\n    null,\n    profile,\n    listMessage(phone, {\n      header: config.clinicName,\n      body: lines.join('\\n'),\n      button: 'Ver opções',\n      sectionTitle: 'Atendimento',\n      rows: [\n        { id: 'agendar', title: 'Agendar', description: 'Marcar avaliação ou retorno' },\n        { id: 'remarcar', title: 'Remarcar', description: 'Mudar data ou horário' },\n        { id: 'cancelar', title: 'Cancelar', description: 'Desmarcar uma consulta' },\n        { id: 'meus', title: 'Meus horários', description: 'Ver próximas consultas' },\n      ],\n    }),\n  );\n}\n\nfunction sendText(config, phone, session, profile, body) {\n  return sendPayload(config, phone, session, profile, textBody(phone, body));\n}\n\nfunction sendPayload(config, phone, session, profile, whatsappBody) {\n  return {\n    action: 'send',\n    phone,\n    session: session && session.step && session.step !== 'menu' ? session : null,\n    profile,\n    config: publicConfig(config),\n    whatsappBody,\n  };\n}\n\nfunction finish(result, config) {\n  if (!result || result.action === 'send' || result.action === 'ignore') return result;\n  const ids = [];\n  if (result.calendarId) ids.push(result.calendarId);\n  for (const calendar of result.calendars || []) ids.push(calendar.calendarId);\n  if (!ids.length || ids.some(isPlaceholderCalendar)) {\n    return sendText(\n      config,\n      result.phone,\n      null,\n      result.profile,\n      'Ainda não consigo ver a agenda do consultório.\\n\\nQuem administra o n8n precisa preencher o calendarId no node \"Configuração do consultório\".\\n\\nResponda MENU quando estiver pronto.',\n    );\n  }\n  return result;\n}\n\nfunction eventLine(config, event) {\n  const start = asIso(event.start);\n  const end = asIso(event.end);\n  const tipo = field(event.description, 'Tipo');\n  const pro = field(event.description, 'Profissional') || event.professionalName;\n  return whenLabel(start, end, config.timezone) + (tipo || pro ? ' · ' + [tipo, pro].filter(Boolean).join(' com ') : '');\n}\n\nfunction askNameText(profileName) {\n  const hint = profileName ? '\\n\\nSe estiver certo, pode responder: ' + profileName : '';\n  return 'Qual é o nome completo do paciente?' + hint + '\\n\\nPara voltar, responda MENU.';\n}\n\nfunction isConfirm(choice) {\n  return choice.id === 'confirmar' || choice.norm === 'confirmar' || choice.norm === 'sim' || pickedIndex(choice) === 1;\n}\n\nfunction commandFrom(choice, allowNumbers) {\n  if (choice.id === 'agendar' || ['agendar', 'marcar', 'marcacao'].includes(choice.norm)) return 'book';\n  if (choice.id === 'remarcar' || ['remarcar', 'reagendar'].includes(choice.norm)) return 'reschedule';\n  if (choice.id === 'cancelar' || choice.id === 'desmarcar' || ['cancelar', 'desmarcar'].includes(choice.norm)) return 'cancel';\n  if (choice.id === 'meus' || ['meus', 'meus horarios', 'ver', 'ver horarios', 'ver meus horarios', 'agenda'].includes(choice.norm)) return 'view';\n  if (allowNumbers) {\n    const n = pickedIndex(choice);\n    if (n === 1) return 'book';\n    if (n === 2) return 'reschedule';\n    if (n === 3) return 'cancel';\n    if (n === 4) return 'view';\n  }\n  return null;\n}\n\nfunction isMenuWord(choice) {\n  return choice.id === 'menu' || MENU_WORDS.has(choice.norm);\n}\n\nfunction choiceOf(incoming) {\n  return {\n    id: String(incoming.choiceId || ''),\n    text: String(incoming.text || '').trim(),\n    norm: norm(incoming.text || incoming.choiceId || ''),\n  };\n}\n\nfunction matchType(choice, types) {\n  if (choice.id.startsWith('tipo:')) return types.find((type) => choice.id === 'tipo:' + type.id) || null;\n  const n = pickedIndex(choice);\n  if (n && types[n - 1]) return types[n - 1];\n  return types.find((type) => choice.norm === norm(type.label) || choice.norm === norm(type.id)) || null;\n}\n\nfunction matchById(choice, professionals, prefix, offered) {\n  const list = offered && offered.length ? offered : professionals.map((pro) => ({ id: prefix + pro.id, proId: pro.id }));\n  let found = null;\n  if (choice.id.startsWith(prefix)) found = list.find((item) => item.id === choice.id);\n  if (!found) {\n    const n = pickedIndex(choice);\n    if (n && list[n - 1]) found = list[n - 1];\n  }\n  if (!found) return null;\n  const id = found.proId || String(found.id).replace(prefix, '');\n  return professionals.find((pro) => pro.id === id) || null;\n}\n\nfunction matchDate(choice, offered) {\n  if (choice.id.startsWith('data:')) return offered.find((date) => date.id === choice.id) || null;\n  const n = pickedIndex(choice);\n  if (n && offered[n - 1]) return offered[n - 1];\n  return offered.find((date) => norm(date.title) === choice.norm) || null;\n}\n\nfunction matchSlot(choice, offered, page) {\n  const view = pageRows(offered, page);\n  if (choice.id.startsWith('hora:')) return offered.find((slot) => slot.id === choice.id) || null;\n  const n = pickedIndex(choice);\n  if (n && view.visible[n - 1]) return view.visible[n - 1];\n  return null;\n}\n\nfunction matchEvent(choice, offered) {\n  if (choice.id.startsWith('evt:')) return offered.find((event) => event.id === choice.id) || null;\n  const n = pickedIndex(choice);\n  if (n && offered[n - 1]) return offered[n - 1];\n  return null;\n}\n\nfunction pageRows(items, page) {\n  const size = items.length > 10 ? 9 : 10;\n  const start = Math.max(0, page) * size;\n  const visible = items.slice(start, start + size);\n  return { visible, more: start + size < items.length };\n}\n\nfunction cleanName(text) {\n  const name = String(text || '').replace(/\\s+/g, ' ').trim();\n  if (name.length < 5 || name.length > 80) return '';\n  if (!/[A-Za-zÀ-ÿ]/.test(name)) return '';\n  if (!name.includes(' ')) return '';\n  const asChoice = choiceOf({ text: name, choiceId: '' });\n  if (commandFrom(asChoice, false) || isMenuWord(asChoice)) return '';\n  return name;\n}\n\nfunction proById(config, id) {\n  return (config.professionals || []).find((pro) => pro.id === id) || null;\n}\n\nfunction proForEvent(config, event) {\n  const id = field(event.description, 'ID_PROFISSIONAL');\n  const calendarId = field(event.description, 'ID_CALENDARIO') || event.calendarId;\n  const known =\n    (config.professionals || []).find((pro) => pro.id === id) ||\n    (config.professionals || []).find((pro) => pro.calendarId === calendarId);\n  return {\n    id: (known && known.id) || id || 'evento',\n    name: (known && known.name) || field(event.description, 'Profissional') || event.professionalName || 'Fisioterapeuta',\n    calendarId: calendarId || (known && known.calendarId) || '',\n  };\n}\n\nfunction eventPhone(description) {\n  const tagged = field(description, 'ID_PACIENTE').replace(/^tel:/i, '');\n  if (digits(tagged)) return digits(tagged);\n  return digits(field(description, 'Telefone'));\n}\n\nfunction eventStartMs(event) {\n  const iso = asIso(event.start);\n  if (!iso || (event.start && event.start.date && !event.start.dateTime)) return NaN;\n  return new Date(iso).getTime();\n}\n\nfunction field(description, name) {\n  const prefix = name + ':';\n  for (const line of String(description || '').split(/\\r?\\n/)) {\n    if (line.startsWith(prefix)) return line.slice(prefix.length).trim();\n  }\n  return '';\n}\n\nfunction subtractInterval(busy, ignore) {\n  if (!ignore || !ignore.start || !ignore.end) return busy || [];\n  const i0 = new Date(ignore.start).getTime();\n  const i1 = new Date(ignore.end).getTime();\n  const out = [];\n  for (const block of busy || []) {\n    const b0 = new Date(block.start).getTime();\n    const b1 = new Date(block.end).getTime();\n    if (!(b0 < i1 && b1 > i0)) {\n      out.push(block);\n      continue;\n    }\n    if (b0 < i0) out.push({ start: block.start, end: ignore.start });\n    if (b1 > i1) out.push({ start: ignore.end, end: block.end });\n  }\n  return out;\n}\n\nfunction isFree(slot, busy) {\n  return !(busy || []).some((block) => slot.startMs < new Date(block.end).getTime() && slot.endMs > new Date(block.start).getTime());\n}\n\nfunction pushInterval(intervals, block) {\n  const start = asIso(block && (block.start || block.from));\n  const end = asIso(block && (block.end || block.to));\n  if (start && end) intervals.push({ start, end });\n}\n\nfunction asIso(value) {\n  if (!value) return null;\n  if (typeof value === 'string') return value;\n  if (value.dateTime) return value.dateTime;\n  if (value.date) return value.date;\n  return null;\n}\n\nfunction isPlaceholderCalendar(id) {\n  const value = String(id || '').trim();\n  if (!value) return true;\n  if (value.includes('SEU_CALENDAR_ID')) return true;\n  if (value.includes('COLOQUE_')) return true;\n  return false;\n}\n\nfunction isExpired(session, now, config) {\n  if (!session || !session.updatedAt) return false;\n  const ttl = (Number(config.sessionTtlMinutes) || 120) * 60000;\n  return now.getTime() - new Date(session.updatedAt).getTime() > ttl;\n}\n\nfunction freshSession(nowIso) {\n  return {\n    step: 'menu',\n    mode: null,\n    professionalId: null,\n    sessionTypeId: null,\n    typeLabel: null,\n    durationMinutes: null,\n    date: null,\n    slotStart: null,\n    slotEnd: null,\n    eventId: null,\n    eventCalendarId: null,\n    ignoreStart: null,\n    ignoreEnd: null,\n    offeredDates: [],\n    offeredSlots: [],\n    offeredEvents: [],\n    offeredPros: [],\n    slotPage: 0,\n    updatedAt: nowIso,\n  };\n}\n\nfunction withSession(session, nowIso, patch) {\n  return { ...session, ...patch, updatedAt: nowIso };\n}\n\nfunction listMessage(to, { header, body, button, sectionTitle, rows }) {\n  const payload = {\n    messaging_product: 'whatsapp',\n    recipient_type: 'individual',\n    to,\n    type: 'interactive',\n    interactive: {\n      type: 'list',\n      body: { text: clip(body, 1024) },\n      footer: { text: 'Responda com o número se preferir' },\n      action: {\n        button: clip(button, 20),\n        sections: [\n          {\n            title: clip(sectionTitle || 'Opções', 24),\n            rows: rows.slice(0, 10).map((row) => {\n              const item = { id: clip(String(row.id), 200), title: clip(row.title, 24) };\n              if (row.description) item.description = clip(row.description, 72);\n              return item;\n            }),\n          },\n        ],\n      },\n    },\n  };\n  if (header) payload.interactive.header = { type: 'text', text: clip(header, 60) };\n  return payload;\n}\n\nfunction buttonMessage(to, body, buttons) {\n  return {\n    messaging_product: 'whatsapp',\n    recipient_type: 'individual',\n    to,\n    type: 'interactive',\n    interactive: {\n      type: 'button',\n      body: { text: clip(body, 1024) },\n      action: {\n        buttons: buttons.slice(0, 3).map((button) => ({\n          type: 'reply',\n          reply: { id: clip(String(button.id), 256), title: clip(button.title, 20) },\n        })),\n      },\n    },\n  };\n}\n\nfunction whenLabel(startIso, endIso, timeZone) {\n  return formatLong(startIso, timeZone) + ', ' + formatTime(startIso, timeZone) + ' às ' + formatTime(endIso, timeZone);\n}\n\nfunction formatLong(iso, timeZone) {\n  const ymd = localDateParts(new Date(iso), timeZone);\n  const weekday = weekdayOfLocalDate(ymd.year, ymd.month, ymd.day, timeZone);\n  return WEEK_LONG[weekday] + ', ' + pad(ymd.day) + '/' + pad(ymd.month) + '/' + ymd.year;\n}\n\nfunction formatDayShort(iso, timeZone) {\n  const ymd = localDateParts(new Date(iso), timeZone);\n  return pad(ymd.day) + '/' + pad(ymd.month);\n}\n\nfunction formatTime(iso, timeZone) {\n  const parts = zonedParts(new Date(iso), timeZone);\n  return pad(Number(parts.hour)) + ':' + pad(Number(parts.minute));\n}\n\nfunction localDateParts(date, timeZone) {\n  const parts = zonedParts(date, timeZone);\n  return { year: Number(parts.year), month: Number(parts.month), day: Number(parts.day) };\n}\n\nfunction weekdayOfLocalDate(year, month, day, timeZone) {\n  const instant = zonedLocalToUtc(year, month, day, 12, 0, timeZone);\n  const short = new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short' }).format(instant);\n  return WEEK_FROM_EN[short];\n}\n\nfunction addCalendarDays(parts, days) {\n  const utc = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + days));\n  return { year: utc.getUTCFullYear(), month: utc.getUTCMonth() + 1, day: utc.getUTCDate() };\n}\n\nfunction ymdString(ymd) {\n  return ymd.year + '-' + pad(ymd.month) + '-' + pad(ymd.day);\n}\n\nfunction parseYmd(value) {\n  const match = String(value || '').match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);\n  if (!match) return null;\n  return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };\n}\n\nfunction parseMinutes(hm) {\n  const [hour, minute] = String(hm || '0:0').split(':').map(Number);\n  return hour * 60 + minute;\n}\n\nfunction zonedLocalToUtc(year, month, day, hour, minute, timeZone) {\n  const guess = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));\n  const offset = timeZoneOffsetMs(timeZone, guess);\n  const utc = new Date(guess.getTime() - offset);\n  const offset2 = timeZoneOffsetMs(timeZone, utc);\n  if (offset2 !== offset) return new Date(guess.getTime() - offset2);\n  return utc;\n}\n\nfunction timeZoneOffsetMs(timeZone, date) {\n  const parts = zonedParts(date, timeZone);\n  const asUtc = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute), Number(parts.second));\n  return asUtc - date.getTime();\n}\n\nfunction toOffsetIso(date, timeZone) {\n  const parts = zonedParts(date, timeZone);\n  const offset = timeZoneOffsetMs(timeZone, date);\n  const sign = offset >= 0 ? '+' : '-';\n  const abs = Math.abs(offset);\n  const hours = Math.floor(abs / 3600000);\n  const minutes = Math.floor((abs % 3600000) / 60000);\n  return (\n    parts.year +\n    '-' +\n    parts.month +\n    '-' +\n    parts.day +\n    'T' +\n    parts.hour +\n    ':' +\n    parts.minute +\n    ':' +\n    parts.second +\n    sign +\n    pad(hours) +\n    ':' +\n    pad(minutes)\n  );\n}\n\nfunction zonedParts(date, timeZone) {\n  const fmt = new Intl.DateTimeFormat('en-US', {\n    timeZone,\n    hourCycle: 'h23',\n    year: 'numeric',\n    month: '2-digit',\n    day: '2-digit',\n    hour: '2-digit',\n    minute: '2-digit',\n    second: '2-digit',\n  });\n  const out = {};\n  for (const part of fmt.formatToParts(date)) {\n    if (part.type !== 'literal') out[part.type] = part.value;\n  }\n  if (out.hour === '24') out.hour = '00';\n  return out;\n}\n\nfunction pickedIndex(choice) {\n  if (/^\\d{1,2}$/.test(choice.text)) return Number(choice.text);\n  return null;\n}\n\nfunction norm(value) {\n  return String(value || '')\n    .toLowerCase()\n    .normalize('NFD')\n    .replace(/[\\u0300-\\u036f]/g, '')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nfunction digits(value) {\n  return String(value || '').replace(/\\D/g, '');\n}\n\nfunction pad(value) {\n  return String(value).padStart(2, '0');\n}\n\nfunction clip(value, max) {\n  const text = String(value || '');\n  return text.length <= max ? text : text.slice(0, max);\n}\n\nfunction clone(value) {\n  return value == null ? value : JSON.parse(JSON.stringify(value));\n}\n\nconst routed = $('Roteador da conversa').first().json;\nconst expanded = $('Preparar calendários').all();\nconst events = pairEvents($input.all(), expanded);\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.sessions) staticData.sessions = {};\nif (!staticData.profiles) staticData.profiles = {};\n\nconst result = applyEventList({\n  config: routed.config,\n  phone: routed.phone,\n  profile: routed.profile,\n  events: events,\n  nowIso: new Date().toISOString(),\n  purpose: routed.purpose,\n});\n\nconst phone = result.phone || routed.phone;\nif (result.profile && result.profile.patientName && phone) {\n  staticData.profiles[phone] = { patientName: result.profile.patientName };\n}\nif (phone && result.session && result.session.step && result.session.step !== 'menu') {\n  staticData.sessions[phone] = result.session;\n} else if (phone) {\n  delete staticData.sessions[phone];\n}\n\nreturn [{ json: result }];\n"
+      }
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000023",
+      "name": "Apagar evento",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        2040,
+        920
+      ],
+      "parameters": {
+        "resource": "event",
+        "operation": "delete",
+        "calendar": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.calendarId }}"
+        },
+        "eventId": "={{ $json.eventId }}",
+        "options": {
+          "sendUpdates": "none"
+        }
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "PREENCHER_GOOGLE_CALENDAR",
+          "name": "Google Calendar"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000024",
+      "name": "Mensagem de confirmação",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3200,
+        420
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "const routed = $('Roteador da conversa').first().json;\nconst prior = routed.action === 'delete_event' ? routed : $('Montar horários livres').first().json;\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.sessions) staticData.sessions = {};\nif (prior.phone) delete staticData.sessions[prior.phone];\nreturn [{ json: { whatsappBody: prior.whatsappBody } }];\n"
+      }
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000025",
+      "name": "Avisar falha na agenda",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2600,
+        980
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "let routed = {};\ntry {\n  routed = $('Roteador da conversa').first().json || {};\n} catch (error) {\n  routed = {};\n}\nif (!routed.phone) return [];\nreturn [\n  {\n    json: {\n      whatsappBody: {\n        messaging_product: 'whatsapp',\n        recipient_type: 'individual',\n        to: routed.phone,\n        type: 'text',\n        text: {\n          preview_url: false,\n          body: 'Não consegui consultar a agenda agora. Tente de novo em alguns minutos.\\n\\nSe você estava confirmando, responda CONFIRMAR. Ou responda MENU.',\n        },\n      },\n    },\n  },\n];\n"
+      }
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000026",
+      "name": "Enviar WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3480,
+        560
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://graph.facebook.com/' + $('Configuração do consultório').first().json.config.graphApiVersion + '/' + $('Configuração do consultório').first().json.config.whatsappPhoneNumberId + '/messages' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "whatsAppApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.whatsappBody) }}",
+        "options": {}
+      },
+      "credentials": {
+        "whatsAppApi": {
+          "id": "PREENCHER_WHATSAPP",
+          "name": "WhatsApp Cloud API"
+        }
+      },
+      "notes": "Usa a credencial nomeada \"WhatsApp Cloud API\" (tipo WhatsApp API). O Phone Number ID vem da Configuração do consultório, não da credencial."
+    },
+    {
+      "id": "c0ffee00-0000-4000-8000-000000000027",
+      "name": "Ignorar",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2040,
+        1120
+      ],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Webhook verificação": {
+      "main": [
+        [
+          {
+            "node": "Marcar verificação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marcar verificação": {
+      "main": [
+        [
+          {
+            "node": "Configuração do consultório",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook mensagens": {
+      "main": [
+        [
+          {
+            "node": "Responder recebido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder recebido": {
+      "main": [
+        [
+          {
+            "node": "Marcar mensagem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marcar mensagem": {
+      "main": [
+        [
+          {
+            "node": "Configuração do consultório",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configuração do consultório": {
+      "main": [
+        [
+          {
+            "node": "É verificação?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É verificação?": {
+      "main": [
+        [
+          {
+            "node": "Validar token",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Roteador da conversa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar token": {
+      "main": [
+        [
+          {
+            "node": "Token confere?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token confere?": {
+      "main": [
+        [
+          {
+            "node": "Responder challenge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder token inválido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Roteador da conversa": {
+      "main": [
+        [
+          {
+            "node": "Escolher ação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Escolher ação": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Consultar disponibilidade",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preparar calendários",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Apagar evento",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ignorar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ignorar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar disponibilidade": {
+      "main": [
+        [
+          {
+            "node": "Montar horários livres",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Avisar falha na agenda",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar horários livres": {
+      "main": [
+        [
+          {
+            "node": "Depois da disponibilidade",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Depois da disponibilidade": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Criar evento",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Atualizar evento",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ignorar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar evento": {
+      "main": [
+        [
+          {
+            "node": "Mensagem de confirmação",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Avisar falha na agenda",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atualizar evento": {
+      "main": [
+        [
+          {
+            "node": "Mensagem de confirmação",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Avisar falha na agenda",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar calendários": {
+      "main": [
+        [
+          {
+            "node": "Buscar consultas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar consultas": {
+      "main": [
+        [
+          {
+            "node": "Montar consultas",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Avisar falha na agenda",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar consultas": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apagar evento": {
+      "main": [
+        [
+          {
+            "node": "Mensagem de confirmação",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Avisar falha na agenda",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensagem de confirmação": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Avisar falha na agenda": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

@@ -12,12 +12,16 @@ export interface Patient {
 export type Step =
   | 'awaiting_name'
   | 'menu'
+  | 'choosing_type'
+  | 'viewing_bookings'
   | 'choosing_slot'
   | 'confirming_booking'
   | 'choosing_booking'
   | 'confirming_cancel';
 
-export type FlowAction = 'book' | 'reschedule' | 'cancel';
+export type FlowAction = 'book' | 'reschedule' | 'cancel' | 'mine';
+
+export type SessionType = 'avaliacao' | 'retorno';
 
 export interface BookingRef {
   eventId: string;
@@ -30,6 +34,7 @@ export interface Session {
   step: Step;
   action?: FlowAction;
   queuedAction?: FlowAction;
+  sessionType?: SessionType;
   offeredSlots?: Slot[];
   page?: number;
   pendingSlot?: Slot;
@@ -101,7 +106,7 @@ export interface CalendarPort {
   listFreeSlots(exclude?: Slot): Promise<Slot[]>;
   listBookings(phone: string): Promise<BookingRef[]>;
   findByMessageId(messageId: string): Promise<BookingRef | undefined>;
-  book(input: { phone: string; name: string; slot: Slot; messageId: string }): Promise<{ eventId: string }>;
-  reschedule(input: { eventId: string; slot: Slot; phone: string; name: string }): Promise<void>;
+  book(input: { phone: string; name: string; slot: Slot; messageId: string; sessionType?: SessionType }): Promise<{ eventId: string }>;
+  reschedule(input: { eventId: string; slot: Slot; phone: string; name: string; sessionType?: SessionType }): Promise<void>;
   cancel(eventId: string): Promise<void>;
 }

@@ -1,5 +1,5 @@
 import type { ClinicConfig } from '../src/config';
-import type { BookingRef, CalendarPort, Outgoing, Slot } from '../src/types';
+import type { BookingRef, CalendarPort, Outgoing, SessionType, Slot } from '../src/types';
 import type { EvolutionSender } from '../src/evolution';
 import { assertOutgoing } from '../src/evolution';
 
@@ -26,8 +26,8 @@ export function assertSendable(replies: Outgoing[]): void {
 export class FakeCalendar implements CalendarPort {
   slots: Slot[] = [];
   bookings: BookingRef[] = [];
-  booked: { phone: string; name: string; slot: Slot; messageId: string }[] = [];
-  rescheduled: { eventId: string; slot: Slot; phone: string; name: string }[] = [];
+  booked: { phone: string; name: string; slot: Slot; messageId: string; sessionType?: SessionType }[] = [];
+  rescheduled: { eventId: string; slot: Slot; phone: string; name: string; sessionType?: SessionType }[] = [];
   cancelled: string[] = [];
   excluded: Slot[] = [];
   byMessage = new Map<string, BookingRef>();
@@ -64,13 +64,13 @@ export class FakeCalendar implements CalendarPort {
     return this.byMessage.get(messageId);
   }
 
-  async book(input: { phone: string; name: string; slot: Slot; messageId: string }): Promise<{ eventId: string }> {
+  async book(input: { phone: string; name: string; slot: Slot; messageId: string; sessionType?: SessionType }): Promise<{ eventId: string }> {
     this.booked.push(input);
     if (this.bookError) throw this.bookError;
     return { eventId: 'evt-1' };
   }
 
-  async reschedule(input: { eventId: string; slot: Slot; phone: string; name: string }): Promise<void> {
+  async reschedule(input: { eventId: string; slot: Slot; phone: string; name: string; sessionType?: SessionType }): Promise<void> {
     this.rescheduled.push(input);
     if (this.bookError) throw this.bookError;
   }

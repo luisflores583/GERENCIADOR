@@ -6,12 +6,13 @@ O WhatsApp entra pela [Evolution API v2](https://doc.evolution-api.com/v2) ([doc
 
 ## O que o paciente vê
 
-1. Saudação e pedido do nome, se o número ainda não for conhecido.
-2. Menu: **AGENDAR**, **REMARCAR**, **CANCELAR**.
-3. Horários livres dos próximos 7 dias.
-4. Confirmação antes de gravar, remarcar ou cancelar.
+1. Saudação com a lista **AGENDAR**, **REMARCAR**, **CANCELAR** e **VER MEUS HORÁRIOS**.
+2. No agendamento, a lista do tipo da sessão: **AVALIAÇÃO**, **RETORNO** ou **MENU**.
+3. Nome e sobrenome, se o número ainda não for conhecido.
+4. Horários livres dos próximos 7 dias.
+5. Confirmação antes de gravar, remarcar ou cancelar.
 
-Cada escolha chega como lista do WhatsApp (`sendList`). A pergunta fica no balão e, embaixo, o botão **Escolha uma opção**. Ao tocar, abre a lista com o mesmo título e as linhas daquela etapa (menu, horários, confirmar, remarcar ou cancelar).
+Cada escolha chega como lista do WhatsApp (`sendList`). A pergunta fica no balão e, embaixo, o botão **Escolha uma opção**. Ao tocar, abre a lista com o mesmo título e as linhas daquela etapa. O paciente não responde com número.
 
 Padrão da clínica, tudo configurável por variáveis de ambiente:
 

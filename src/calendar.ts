@@ -4,7 +4,7 @@ import { BookingNotFoundError, CalendarAccessError, SlotTakenError } from './err
 import { createGoogleApi, statusOf, type GoogleCalendarApi } from './googleApi';
 import { localDateTime } from './format';
 import { calendarWindow, filterFreeSlots, generateCandidateSlots, normalizeBusy, sameInstant, subtractBusy } from './slots';
-import type { AvailabilityReport, BookingRef, CalendarEventBody, CalendarPort, Slot } from './types';
+import type { AvailabilityReport, BookingRef, CalendarEventBody, CalendarPort, SessionType, Slot } from './types';
 
 export interface GoogleCalendarOptions {
   clinic: ClinicConfig;
@@ -72,7 +72,7 @@ export class GoogleCalendar implements CalendarPort {
     });
   }
 
-  async book(input: { phone: string; name: string; slot: Slot; messageId: string }): Promise<{ eventId: string }> {
+  async book(input: { phone: string; name: string; slot: Slot; messageId: string; sessionType?: SessionType }): Promise<{ eventId: string }> {
     return this.exclusive(() =>
       this.run(async () => {
         if (input.messageId) {
@@ -87,7 +87,7 @@ export class GoogleCalendar implements CalendarPort {
     );
   }
 
-  async reschedule(input: { eventId: string; slot: Slot; phone: string; name: string }): Promise<void> {
+  async reschedule(input: { eventId: string; slot: Slot; phone: string; name: string; sessionType?: SessionType }): Promise<void> {
     return this.exclusive(() =>
       this.run(async () => {
         const current = await this.api().getEvent(input.eventId);
@@ -164,12 +164,15 @@ export class GoogleCalendar implements CalendarPort {
 }
 
 export function buildEventBody(
-  input: { phone: string; name: string; slot: Slot; messageId?: string },
+  input: { phone: string; name: string; slot: Slot; messageId?: string; sessionType?: SessionType },
   clinic: ClinicConfig,
 ): CalendarEventBody {
+  const typeLabel = input.sessionType === 'avaliacao' ? 'Avaliação' : input.sessionType === 'retorno' ? 'Retorno' : undefined;
   return {
-    summary: `Fisioterapia — ${input.name}`,
-    description: `Paciente: ${input.name}\nTelefone: ${input.phone}\nOrigem: WhatsApp`,
+    summary: typeLabel ? `Fisioterapia — ${typeLabel} — ${input.name}` : `Fisioterapia — ${input.name}`,
+    description: typeLabel
+      ? `Paciente: ${input.name}\nTelefone: ${input.phone}\nTipo: ${typeLabel}\nOrigem: WhatsApp`
+      : `Paciente: ${input.name}\nTelefone: ${input.phone}\nOrigem: WhatsApp`,
     start: localDateTime(input.slot.start, clinic.timezone),
     end: localDateTime(input.slot.end, clinic.timezone),
     timeZone: clinic.timezone,

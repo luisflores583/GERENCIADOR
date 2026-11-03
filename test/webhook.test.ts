@@ -60,7 +60,9 @@ test('recebe MESSAGES_UPSERT e ignora repetição e mensagem da própria instân
     });
     assert.equal(first.status, 200);
     assert.equal(whatsapp.sent.length, 1);
-    assert.match(whatsapp.sent[0]?.message.type === 'text' ? whatsapp.sent[0].message.body : '', /Como você se chama/);
+    assert.equal(whatsapp.sent[0]?.message.type, 'list');
+    assert.equal(whatsapp.sent[0]?.message.type === 'list' ? whatsapp.sent[0].message.button : '', 'Escolha uma opção');
+    assert.match(whatsapp.sent[0]?.message.type === 'list' ? whatsapp.sent[0].message.body : '', /Como posso ajudar/);
 
     const duplicate = await fetch(`${base}/webhook`, {
       method: 'POST',

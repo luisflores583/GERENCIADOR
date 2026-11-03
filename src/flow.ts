@@ -38,6 +38,7 @@ const MENU_ROWS = [
   { id: 'book', title: 'AGENDAR', description: '' },
   { id: 'reschedule', title: 'REMARCAR', description: '' },
   { id: 'cancel', title: 'CANCELAR', description: '' },
+  { id: 'mine', title: 'VER MEUS HORÁRIOS', description: '' },
 ] as const;
 
 export async function handleMessage(message: IncomingMessage, deps: FlowDeps): Promise<Outgoing[]> {
@@ -67,6 +68,7 @@ export async function handleMessage(message: IncomingMessage, deps: FlowDeps): P
     session.step = 'menu';
     session.action = undefined;
     session.queuedAction = undefined;
+    session.sessionType = undefined;
     session.offeredSlots = undefined;
     session.page = 0;
     session.pendingSlot = undefined;
@@ -159,11 +161,91 @@ export async function handleMessage(message: IncomingMessage, deps: FlowDeps): P
     return showMenu('Não consegui acessar a agenda agora. Tente de novo em alguns minutos.');
   }
 
+  function sessionTypeList(): Outgoing {
+    const minutes = clinic.sessionMinutes;
+    return {
+      type: 'list',
+      body: 'Qual é o tipo da sessão?',
+      footer: LIST_HINT,
+      button: LIST_BUTTON,
+      sectionTitle: 'Opções',
+      rows: [
+        { id: 'type:avaliacao', title: typeRowTitle('AVALIAÇÃO', minutes), description: '' },
+        { id: 'type:retorno', title: typeRowTitle('RETORNO', minutes), description: '' },
+        { id: 'menu', title: 'MENU', description: '' },
+      ],
+    };
+  }
+
+  function askSessionType(): Outgoing[] {
+    session.action = 'book';
+    session.step = 'choosing_type';
+    session.selectedEventId = undefined;
+    session.offeredBookings = undefined;
+    save();
+    return [sessionTypeList()];
+  }
+
+  async function chooseType(): Promise<Outgoing[]> {
+    const selected = replyIdOf(intent);
+    if (selected === 'type:avaliacao' || selected === 'type:retorno') {
+      session.sessionType = selected === 'type:avaliacao' ? 'avaliacao' : 'retorno';
+      return startBook();
+    }
+    return [sessionTypeList()];
+  }
+
   async function startBook(intro?: string): Promise<Outgoing[]> {
     session.action = 'book';
     session.selectedEventId = undefined;
     session.offeredBookings = undefined;
+    if (!session.sessionType) return askSessionType();
+    if (!patient) return askForName('book');
     return showSlots(intro);
+  }
+
+  async function showMine(): Promise<Outgoing[]> {
+    let bookings: BookingRef[];
+    try {
+      bookings = await deps.calendar.listBookings(phone);
+    } catch (err) {
+      return calendarFailure(err);
+    }
+    if (bookings.length === 0) {
+      return showMenu('Você não tem horário marcado.');
+    }
+    session.action = 'mine';
+    session.offeredBookings = bookings.slice(0, 9);
+    session.selectedEventId = undefined;
+    session.step = 'viewing_bookings';
+    save();
+    return [renderMineList('Estes são os seus horários.')];
+  }
+
+  function renderMineList(body: string): Outgoing {
+    const bookings = (session.offeredBookings ?? []).slice(0, 9);
+    return {
+      type: 'list',
+      body,
+      footer: LIST_HINT,
+      button: LIST_BUTTON,
+      sectionTitle: 'Horários',
+      rows: [
+        ...bookings.map((booking, index) => ({
+          id: `booking:${index}`,
+          title: formatSlotShort(booking.start, clinic.timezone).toUpperCase(),
+          description: '',
+        })),
+        { id: 'menu', title: 'MENU', description: '' },
+      ],
+    };
+  }
+
+  function askForName(next: FlowAction): Outgoing[] {
+    session.queuedAction = next;
+    session.step = 'awaiting_name';
+    save();
+    return [{ type: 'text', body: askName(clinic) }];
   }
 
   async function startReschedule(): Promise<Outgoing[]> {
@@ -286,11 +368,48 @@ export async function handleMessage(message: IncomingMessage, deps: FlowDeps): P
     return showSlots();
   }
 
+  async function viewBookingChoice(): Promise<Outgoing[]> {
+    const selectedId = replyIdOf(intent);
+    if (selectedId === 'mine:reschedule' && session.selectedEventId) {
+      session.action = 'reschedule';
+      const booking = session.offeredBookings?.find((item) => item.eventId === session.selectedEventId);
+      return showSlots(booking ? `Vamos remarcar a sessão de ${formatSlotLong(booking.start, clinic.timezone)}.` : undefined);
+    }
+    if (selectedId === 'mine:cancel' && session.selectedEventId) {
+      const booking = session.offeredBookings?.find((item) => item.eventId === session.selectedEventId);
+      if (!booking) return showMine();
+      session.action = 'cancel';
+      session.step = 'confirming_cancel';
+      save();
+      return [confirmCancel(booking)];
+    }
+    const index = indexFrom(selectedId, 'booking:');
+    const booking = index === undefined ? undefined : session.offeredBookings?.[index];
+    if (!booking) return [renderMineList('Toque em Escolha uma opção e selecione um horário.')];
+    session.selectedEventId = booking.eventId;
+    save();
+    return [
+      {
+        type: 'list',
+        body: `Sessão de ${formatSlotLong(booking.start, clinic.timezone)}. O que você quer fazer?`,
+        footer: LIST_HINT,
+        button: LIST_BUTTON,
+        sectionTitle: 'Opções',
+        rows: [
+          { id: 'mine:reschedule', title: 'REMARCAR', description: '' },
+          { id: 'mine:cancel', title: 'CANCELAR', description: '' },
+          { id: 'menu', title: 'MENU', description: '' },
+        ],
+      },
+    ];
+  }
+
   async function answerBooking(choice: 'confirm' | 'other' | 'back'): Promise<Outgoing[]> {
     if (choice === 'back') return showMenu(patient ? shortMenu(patient.name) : 'O que você quer fazer?');
     if (choice === 'other') return showSlots();
     const slot = session.pendingSlot;
-    if (!slot || !patient) return startBook();
+    if (!slot) return startBook();
+    if (!patient) return askForName(session.action === 'reschedule' ? 'reschedule' : 'book');
     try {
       if (session.action === 'reschedule') {
         if (!session.selectedEventId) return startReschedule();
@@ -299,10 +418,17 @@ export async function handleMessage(message: IncomingMessage, deps: FlowDeps): P
           slot,
           phone,
           name: patient.name,
+          ...(session.sessionType ? { sessionType: session.sessionType } : {}),
         });
         return showMenu(`Pronto, ${firstName(patient.name)}! Sessão remarcada para ${formatSlotLong(slot.start, clinic.timezone)}.`);
       }
-      await deps.calendar.book({ phone, name: patient.name, slot, messageId: message.messageId });
+      await deps.calendar.book({
+        phone,
+        name: patient.name,
+        slot,
+        messageId: message.messageId,
+        ...(session.sessionType ? { sessionType: session.sessionType } : {}),
+      });
       return showMenu(
         `Pronto, ${firstName(patient.name)}! Sessão marcada para ${formatSlotLong(slot.start, clinic.timezone)}. Se precisar, remarque ou cancele por aqui.`,
       );
@@ -339,16 +465,13 @@ export async function handleMessage(message: IncomingMessage, deps: FlowDeps): P
   }
 
   if (intent.kind === 'unsupported') {
-    const hint = 'Consigo responder texto e os botões desta conversa. Áudio, imagem e figurinha eu não leio.';
-    if (!patient) {
-      session.step = 'awaiting_name';
-      save();
-      return [{ type: 'text', body: `${hint}\n\n${askName(clinic)}` }];
-    }
-    return [{ type: 'text', body: hint }, menu(shortMenu(patient.name))];
+    return [
+      { type: 'text', body: 'Consigo responder texto e os itens da lista. Áudio, imagem e figurinha eu não leio.' },
+      menu(greetingBody(clinic)),
+    ];
   }
 
-  if (!patient) {
+  if (session.step === 'awaiting_name') {
     if (intent.kind === 'text' && intent.text) {
       const name = parsePatientName(intent.text);
       if (name) {
@@ -356,35 +479,31 @@ export async function handleMessage(message: IncomingMessage, deps: FlowDeps): P
         deps.store.savePatient(patient);
         const queued = session.queuedAction;
         session.queuedAction = undefined;
-        const welcome = welcomeText(clinic, name);
-        if (queued === 'book') return [{ type: 'text', body: welcome }, ...(await startBook())];
-        if (queued === 'reschedule') return [{ type: 'text', body: welcome }, ...(await startReschedule())];
-        if (queued === 'cancel') return [{ type: 'text', body: welcome }, ...(await startCancel())];
-        return showMenu(welcome);
-      }
-      if (session.step === 'awaiting_name') {
-        const queued = queueable(intent);
-        if (queued) session.queuedAction = queued;
-        save();
-        return [{ type: 'text', body: 'Não consegui usar esse nome. Envie seu nome e sobrenome, por exemplo: Maria Silva.' }];
+        if (queued === 'book' && session.sessionType) return showSlots();
+        if (queued === 'book') return askSessionType();
+        if (session.pendingSlot && session.action === 'reschedule') return answerBooking('confirm');
+        if (queued === 'reschedule') return startReschedule();
+        if (queued === 'cancel') return startCancel();
+        if (queued === 'mine') return showMine();
+        return showMenu(greetingBody(clinic));
       }
     }
+    if (globalAction(intent) === 'menu') return showMenu(greetingBody(clinic));
     const queued = queueable(intent);
-    session.step = 'awaiting_name';
     if (queued) session.queuedAction = queued;
     save();
-    return [{ type: 'text', body: askName(clinic) }];
+    return [{ type: 'text', body: 'Não consegui usar esse nome. Envie seu nome e sobrenome, por exemplo: Maria Silva.' }];
   }
 
   const known = patient;
-  intent = withNumberChoice(intent, session);
 
   if (replyIdOf(intent) === 'confirm' && session.step !== 'confirming_booking') {
     try {
       const existing = await deps.calendar.findByMessageId(message.messageId);
       if (existing) {
+        const who = known ? firstName(known.name) : 'pronto';
         return showMenu(
-          `Pronto, ${firstName(known.name)}! Sessão marcada para ${formatSlotLong(existing.start, clinic.timezone)}. Se precisar, remarque ou cancele por aqui.`,
+          `Pronto, ${who}! Sessão marcada para ${formatSlotLong(existing.start, clinic.timezone)}. Se precisar, remarque ou cancele por aqui.`,
         );
       }
     } catch (err) {
@@ -402,12 +521,17 @@ export async function handleMessage(message: IncomingMessage, deps: FlowDeps): P
   }
 
   const global = globalAction(intent);
-  if (global === 'menu') return showMenu(shortMenu(known.name));
-  if (global === 'book') return startBook();
+  if (global === 'menu') return showMenu(greetingBody(clinic));
+  if (global === 'book') return askSessionType();
   if (global === 'reschedule') return startReschedule();
   if (global === 'cancel') return startCancel();
+  if (global === 'mine') return showMine();
 
   switch (session.step) {
+    case 'choosing_type':
+      return chooseType();
+    case 'viewing_bookings':
+      return viewBookingChoice();
     case 'choosing_slot':
       return chooseSlot();
     case 'confirming_booking':
@@ -420,7 +544,9 @@ export async function handleMessage(message: IncomingMessage, deps: FlowDeps): P
     }
     default:
       return showMenu(
-        `Não entendi, ${firstName(known.name)}. Toque em Escolha uma opção ou escreva: agendar, remarcar ou cancelar.`,
+        known
+          ? `Não entendi, ${firstName(known.name)}. Toque em Escolha uma opção.`
+          : greetingBody(clinic),
       );
   }
 }
@@ -433,12 +559,17 @@ function freshSession(phone: string, now: DateTime): Session {
   };
 }
 
-function askName(clinic: ClinicConfig): string {
-  return `Olá! Aqui é o atendimento do ${clinic.name}. Vou te ajudar a marcar, remarcar ou cancelar sua sessão de fisioterapia.\n\nComo você se chama? Envie nome e sobrenome.`;
+function greetingBody(clinic: ClinicConfig): string {
+  return `Olá! Aqui é o atendimento do ${clinic.name}.\n\nComo posso ajudar?`;
 }
 
-function welcomeText(clinic: ClinicConfig, name: string): string {
-  return `Prazer, ${name}! Aqui é o atendimento do ${clinic.name}.\n\nAs sessões duram ${clinic.sessionMinutes} minutos, das ${clinic.open} às ${clinic.close} (${weekdayPhrase(clinic.weekdays)}).\n\nO que você quer fazer?`;
+function askName(clinic: ClinicConfig): string {
+  return `Olá! Aqui é o atendimento do ${clinic.name}.\n\nComo você se chama? Envie nome e sobrenome.`;
+}
+
+function typeRowTitle(label: string, minutes: number): string {
+  const titled = `${label} (${minutes} MIN)`;
+  return titled.length <= 24 ? titled : label.slice(0, 24);
 }
 
 type Intent =
@@ -461,12 +592,14 @@ function globalAction(intent: Intent): FlowAction | 'menu' | undefined {
     if (intent.replyId === 'book') return 'book';
     if (intent.replyId === 'reschedule') return 'reschedule';
     if (intent.replyId === 'cancel') return 'cancel';
+    if (intent.replyId === 'mine') return 'mine';
     if (intent.replyId === 'menu' || intent.replyId === 'back') return 'menu';
     return undefined;
   }
   if (['agendar', 'marcar'].includes(intent.normalized)) return 'book';
   if (['remarcar', 'reagendar'].includes(intent.normalized)) return 'reschedule';
   if (['cancelar', 'desmarcar'].includes(intent.normalized)) return 'cancel';
+  if (['meus horarios', 'ver meus horarios', 'ver horarios'].includes(intent.normalized)) return 'mine';
   if (['menu', 'inicio', 'voltar', 'oi', 'ola', 'bom dia', 'boa tarde', 'boa noite', 'ajuda', 'comecar'].includes(intent.normalized)) {
     return 'menu';
   }
@@ -506,32 +639,6 @@ function cancelChoice(intent: Intent): 'yes' | 'no' | undefined {
 
 function replyIdOf(intent: Intent): string | undefined {
   return intent.kind === 'reply' ? intent.replyId : undefined;
-}
-
-function withNumberChoice(intent: Intent, session: Session): Intent {
-  if (intent.kind !== 'text' || !/^\d{1,2}$/.test(intent.normalized)) return intent;
-  const choice = Number(intent.normalized);
-  const replyId = replyIdForNumber(session, choice);
-  return replyId ? { kind: 'reply', replyId } : intent;
-}
-
-function replyIdForNumber(session: Session, choice: number): string | undefined {
-  if (choice < 1) return undefined;
-  if (session.step === 'menu') return ['book', 'reschedule', 'cancel'][choice - 1];
-  if (session.step === 'confirming_booking') return ['confirm', 'other', 'back'][choice - 1];
-  if (session.step === 'confirming_cancel') return ['cancel_yes', 'cancel_no'][choice - 1];
-  if (session.step === 'choosing_booking') {
-    const total = Math.min(session.offeredBookings?.length ?? 0, 10);
-    return choice <= total ? `booking:${choice - 1}` : undefined;
-  }
-  if (session.step === 'choosing_slot') {
-    const page = paginate(session.offeredSlots ?? [], session.page ?? 0);
-    const ids = page.items.map((_, index) => `slot:${page.offset + index}`);
-    if (page.hasPrev) ids.push('page:prev');
-    if (page.hasNext) ids.push('page:next');
-    return ids[choice - 1];
-  }
-  return undefined;
 }
 
 function indexFrom(replyId: string | undefined, prefix: string): number | undefined {

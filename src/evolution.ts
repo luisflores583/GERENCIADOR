@@ -13,6 +13,8 @@ const LIMITS = {
   rows: 10,
 };
 
+const LIST_FOOTER = 'Toque para selecionar um item.';
+
 export interface EvolutionSender {
   send(to: string, message: Outgoing): Promise<void>;
   markRead(messageId: string): Promise<void>;
@@ -45,14 +47,14 @@ export function toEvolutionBody(to: string, message: Outgoing): { path: string; 
       title: message.button,
       description: message.body,
       buttonText: message.button,
-      footerText: message.footer || ' ',
+      footerText: message.footer || LIST_FOOTER,
       sections: [
         {
           title: message.sectionTitle,
           rows: message.rows.map((row) => ({
             title: row.title,
+            description: row.description ?? '',
             rowId: row.id,
-            ...(row.description ? { description: row.description } : {}),
           })),
         },
       ],
@@ -94,6 +96,7 @@ export class EvolutionClient implements EvolutionSender {
     try {
       await this.post(target.path, target.body);
     } catch (err) {
+      if (err instanceof EvolutionHttpError && err.status >= 400 && err.status < 500) throw err;
       logger.warn('evolution_list_retry', {
         path: target.path,
         message: err instanceof Error ? err.message : String(err),
@@ -121,8 +124,23 @@ export class EvolutionClient implements EvolutionSender {
     });
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(`Evolution API respondeu ${response.status}: ${text.slice(0, 300)}`);
+      logger.error('evolution_send', {
+        path,
+        status: response.status,
+        body: text.slice(0, 4000),
+      });
+      throw new EvolutionHttpError(response.status, text);
     }
+  }
+}
+
+class EvolutionHttpError extends Error {
+  constructor(
+    readonly status: number,
+    readonly responseBody: string,
+  ) {
+    super(`Evolution API respondeu ${status}: ${responseBody.slice(0, 2000)}`);
+    this.name = 'EvolutionHttpError';
   }
 }
 
@@ -163,9 +181,10 @@ function messageRecords(data: unknown): Record<string, unknown>[] {
 
 function interactiveReply(message: Record<string, unknown>): { id: string; title?: string } | undefined {
   const list = isRecord(message.listResponseMessage) ? message.listResponseMessage : undefined;
-  const selected = list && isRecord(list.singleSelectReply) ? list.singleSelectReply : undefined;
-  const rowId = stringValue(selected?.selectedRowId);
-  if (rowId) return { id: rowId, ...(stringValue(list?.title) ? { title: stringValue(list?.title) } : {}) };
+  if (list) {
+    const fromList = listReply(list);
+    if (fromList) return fromList;
+  }
 
   const buttons = isRecord(message.buttonsResponseMessage) ? message.buttonsResponseMessage : undefined;
   const buttonId = stringValue(buttons?.selectedButtonId);
@@ -187,15 +206,41 @@ function interactiveReply(message: Record<string, unknown>): { id: string; title
   if (params) {
     try {
       const parsed = JSON.parse(params) as unknown;
-      if (isRecord(parsed) && typeof parsed.id === 'string' && parsed.id) {
-        const title = typeof parsed.title === 'string' ? parsed.title : '';
-        return { id: parsed.id, ...(title ? { title } : {}) };
+      if (isRecord(parsed)) {
+        const id = stringValue(parsed.id) || stringValue(parsed.selectedRowId) || stringValue(parsed.rowId);
+        if (id) {
+          const title = stringValue(parsed.title);
+          return { id, ...(title ? { title } : {}) };
+        }
       }
     } catch {
       return undefined;
     }
   }
   return undefined;
+}
+
+function listReply(list: Record<string, unknown>): { id: string; title?: string } | undefined {
+  const selected = replyRecord(list.singleSelectReply);
+  const rowId =
+    stringValue(selected?.selectedRowId) ||
+    stringValue(selected?.selectedRowID) ||
+    stringValue(list.selectedRowId) ||
+    stringValue(list.rowId);
+  if (!rowId) return undefined;
+  const title = stringValue(selected?.title) || stringValue(list.title);
+  return { id: rowId, ...(title ? { title } : {}) };
+}
+
+function replyRecord(value: unknown): Record<string, unknown> | undefined {
+  if (isRecord(value)) return value;
+  if (typeof value !== 'string' || !value.startsWith('{')) return undefined;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return isRecord(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function textOf(message: Record<string, unknown>): string {

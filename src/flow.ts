@@ -9,7 +9,6 @@ import {
   formatTime,
   normalize,
   parsePatientName,
-  scheduleFooter,
   weekdayPhrase,
 } from './format';
 import { logger, maskPhone } from './logger';
@@ -36,9 +35,9 @@ const LIST_BUTTON = 'Escolha uma opção';
 const LIST_HINT = 'Toque para selecionar um item.';
 
 const MENU_ROWS = [
-  { id: 'book', title: 'AGENDAR', description: LIST_HINT },
-  { id: 'reschedule', title: 'REMARCAR', description: LIST_HINT },
-  { id: 'cancel', title: 'CANCELAR', description: LIST_HINT },
+  { id: 'book', title: 'AGENDAR', description: '' },
+  { id: 'reschedule', title: 'REMARCAR', description: '' },
+  { id: 'cancel', title: 'CANCELAR', description: '' },
 ] as const;
 
 export async function handleMessage(message: IncomingMessage, deps: FlowDeps): Promise<Outgoing[]> {
@@ -58,6 +57,7 @@ export async function handleMessage(message: IncomingMessage, deps: FlowDeps): P
   const menu = (body: string): Outgoing => ({
     type: 'list',
     body,
+    footer: LIST_HINT,
     button: LIST_BUTTON,
     sectionTitle: 'Opções',
     rows: MENU_ROWS.map((row) => ({ ...row })),
@@ -120,14 +120,14 @@ export async function handleMessage(message: IncomingMessage, deps: FlowDeps): P
       title: formatSlotShort(slot.start, clinic.timezone).toUpperCase(),
       description: `até ${formatTime(slot.end, clinic.timezone)}`,
     }));
-    if (page.hasPrev) rows.push({ id: 'page:prev', title: 'ANTERIORES', description: LIST_HINT });
-    if (page.hasNext) rows.push({ id: 'page:next', title: 'MAIS HORÁRIOS', description: LIST_HINT });
+    if (page.hasPrev) rows.push({ id: 'page:prev', title: 'ANTERIORES', description: '' });
+    if (page.hasNext) rows.push({ id: 'page:next', title: 'MAIS HORÁRIOS', description: '' });
     const paging = page.hasPrev || page.hasNext ? `\nPágina ${page.page + 1}.` : '';
     const base = `Escolha um horário livre. A sessão dura ${clinic.sessionMinutes} minutos.`;
     return {
       type: 'list',
       body: `${intro ? `${intro}\n\n` : ''}${base}${paging}`,
-      footer: scheduleFooter(clinic),
+      footer: LIST_HINT,
       button: LIST_BUTTON,
       sectionTitle: 'Horários',
       rows,
@@ -139,13 +139,13 @@ export async function handleMessage(message: IncomingMessage, deps: FlowDeps): P
     return {
       type: 'list',
       body,
-      footer: scheduleFooter(clinic),
+      footer: LIST_HINT,
       button: LIST_BUTTON,
       sectionTitle: 'Sessões',
       rows: bookings.map((booking, index) => ({
         id: `booking:${index}`,
         title: formatSlotShort(booking.start, clinic.timezone).toUpperCase(),
-        description: LIST_HINT,
+        description: '',
       })),
     };
   }
@@ -216,11 +216,12 @@ export async function handleMessage(message: IncomingMessage, deps: FlowDeps): P
     return {
       type: 'list',
       body: `Cancelar a sessão de ${formatSlotLong(booking.start, clinic.timezone)}? Esse horário volta a ficar livre.`,
+      footer: LIST_HINT,
       button: LIST_BUTTON,
       sectionTitle: 'Opções',
       rows: [
-        { id: 'cancel_yes', title: 'SIM, CANCELAR', description: LIST_HINT },
-        { id: 'cancel_no', title: 'MANTER SESSÃO', description: LIST_HINT },
+        { id: 'cancel_yes', title: 'SIM, CANCELAR', description: '' },
+        { id: 'cancel_no', title: 'MANTER SESSÃO', description: '' },
       ],
     };
   }
@@ -234,12 +235,13 @@ export async function handleMessage(message: IncomingMessage, deps: FlowDeps): P
     return {
       type: 'list',
       body,
+      footer: LIST_HINT,
       button: LIST_BUTTON,
       sectionTitle: 'Opções',
       rows: [
-        { id: 'confirm', title: 'CONFIRMAR', description: LIST_HINT },
-        { id: 'other', title: 'OUTRO HORÁRIO', description: LIST_HINT },
-        { id: 'back', title: 'VOLTAR AO MENU ANTERIOR', description: LIST_HINT },
+        { id: 'confirm', title: 'CONFIRMAR', description: '' },
+        { id: 'other', title: 'OUTRO HORÁRIO', description: '' },
+        { id: 'back', title: 'VOLTAR AO MENU ANTERIOR', description: '' },
       ],
     };
   }

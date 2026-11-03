@@ -6,7 +6,7 @@ import type { Outgoing } from '../src/types';
 const list: Outgoing = {
   type: 'list',
   body: 'Escolha um horário.',
-  footer: 'seg a sex · 08:00–18:00',
+  footer: 'Toque para selecionar um item.',
   button: 'Escolha uma opção',
   sectionTitle: 'Horários',
   rows: [{ id: 'slot:0', title: 'QUI 29/10 08:00', description: 'até 08:50' }],
@@ -49,8 +49,56 @@ test('lê MESSAGES_UPSERT de texto, lista e botão', () => {
   assert.equal(messages[0]?.profileName, 'Maria');
   assert.equal(messages[1]?.kind, 'interactive');
   assert.equal(messages[1]?.replyId, 'slot:0');
+  assert.equal(messages[1]?.replyTitle, 'Qui 29/10 08:00');
   assert.equal(messages[2]?.replyId, 'confirm');
   assert.equal(messages[2]?.replyTitle, 'Confirmar');
+});
+
+test('lê o selectedRowId da lista mesmo fora de singleSelectReply', () => {
+  const direct = parseWebhook({
+    event: 'MESSAGES_UPSERT',
+    data: {
+      key: { remoteJid: '5511999999999@s.whatsapp.net', fromMe: false, id: 'L1' },
+      message: {
+        listResponseMessage: { title: 'AGENDAR', selectedRowId: 'book' },
+      },
+      messageType: 'listResponseMessage',
+    },
+  });
+  assert.equal(direct[0]?.kind, 'interactive');
+  assert.equal(direct[0]?.replyId, 'book');
+  assert.equal(direct[0]?.replyTitle, 'AGENDAR');
+
+  const encoded = parseWebhook({
+    event: 'messages.upsert',
+    data: {
+      key: { remoteJid: '5511999999999@s.whatsapp.net', fromMe: false, id: 'L2' },
+      message: {
+        listResponseMessage: {
+          title: 'AGENDAR',
+          singleSelectReply: '{"selectedRowId":"book"}',
+        },
+      },
+    },
+  });
+  assert.equal(encoded[0]?.replyId, 'book');
+
+  const native = parseWebhook({
+    event: 'messages.upsert',
+    data: {
+      key: { remoteJid: '5511999999999@s.whatsapp.net', fromMe: false, id: 'L3' },
+      message: {
+        interactiveResponseMessage: {
+          nativeFlowResponseMessage: {
+            name: 'single_select',
+            paramsJson: '{"selectedRowId":"reschedule","title":"REMARCAR"}',
+          },
+        },
+      },
+    },
+  });
+  assert.equal(native[0]?.replyId, 'reschedule');
+  assert.equal(native[0]?.replyTitle, 'REMARCAR');
 });
 
 test('ignora o que o próprio bot enviou, grupos e outra instância', () => {
@@ -91,24 +139,51 @@ test('ignora o que o próprio bot enviou, grupos e outra instância', () => {
   assert.deepEqual(parseWebhook({ event: 'messages.update', data: {} }), []);
 });
 
-test('monta sendText e sendList da Evolution API v2', () => {
+test('monta o sendList documentado pela Evolution API v2', () => {
   const text = toEvolutionBody('5511999999999', { type: 'text', body: 'Olá' });
   assert.equal(text.path, 'sendText');
   assert.deepEqual(text.body, { number: '5511999999999', text: 'Olá' });
 
-  const sentList = toEvolutionBody('5511999999999', list);
+  const sentList = toEvolutionBody('5511999999999', {
+    type: 'list',
+    body: 'Endereço está correto?',
+    button: 'Escolha uma opção',
+    sectionTitle: 'Opções',
+    rows: [{ id: 'book', title: 'AGENDAR', description: '' }],
+  });
   assert.equal(sentList.path, 'sendList');
-  assert.equal(sentList.body.title, 'Escolha uma opção');
-  assert.equal(sentList.body.description, 'Escolha um horário.');
-  assert.equal(sentList.body.buttonText, 'Escolha uma opção');
-  const sections = sentList.body.sections as { title: string; rows: { title: string; rowId: string }[] }[];
-  assert.equal(sections.length, 1);
-  assert.equal(sections[0]?.title, 'Horários');
-  assert.equal(sections[0]?.rows[0]?.rowId, 'slot:0');
-  assert.equal(sections[0]?.rows[0]?.title, 'QUI 29/10 08:00');
+  assert.deepEqual(sentList.body, {
+    number: '5511999999999',
+    title: 'Escolha uma opção',
+    description: 'Endereço está correto?',
+    buttonText: 'Escolha uma opção',
+    footerText: 'Toque para selecionar um item.',
+    sections: [
+      {
+        title: 'Opções',
+        rows: [{ title: 'AGENDAR', description: '', rowId: 'book' }],
+      },
+    ],
+  });
+  assert.ok(String(sentList.body.buttonText).length <= 20);
+
+  const withSlot = toEvolutionBody('5511999999999', list);
+  assert.deepEqual(withSlot.body, {
+    number: '5511999999999',
+    title: 'Escolha uma opção',
+    description: 'Escolha um horário.',
+    buttonText: 'Escolha uma opção',
+    footerText: 'Toque para selecionar um item.',
+    sections: [
+      {
+        title: 'Horários',
+        rows: [{ title: 'QUI 29/10 08:00', description: 'até 08:50', rowId: 'slot:0' }],
+      },
+    ],
+  });
 });
 
-test('se a lista falha, tenta sendList de novo e não manda menu numerado', async () => {
+test('se a lista falha por instabilidade, tenta sendList de novo e não manda menu numerado', async () => {
   const calls: { url: string; body: Record<string, unknown>; apikey?: string }[] = [];
   let failures = 0;
   const client = new EvolutionClient(
@@ -119,7 +194,7 @@ test('se a lista falha, tenta sendList de novo e não manda menu numerado', asyn
       calls.push({ url: String(url), body: payload, apikey: headers.apikey });
       if (String(url).includes('/sendList/') && failures === 0) {
         failures += 1;
-        return new Response('unsupported', { status: 400 });
+        return new Response('{"message":"timeout"}', { status: 500 });
       }
       return new Response('{}', { status: 201 });
     },
@@ -137,7 +212,34 @@ test('se a lista falha, tenta sendList de novo e não manda menu numerado', asyn
 test('se a lista falha duas vezes, o envio termina em erro', async () => {
   const client = new EvolutionClient(
     { mode: 'configured', baseUrl: 'http://evolution.local', instance: 'clinica', apiKey: 'secret' },
-    async () => new Response('unsupported', { status: 400 }),
+    async () => new Response('{"message":"timeout"}', { status: 500 }),
   );
-  await assert.rejects(() => client.send('5511999999999', list), /Evolution API respondeu 400/);
+  await assert.rejects(() => client.send('5511999999999', list), /timeout/);
+});
+
+test('um 400 do sendList é registrado e não conta como mensagem enviada', async () => {
+  const calls: string[] = [];
+  const errors: string[] = [];
+  const original = console.error;
+  console.error = (line?: unknown) => {
+    errors.push(String(line));
+  };
+  const client = new EvolutionClient(
+    { mode: 'configured', baseUrl: 'http://evolution.local', instance: 'clinica', apiKey: 'secret' },
+    async (url) => {
+      calls.push(String(url));
+      return new Response('{"status":400,"message":["footerText should not be empty"]}', { status: 400 });
+    },
+  );
+  try {
+    await assert.rejects(
+      () => client.send('5511999999999', list),
+      /footerText should not be empty/,
+    );
+  } finally {
+    console.error = original;
+  }
+  assert.deepEqual(calls, ['http://evolution.local/message/sendList/clinica']);
+  assert.match(errors.join('\n'), /evolution_send/);
+  assert.match(errors.join('\n'), /footerText should not be empty/);
 });

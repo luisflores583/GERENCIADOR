@@ -87,7 +87,7 @@ Uma instância já criada basta. Este serviço não cria o app da Meta nem a ins
 
 6. Envie "oi" do WhatsApp para o número conectado.
 
-O envio usa `POST /message/sendText/{instancia}` para texto e `POST /message/sendList/{instancia}` para cada escolha. O botão da lista é sempre `Escolha uma opção`. Se o `sendList` falhar, o serviço tenta o mesmo envio mais uma vez.
+O envio usa `POST /message/sendText/{instancia}` para texto e `POST /message/sendList/{instancia}` para cada escolha. O corpo da lista segue o contrato da Evolution: `title` e `buttonText` são `Escolha uma opção`, `description` é a pergunta, `footerText` é `Toque para selecionar um item.` e cada linha traz `title`, `description` e `rowId`. Se a Evolution responder 400, o corpo do erro entra no log e a mensagem não é tratada como enviada. Uma falha 5xx é tentada mais uma vez, no mesmo `sendList`.
 
 ## Google Calendar — conta de serviço (caminho padrão)
 
@@ -189,7 +189,7 @@ Os testes cobrem a grade de horários, o fluxo da conversa, o webhook da Evoluti
 ## Limitações
 
 - Sem `EVOLUTION_API_URL`, instância, apikey e agenda compartilhada, o processo sobe, mas nenhuma reserva real acontece.
-- A lista interativa depende da instância Evolution. Se o `sendList` falhar duas vezes, aquela resposta não é entregue; o webhook pode ser reprocessado.
+- A lista interativa depende da instância Evolution. Um 400 fica no log, com o corpo da resposta. Se o `sendList` falhar duas vezes por erro do servidor, aquela resposta não é entregue; o webhook pode ser reprocessado.
 - A lista interativa tem no máximo 10 linhas; havendo mais horários, a conversa pagina.
 - Dois cliques no mesmo horário quase ao mesmo tempo: o segundo recebe "esse horário acabou de ser preenchido".
 - Cancelar remove o evento. Não fica um registro "cancelado" na agenda.

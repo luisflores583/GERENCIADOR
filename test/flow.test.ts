@@ -44,7 +44,9 @@ test('pede o nome, depois mostra o menu e confirma a reserva', async () => {
   assert.equal(menu[0]?.type, 'list');
   const options = menu[0] as OutgoingList;
   assert.equal(options.button, 'Escolha uma opção');
+  assert.equal(options.footer, 'Toque para selecionar um item.');
   assert.equal(options.sectionTitle, 'Opções');
+  assert.equal(options.rows[0]?.description, '');
   assert.deepEqual(
     options.rows.map((row) => row.title),
     ['AGENDAR', 'REMARCAR', 'CANCELAR'],

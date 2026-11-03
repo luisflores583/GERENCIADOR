@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import { CalendarAccessError, SlotTakenError } from '../src/errors';
 import { handleMessage } from '../src/flow';
 import { SqliteStore } from '../src/store';
-import type { IncomingMessage, Outgoing, OutgoingButtons, OutgoingList } from '../src/types';
+import type { IncomingMessage, Outgoing, OutgoingList } from '../src/types';
 import { assertSendable, FakeCalendar, testClinic } from './helpers';
 
 const now = DateTime.fromISO('2026-10-29T07:00:00', { zone: 'America/Sao_Paulo' });
@@ -41,41 +41,58 @@ test('pede o nome, depois mostra o menu e confirma a reserva', async () => {
   assert.equal(calendar.booked.length, 0);
 
   const menu = await send(text('Maria Silva', 'm2'));
-  assert.equal(menu[0]?.type, 'buttons');
-  const buttons = menu[0] as OutgoingButtons;
-  assert.deepEqual(buttons.buttons.map((button) => button.title), ['Agendar', 'Remarcar', 'Cancelar']);
-  assert.match(buttons.body, /Maria Silva/);
-  assert.match(buttons.body, /50 minutos/);
-  assert.match(buttons.body, /08:00/);
+  assert.equal(menu[0]?.type, 'list');
+  const options = menu[0] as OutgoingList;
+  assert.equal(options.button, 'Escolha uma opção');
+  assert.equal(options.sectionTitle, 'Opções');
+  assert.deepEqual(
+    options.rows.map((row) => row.title),
+    ['AGENDAR', 'REMARCAR', 'CANCELAR'],
+  );
+  assert.deepEqual(
+    options.rows.map((row) => row.id),
+    ['book', 'reschedule', 'cancel'],
+  );
+  assert.match(options.body, /Maria Silva/);
+  assert.match(options.body, /50 minutos/);
+  assert.match(options.body, /08:00/);
 
   const list = await send(reply('book', 'm3'));
   assert.equal(list[0]?.type, 'list');
-  const rows = (list[0] as OutgoingList).rows;
-  assert.equal(rows[0]?.id, 'slot:0');
-  assert.equal(rows[0]?.title, 'Qui 29/10 08:00');
+  const slots = list[0] as OutgoingList;
+  assert.equal(slots.button, 'Escolha uma opção');
+  assert.equal(slots.rows[0]?.id, 'slot:0');
+  assert.equal(slots.rows[0]?.title, 'QUI 29/10 08:00');
 
   const confirm = await send(reply('slot:0', 'm4'));
-  assert.equal(confirm[0]?.type, 'buttons');
-  assert.match((confirm[0] as OutgoingButtons).body, /Quinta-feira, 29\/10\/2026, às 08:00/);
+  assert.equal(confirm[0]?.type, 'list');
+  const confirmList = confirm[0] as OutgoingList;
+  assert.equal(confirmList.button, 'Escolha uma opção');
+  assert.deepEqual(
+    confirmList.rows.map((row) => row.id),
+    ['confirm', 'other', 'back'],
+  );
+  assert.match(confirmList.body, /Quinta-feira, 29\/10\/2026, às 08:00/);
 
   const done = await send(reply('confirm', 'm5'));
   assert.equal(calendar.booked.length, 1);
   assert.equal(calendar.booked[0]?.name, 'Maria Silva');
   assert.equal(calendar.booked[0]?.phone, phone);
   assert.equal(calendar.booked[0]?.messageId, 'm5');
-  assert.match((done[0] as OutgoingButtons).body, /Sessão marcada/);
+  assert.match((done[0] as OutgoingList).body, /Sessão marcada/);
   assert.equal(store.getPatient(phone)?.name, 'Maria Silva');
   store.close();
 });
 
-test('no Baileys, o número 1 escolhe Agendar', async () => {
+test('a resposta da lista escolhe Agendar e o horário', async () => {
   const { send, store } = await setup();
   await send(text('Maria Silva', 'n1'));
-  const list = await send(text('1', 'n2'));
+  const list = await send(reply('book', 'n2'));
   assert.equal(list[0]?.type, 'list');
-  const picked = await send(text('1', 'n3'));
-  assert.equal(picked[0]?.type, 'buttons');
-  assert.match((picked[0] as OutgoingButtons).body, /08:00/);
+  assert.equal((list[0] as OutgoingList).button, 'Escolha uma opção');
+  const picked = await send(reply('slot:0', 'n3'));
+  assert.equal(picked[0]?.type, 'list');
+  assert.match((picked[0] as OutgoingList).body, /08:00/);
   store.close();
 });
 
@@ -123,8 +140,8 @@ test('horário ocupado pede outra escolha; falha da agenda não quebra a convers
   calendar.bookError = null;
   calendar.listError = new CalendarAccessError('sem permissão');
   const failed = await send(text('agendar', 'c5'));
-  assert.match((failed[0] as OutgoingButtons).body, /Não consegui acessar a agenda/);
-  assert.doesNotMatch((failed[0] as OutgoingButtons).body, /sem permissão/);
+  assert.match((failed[0] as OutgoingList).body, /Não consegui acessar a agenda/);
+  assert.doesNotMatch((failed[0] as OutgoingList).body, /sem permissão/);
   store.close();
 });
 
@@ -147,19 +164,19 @@ test('remarca e cancela a sessão escolhida', async () => {
   const moved = await send(reply('confirm', 'd5'));
   assert.equal(calendar.rescheduled[0]?.eventId, 'evt-b');
   assert.equal(calendar.rescheduled[0]?.slot.start, slotA.start);
-  assert.match((moved[0] as OutgoingButtons).body, /remarcada/);
+  assert.match((moved[0] as OutgoingList).body, /remarcada/);
 
   calendar.bookings = [{ eventId: 'evt-a', start: slotA.start, end: slotA.end }];
   const cancel = await send(text('cancelar', 'd6'));
-  assert.match((cancel[0] as OutgoingButtons).body, /Cancelar a sessão/);
+  assert.match((cancel[0] as OutgoingList).body, /Cancelar a sessão/);
   const kept = await send(reply('cancel_no', 'd7'));
-  assert.match((kept[0] as OutgoingButtons).body, /continua marcada/);
+  assert.match((kept[0] as OutgoingList).body, /continua marcada/);
   assert.equal(calendar.cancelled.length, 0);
 
   await send(text('desmarcar', 'd8'));
   const removed = await send(text('sim, cancelar', 'd9'));
   assert.deepEqual(calendar.cancelled, ['evt-a']);
-  assert.match((removed[0] as OutgoingButtons).body, /cancelada/);
+  assert.match((removed[0] as OutgoingList).body, /cancelada/);
   store.close();
 });
 
@@ -170,9 +187,9 @@ test('sem sessão futura explica e uma imagem não vira nome', async () => {
   assert.match(image[0]?.type === 'text' ? image[0].body : '', /Como você se chama/);
   await send(text('Maria Silva', 'e2'));
   const none = await send(reply('reschedule', 'e3'));
-  assert.match((none[0] as OutgoingButtons).body, /não tem sessão futura para remarcar/);
+  assert.match((none[0] as OutgoingList).body, /não tem sessão futura para remarcar/);
   const noneCancel = await send(reply('cancel', 'e4'));
-  assert.match((noneCancel[0] as OutgoingButtons).body, /não tem sessão futura para cancelar/);
+  assert.match((noneCancel[0] as OutgoingList).body, /não tem sessão futura para cancelar/);
   store.close();
 });
 
@@ -184,7 +201,7 @@ test('confirmação repetida da mesma mensagem não cria outra reserva', async (
   await send(reply('confirm', 'f4'));
   calendar.byMessage.set('f4', { eventId: 'evt-1', start: slotA.start, end: slotA.end });
   const again = await send(reply('confirm', 'f4'));
-  assert.match((again[0] as OutgoingButtons).body, /Sessão marcada/);
+  assert.match((again[0] as OutgoingList).body, /Sessão marcada/);
   assert.equal(calendar.booked.length, 1);
   store.close();
 });

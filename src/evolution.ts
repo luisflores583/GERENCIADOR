@@ -5,16 +5,12 @@ import type { IncomingMessage, Outgoing } from './types';
 const LIMITS = {
   text: 4096,
   body: 1024,
-  header: 60,
   footer: 60,
-  buttonTitle: 20,
-  buttonId: 256,
   listButton: 20,
   rowTitle: 24,
   rowDescription: 72,
   rowId: 200,
   rows: 10,
-  buttons: 3,
 };
 
 export interface EvolutionSender {
@@ -37,45 +33,16 @@ export function parseWebhook(body: unknown, expectedInstance?: string): Incoming
   return messages;
 }
 
-export function numberedMenu(message: Outgoing): string {
-  if (message.type === 'text') return message.body;
-  const options =
-    message.type === 'buttons'
-      ? message.buttons.map((button) => button.title)
-      : message.rows.map((row) => (row.description ? `${row.title} — ${row.description}` : row.title));
-  const lines = options.map((label, index) => `${index + 1}. ${label}`);
-  const header = message.type === 'list' && message.header ? `${message.header}\n` : '';
-  const footer = message.type === 'list' && message.footer ? `\n${message.footer}` : '';
-  return `${header}${message.body}\n\n${lines.join('\n')}${footer}\n\nResponda com o número da opção.`;
-}
-
 export function toEvolutionBody(to: string, message: Outgoing): { path: string; body: Record<string, unknown> } {
   assertOutgoing(message);
   if (message.type === 'text') {
     return { path: 'sendText', body: { number: to, text: message.body } };
   }
-  if (message.type === 'buttons') {
-    const title = firstLine(message.body);
-    return {
-      path: 'sendButtons',
-      body: {
-        number: to,
-        title,
-        description: message.body,
-        footer: '',
-        buttons: message.buttons.map((button) => ({
-          type: 'reply',
-          displayText: button.title,
-          id: button.id,
-        })),
-      },
-    };
-  }
   return {
     path: 'sendList',
     body: {
       number: to,
-      title: (message.header || message.sectionTitle).slice(0, LIMITS.header),
+      title: message.button,
       description: message.body,
       buttonText: message.button,
       footerText: message.footer || ' ',
@@ -98,21 +65,9 @@ export function assertOutgoing(message: Outgoing): void {
     requireLength(message.body, 1, LIMITS.text, 'texto');
     return;
   }
-  if (message.type === 'buttons') {
-    requireLength(message.body, 1, LIMITS.body, 'corpo dos botões');
-    if (message.buttons.length < 1 || message.buttons.length > LIMITS.buttons) {
-      throw new Error('Uma mensagem de botões precisa ter de 1 a 3 botões.');
-    }
-    for (const button of message.buttons) {
-      requireLength(button.title, 1, LIMITS.buttonTitle, `título do botão "${button.title}"`);
-      requireLength(button.id, 1, LIMITS.buttonId, 'id do botão');
-    }
-    return;
-  }
   requireLength(message.body, 1, LIMITS.body, 'corpo da lista');
   requireLength(message.button, 1, LIMITS.listButton, 'botão da lista');
   requireLength(message.sectionTitle, 1, 24, 'título da seção');
-  if (message.header) requireLength(message.header, 1, LIMITS.header, 'cabeçalho');
   if (message.footer) requireLength(message.footer, 1, LIMITS.footer, 'rodapé');
   if (message.rows.length < 1 || message.rows.length > LIMITS.rows) {
     throw new Error('Uma lista precisa ter de 1 a 10 linhas.');
@@ -139,11 +94,11 @@ export class EvolutionClient implements EvolutionSender {
     try {
       await this.post(target.path, target.body);
     } catch (err) {
-      logger.warn('evolution_interactive', {
+      logger.warn('evolution_list_retry', {
         path: target.path,
         message: err instanceof Error ? err.message : String(err),
       });
-      await this.post('sendText', { number: to, text: numberedMenu(message) });
+      await this.post(target.path, target.body);
     }
   }
 
@@ -272,11 +227,6 @@ function phoneFrom(key: Record<string, unknown>, record: Record<string, unknown>
 
 function normalizeEvent(event: unknown): string {
   return typeof event === 'string' ? event.trim().toLowerCase().replaceAll('_', '.') : '';
-}
-
-function firstLine(body: string): string {
-  const line = body.split('\n').find((part) => part.trim())?.trim() ?? 'Atendimento';
-  return line.slice(0, LIMITS.header);
 }
 
 function requireLength(value: string, min: number, max: number, label: string): void {

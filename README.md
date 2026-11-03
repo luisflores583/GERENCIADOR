@@ -7,11 +7,11 @@ O WhatsApp entra pela [Evolution API v2](https://doc.evolution-api.com/v2) ([doc
 ## O que o paciente vê
 
 1. Saudação e pedido do nome, se o número ainda não for conhecido.
-2. Menu: **Agendar**, **Remarcar**, **Cancelar**.
+2. Menu: **AGENDAR**, **REMARCAR**, **CANCELAR**.
 3. Horários livres dos próximos 7 dias.
 4. Confirmação antes de gravar, remarcar ou cancelar.
 
-Quando a instância aceita mensagem interativa, o bot envia lista (`sendList`) e botões (`sendButtons`). No Baileys isso costuma falhar: aí a mesma opção segue como menu numerado, e o paciente responde `1`, `2`, `3`.
+Cada escolha chega como lista do WhatsApp (`sendList`). A pergunta fica no balão e, embaixo, o botão **Escolha uma opção**. Ao tocar, abre a lista com o mesmo título e as linhas daquela etapa (menu, horários, confirmar, remarcar ou cancelar).
 
 Padrão da clínica, tudo configurável por variáveis de ambiente:
 
@@ -87,7 +87,7 @@ Uma instância já criada basta. Este serviço não cria o app da Meta nem a ins
 
 6. Envie "oi" do WhatsApp para o número conectado.
 
-O envio usa `POST /message/sendText/{instancia}`, `POST /message/sendList/{instancia}` e `POST /message/sendButtons/{instancia}`. Lista e botões que a instância recusar viram texto numerado.
+O envio usa `POST /message/sendText/{instancia}` para texto e `POST /message/sendList/{instancia}` para cada escolha. O botão da lista é sempre `Escolha uma opção`. Se o `sendList` falhar, o serviço tenta o mesmo envio mais uma vez.
 
 ## Google Calendar — conta de serviço (caminho padrão)
 
@@ -189,7 +189,7 @@ Os testes cobrem a grade de horários, o fluxo da conversa, o webhook da Evoluti
 ## Limitações
 
 - Sem `EVOLUTION_API_URL`, instância, apikey e agenda compartilhada, o processo sobe, mas nenhuma reserva real acontece.
-- Lista e botões dependem da instância. No Baileys o fallback é o menu numerado.
+- A lista interativa depende da instância Evolution. Se o `sendList` falhar duas vezes, aquela resposta não é entregue; o webhook pode ser reprocessado.
 - A lista interativa tem no máximo 10 linhas; havendo mais horários, a conversa pagina.
 - Dois cliques no mesmo horário quase ao mesmo tempo: o segundo recebe "esse horário acabou de ser preenchido".
 - Cancelar remove o evento. Não fica um registro "cancelado" na agenda.

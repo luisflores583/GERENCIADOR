@@ -32,10 +32,13 @@ export interface FlowDeps {
   calendar: CalendarPort;
 }
 
-const MENU_BUTTONS = [
-  { id: 'book', title: 'Agendar' },
-  { id: 'reschedule', title: 'Remarcar' },
-  { id: 'cancel', title: 'Cancelar' },
+const LIST_BUTTON = 'Escolha uma opção';
+const LIST_HINT = 'Toque para selecionar um item.';
+
+const MENU_ROWS = [
+  { id: 'book', title: 'AGENDAR', description: LIST_HINT },
+  { id: 'reschedule', title: 'REMARCAR', description: LIST_HINT },
+  { id: 'cancel', title: 'CANCELAR', description: LIST_HINT },
 ] as const;
 
 export async function handleMessage(message: IncomingMessage, deps: FlowDeps): Promise<Outgoing[]> {
@@ -53,9 +56,11 @@ export async function handleMessage(message: IncomingMessage, deps: FlowDeps): P
   };
 
   const menu = (body: string): Outgoing => ({
-    type: 'buttons',
+    type: 'list',
     body,
-    buttons: MENU_BUTTONS.map((button) => ({ ...button })),
+    button: LIST_BUTTON,
+    sectionTitle: 'Opções',
+    rows: MENU_ROWS.map((row) => ({ ...row })),
   });
 
   function resetFlow(): void {
@@ -112,20 +117,19 @@ export async function handleMessage(message: IncomingMessage, deps: FlowDeps): P
     session.page = page.page;
     const rows = page.items.map((slot, index) => ({
       id: `slot:${page.offset + index}`,
-      title: formatSlotShort(slot.start, clinic.timezone),
+      title: formatSlotShort(slot.start, clinic.timezone).toUpperCase(),
       description: `até ${formatTime(slot.end, clinic.timezone)}`,
     }));
-    if (page.hasPrev) rows.push({ id: 'page:prev', title: 'Anteriores', description: 'Página anterior' });
-    if (page.hasNext) rows.push({ id: 'page:next', title: 'Mais horários', description: 'Próxima página' });
+    if (page.hasPrev) rows.push({ id: 'page:prev', title: 'ANTERIORES', description: LIST_HINT });
+    if (page.hasNext) rows.push({ id: 'page:next', title: 'MAIS HORÁRIOS', description: LIST_HINT });
     const paging = page.hasPrev || page.hasNext ? `\nPágina ${page.page + 1}.` : '';
     const base = `Escolha um horário livre. A sessão dura ${clinic.sessionMinutes} minutos.`;
     return {
       type: 'list',
-      header: clinic.name.slice(0, 60),
       body: `${intro ? `${intro}\n\n` : ''}${base}${paging}`,
       footer: scheduleFooter(clinic),
-      button: 'Ver horários',
-      sectionTitle: 'Horários livres',
+      button: LIST_BUTTON,
+      sectionTitle: 'Horários',
       rows,
     };
   }
@@ -134,15 +138,14 @@ export async function handleMessage(message: IncomingMessage, deps: FlowDeps): P
     const bookings = (session.offeredBookings ?? []).slice(0, 10);
     return {
       type: 'list',
-      header: clinic.name.slice(0, 60),
       body,
       footer: scheduleFooter(clinic),
-      button: 'Ver sessões',
-      sectionTitle: 'Suas sessões',
+      button: LIST_BUTTON,
+      sectionTitle: 'Sessões',
       rows: bookings.map((booking, index) => ({
         id: `booking:${index}`,
-        title: formatSlotShort(booking.start, clinic.timezone),
-        description: 'Toque para escolher',
+        title: formatSlotShort(booking.start, clinic.timezone).toUpperCase(),
+        description: LIST_HINT,
       })),
     };
   }
@@ -211,11 +214,13 @@ export async function handleMessage(message: IncomingMessage, deps: FlowDeps): P
 
   function confirmCancel(booking: BookingRef): Outgoing {
     return {
-      type: 'buttons',
+      type: 'list',
       body: `Cancelar a sessão de ${formatSlotLong(booking.start, clinic.timezone)}? Esse horário volta a ficar livre.`,
-      buttons: [
-        { id: 'cancel_yes', title: 'Sim, cancelar' },
-        { id: 'cancel_no', title: 'Manter sessão' },
+      button: LIST_BUTTON,
+      sectionTitle: 'Opções',
+      rows: [
+        { id: 'cancel_yes', title: 'SIM, CANCELAR', description: LIST_HINT },
+        { id: 'cancel_no', title: 'MANTER SESSÃO', description: LIST_HINT },
       ],
     };
   }
@@ -227,12 +232,14 @@ export async function handleMessage(message: IncomingMessage, deps: FlowDeps): P
         ? `Remarcar para ${when}? A sessão atual passa para esse horário.`
         : `Posso reservar ${when} para ${patient?.name}? A sessão dura ${clinic.sessionMinutes} minutos.`;
     return {
-      type: 'buttons',
+      type: 'list',
       body,
-      buttons: [
-        { id: 'confirm', title: 'Confirmar' },
-        { id: 'other', title: 'Outro horário' },
-        { id: 'back', title: 'Voltar' },
+      button: LIST_BUTTON,
+      sectionTitle: 'Opções',
+      rows: [
+        { id: 'confirm', title: 'CONFIRMAR', description: LIST_HINT },
+        { id: 'other', title: 'OUTRO HORÁRIO', description: LIST_HINT },
+        { id: 'back', title: 'VOLTAR AO MENU ANTERIOR', description: LIST_HINT },
       ],
     };
   }
@@ -249,8 +256,8 @@ export async function handleMessage(message: IncomingMessage, deps: FlowDeps): P
     const index = indexFrom(selectedId, 'slot:');
     const slot = index === undefined ? undefined : session.offeredSlots?.[index];
     if (!slot) {
-      if (!session.offeredSlots?.length) return showSlots('Toque em Ver horários e escolha um horário da lista.');
-      return [renderSlotList('Toque em Ver horários e escolha um horário da lista.')];
+      if (!session.offeredSlots?.length) return showSlots('Toque em Escolha uma opção e selecione um horário da lista.');
+      return [renderSlotList('Toque em Escolha uma opção e selecione um horário da lista.')];
     }
     session.pendingSlot = slot;
     session.step = 'confirming_booking';
@@ -266,7 +273,7 @@ export async function handleMessage(message: IncomingMessage, deps: FlowDeps): P
     const booking = index === undefined ? undefined : session.offeredBookings?.[index];
     if (!booking) {
       const verb = session.action === 'cancel' ? 'cancelar' : 'remarcar';
-      return [renderBookingList(`Toque em Ver sessões e escolha qual sessão ${verb}.`)];
+      return [renderBookingList(`Toque em Escolha uma opção e selecione qual sessão ${verb}.`)];
     }
     session.selectedEventId = booking.eventId;
     if (session.action === 'cancel') {
@@ -411,7 +418,7 @@ export async function handleMessage(message: IncomingMessage, deps: FlowDeps): P
     }
     default:
       return showMenu(
-        `Não entendi, ${firstName(known.name)}. Responda com o número da opção ou escreva: agendar, remarcar ou cancelar.`,
+        `Não entendi, ${firstName(known.name)}. Toque em Escolha uma opção ou escreva: agendar, remarcar ou cancelar.`,
       );
   }
 }

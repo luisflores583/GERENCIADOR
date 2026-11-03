@@ -43,15 +43,8 @@ export interface OutgoingText {
   body: string;
 }
 
-export interface OutgoingButtons {
-  type: 'buttons';
-  body: string;
-  buttons: { id: string; title: string }[];
-}
-
 export interface OutgoingList {
   type: 'list';
-  header?: string;
   body: string;
   footer?: string;
   button: string;
@@ -59,7 +52,7 @@ export interface OutgoingList {
   rows: { id: string; title: string; description?: string }[];
 }
 
-export type Outgoing = OutgoingText | OutgoingButtons | OutgoingList;
+export type Outgoing = OutgoingText | OutgoingList;
 
 export interface IncomingMessage {
   messageId: string;

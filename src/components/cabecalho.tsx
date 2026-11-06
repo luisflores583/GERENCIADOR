@@ -3,17 +3,8 @@ import { acaoSair } from "@/server/acoes";
 
 export function Marca() {
   return (
-    <span className="flex items-center gap-3">
-      <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">
-        <rect width="40" height="40" rx="12" fill="#0e2a47" />
-        <circle cx="20" cy="14" r="5" fill="#f6ead7" />
-        <path d="M7 30h26" stroke="#e36a3a" strokeWidth="2" />
-        <path d="M10 30c2-5 3.5-5 5.5 0M18 30c2-5 3.5-5 5.5 0" fill="none" stroke="#7fd1c5" strokeWidth="1.6" />
-      </svg>
-      <span>
-        <span className="block font-display text-xl leading-none text-navy">Areia Viva</span>
-        <span className="text-xs uppercase tracking-[0.18em] text-ocean">vôlei de areia</span>
-      </span>
+    <span className="flex items-center">
+      <img src="/setpoint-santiago-logo.png" alt="SetPoint Santiago" className="h-24 w-auto" />
     </span>
   );
 }

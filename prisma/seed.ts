@@ -126,7 +126,7 @@ async function principal() {
       descansoMinutos: "0",
       permitirEquipeIncompleta: false,
       corDestaque: "#e36a3a",
-      nomeOrganizador: "Areia Viva",
+      nomeOrganizador: "SetPoint Santiago",
     });
     for (const [nome, emailA, emailB] of DUPLAS) {
       const equipe = await criarEquipe(admin.id, torneio.id, nome, [atletas.get(emailA)!.id, atletas.get(emailB)!.id]);
@@ -165,7 +165,7 @@ async function principal() {
       descansoMinutos: "5",
       permitirEquipeIncompleta: false,
       corDestaque: "#1f7a8c",
-      nomeOrganizador: "Areia Viva",
+      nomeOrganizador: "SetPoint Santiago",
     });
     for (const email of ["ana@arena.local", "bia@arena.local", "caio@arena.local", "davi@arena.local", "eva@arena.local", "felipe@arena.local"]) {
       await inscrever(atletas.get(email)!.usuarioId, torneio.id);

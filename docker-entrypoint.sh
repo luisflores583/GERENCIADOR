@@ -16,5 +16,5 @@ if [ "${SEED_ON_START:-false}" = "true" ]; then
   npx tsx prisma/seed.ts
 fi
 
-echo "Areia Viva disponível em http://localhost:3000"
+echo "SetPoint Santiago disponível em http://localhost:3000"
 exec npx next start -H 0.0.0.0 -p 3000

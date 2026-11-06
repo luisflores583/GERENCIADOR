@@ -14,7 +14,7 @@ export default async function PaginaInicial() {
   return (
     <Casco nome={usuario?.nome} papel={usuario?.papel}>
       <section className="rounded-[2rem] bg-navy px-6 py-10 text-white shadow-card sm:px-10">
-        <p className="text-sm uppercase tracking-[0.22em] text-white/70">Arena de areia</p>
+        <p className="text-sm uppercase tracking-[0.22em] text-white/70">SetPoint Santiago</p>
         <h1 className="mt-3 max-w-3xl font-display text-4xl leading-tight sm:text-6xl">
           O torneio anda sozinho. Você registra a vitória.
         </h1>

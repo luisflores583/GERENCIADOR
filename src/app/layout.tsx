@@ -6,7 +6,7 @@ const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
 const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces" });
 
 export const metadata: Metadata = {
-  title: "Areia Viva — torneios de vôlei de praia",
+  title: "SetPoint Santiago — torneios de vôlei de praia",
   description: "Gestão de torneios de vôlei de areia com dupla eliminação, quadras e painel ao vivo.",
 };
 

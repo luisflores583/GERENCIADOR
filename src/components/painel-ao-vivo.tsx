@@ -46,7 +46,7 @@ export function PainelAoVivo({ inicial }: { inicial: PainelDTO }) {
         <div className="h-2" style={{ background: destaque }} />
         <div className="grid gap-6 p-6 md:grid-cols-[1.4fr_1fr] md:p-8">
           <div>
-            <p className="text-sm uppercase tracking-[0.2em] text-white/70">{painel.torneio.nomeOrganizador || "Arena"}</p>
+            <p className="text-sm uppercase tracking-[0.2em] text-white/70">{painel.torneio.nomeOrganizador || "SetPoint Santiago"}</p>
             <h1 className="mt-2 font-display text-4xl leading-tight sm:text-5xl lg:text-6xl">{painel.torneio.nome}</h1>
             <p className="mt-3 max-w-2xl text-white/80">
               {painel.torneio.modalidade} · {ROTULO_FORMATO[painel.torneio.formato]} · {ROTULO_NAIPE[painel.torneio.naipe]} · {ROTULO_FORMACAO[painel.torneio.formacao]}

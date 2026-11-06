@@ -1,4 +1,4 @@
-# Areia Viva
+# SetPoint Santiago
 
 Sistema de gerenciamento de torneios de vôlei de areia: inscrições, equipes, dupla eliminação, quadras e painel ao vivo.
 
@@ -16,7 +16,7 @@ docker compose down
 docker compose up --build
 ```
 
-Espere a linha `Areia Viva disponível em http://localhost:3000` e abra esse endereço. A primeira tela traz o título “O torneio anda sozinho. Você registra a vitória.”, com Arena da Orla e Trios da Manhã.
+Espere a linha `SetPoint Santiago disponível em http://localhost:3000` e abra esse endereço. A primeira tela traz o título “O torneio anda sozinho. Você registra a vitória.”, com Arena da Orla e Trios da Manhã.
 
 Se a porta 3000 já estiver ocupada por outro container, pare esse outro antes. O comando `docker compose ps` mostra o serviço `app` em execução.
 

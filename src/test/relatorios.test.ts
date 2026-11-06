@@ -19,7 +19,7 @@ function painel(): PainelDTO {
       inicioEm: "2026-11-15T12:00:00.000Z",
       inscricoesAte: "2026-11-14T21:00:00.000Z",
       corDestaque: "#e36a3a",
-      nomeOrganizador: "Areia Viva",
+      nomeOrganizador: "SetPoint Santiago",
       pontosParaVencer: 21,
       diferencaMinima: 2,
       pontosMaximos: null,

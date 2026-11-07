@@ -36,6 +36,7 @@ export default async function Inscricoes({ params }: { params: Promise<{ id: str
   });
   if (!torneio) notFound();
   const atletas = await prisma.atleta.findMany({ orderBy: { nomeCompleto: "asc" } });
+  const aguardandoPagamento = await prisma.pagamento.count({ where: { torneioId: id, status: "AGUARDANDO" } });
   const tamanho = tamanhoDaEquipe(torneio.formato);
   const travado = Boolean(torneio.equipesTravadasEm) || ["EM_ANDAMENTO", "PAUSADO", "FINALIZADO"].includes(torneio.status);
   const inscricoesEncerradas = torneio.status === "INSCRICOES_ENCERRADAS";
@@ -69,6 +70,11 @@ export default async function Inscricoes({ params }: { params: Promise<{ id: str
           ? "A organização inscreve o atleta neste torneio. A equipe só aparece depois do sorteio confirmado."
           : "Cadastre a equipe só com o nome, ou preencha os integrantes. No cadastro com integrantes, o nome da equipe é opcional."}
       </p>
+      {aguardandoPagamento > 0 ? (
+        <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-amber-950">
+          Há {aguardandoPagamento} pagamento(s) em aberto. A vaga entra na lista quando o Mercado Pago confirmar.
+        </p>
+      ) : null}
       {torneio.status === "INSCRICOES_ABERTAS" ? (
         <section className="mt-6 rounded-3xl bg-foam p-5 shadow-card">
           <h2 className="font-display text-2xl text-navy">Encerrar inscrição</h2>

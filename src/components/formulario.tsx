@@ -17,8 +17,12 @@ export function Formulario({
   const roteador = useRouter();
   const [estado, executar, pendente] = useActionState(acao, estadoInicial);
   useEffect(() => {
+    if (estado.redirecionar) {
+      window.location.assign(estado.redirecionar);
+      return;
+    }
     if (estado.mensagem) roteador.refresh();
-  }, [estado.mensagem, roteador]);
+  }, [estado.mensagem, estado.redirecionar, roteador]);
   return (
     <form action={executar} className={`space-y-4 ${className}`} aria-busy={pendente}>
       {estado.erro ? (

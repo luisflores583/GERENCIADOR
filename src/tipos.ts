@@ -94,6 +94,7 @@ export type EstadoAcao = {
   ok: boolean;
   erro?: string;
   mensagem?: string;
+  redirecionar?: string;
   precisaConfirmacao?: boolean;
   afetadas?: { codigo: string; descricao: string }[];
 };

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { SeloStatus } from "@/components/selo";
 import { campanhaDaEquipe } from "@/engine/classificacao";
-import { formatarDataHora } from "@/lib/formatacao";
+import { formatarDataHora, formatarMoeda } from "@/lib/formatacao";
 import { ROTULO_FORMATO, ROTULO_NAIPE } from "@/lib/rotulos";
 import { prisma } from "@/server/db";
 import { exigirAtleta } from "@/server/sessao";
@@ -78,6 +78,7 @@ export default async function InicioAtleta() {
               <h3 className="text-xl font-bold">{torneio.nome}</h3>
               <p>{ROTULO_FORMATO[torneio.formato]} · {ROTULO_NAIPE[torneio.naipe]}</p>
               <p>{formatarDataHora(torneio.inicioEm)} · {torneio.local}</p>
+              <p>Inscrição {formatarMoeda(torneio.valorCentavos)}</p>
               <p className="mt-2 font-semibold text-ocean">{torneio.formacao === "PRE_FORMADAS" ? "Cadastrar equipe" : "Inscrever-me"}</p>
             </Link>
           ))}

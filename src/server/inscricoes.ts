@@ -4,6 +4,7 @@ import { validarNaipe } from "@/engine/naipe";
 import { desambiguarNome, nomeAutomatico, pareceNomeAutomatico, resolverNomeEquipe } from "@/engine/nomes";
 import { tamanhoDaEquipe, validarElenco } from "@/engine/sorteio";
 import { AVISO_EQUIPE_NA_CHAVE, equipesDoAtletaNaChave } from "@/lib/chave-da-equipe";
+import { cobraInscricao } from "@/lib/formatacao";
 import { ErroDeRegra } from "@/lib/erros";
 import type { IntegranteInformado } from "@/lib/integrantes";
 import { carregarUsuario, exigirAdministrador } from "@/server/acesso";
@@ -24,6 +25,11 @@ function afirmarInscricoesAbertas(torneio: Torneio) {
   if (torneio.inscricoesAte.getTime() < Date.now()) {
     throw new ErroDeRegra("O prazo de inscrição terminou.");
   }
+}
+
+function afirmarPagamentoDaAtleta(torneio: Torneio, papel: "ADMIN" | "ATLETA", pagamentoConfirmado: boolean) {
+  if (papel === "ADMIN" || pagamentoConfirmado || !cobraInscricao(torneio.valorCentavos)) return;
+  throw new ErroDeRegra("Esta inscrição depende do pagamento. Use Pagar inscrição.");
 }
 
 function afirmarComposicaoAberta(torneio: Torneio) {
@@ -49,12 +55,13 @@ async function atletaDoUsuario(usuarioId: string) {
   return { usuario, atletaId: usuario.atleta.id };
 }
 
-export async function inscrever(usuarioId: string, torneioId: string) {
+export async function inscrever(usuarioId: string, torneioId: string, pagamentoConfirmado = false) {
   const { atletaId } = await atletaDoUsuario(usuarioId);
   if (!atletaId) throw new ErroDeRegra("Use o painel do atleta para a inscrição individual.");
   return trancar(torneioId, async (tx) => {
     const torneio = await tx.torneio.findUniqueOrThrow({ where: { id: torneioId } });
     afirmarInscricoesAbertas(torneio);
+    afirmarPagamentoDaAtleta(torneio, "ATLETA", pagamentoConfirmado);
     const existente = await tx.inscricao.findUnique({
       where: { torneioId_atletaId: { torneioId, atletaId } },
     });
@@ -82,6 +89,7 @@ export async function criarEquipe(
   nome: string,
   atletaIds: string[],
   autorizarIncompleta = false,
+  pagamentoConfirmado = false,
 ) {
   const { usuario, atletaId } = await atletaDoUsuario(usuarioId);
   const unicos = [...new Set(atletaIds.filter(Boolean))];
@@ -93,6 +101,7 @@ export async function criarEquipe(
     afirmarComposicaoAberta(torneio);
     afirmarEntradaNova(torneio);
     if (usuario.papel !== "ADMIN") afirmarInscricoesAbertas(torneio);
+    afirmarPagamentoDaAtleta(torneio, usuario.papel, pagamentoConfirmado);
     if (atletaId && !unicos.includes(atletaId)) {
       throw new ErroDeRegra("A equipe precisa incluir você.");
     }
@@ -132,6 +141,7 @@ export async function cadastrarEquipePorNomes(
   nome: string,
   componentes: IntegranteInformado[],
   autorizarIncompleta: boolean,
+  pagamentoConfirmado = false,
 ) {
   const { usuario, atletaId } = await atletaDoUsuario(usuarioId);
   return trancar(torneioId, async (tx) => {
@@ -142,6 +152,7 @@ export async function cadastrarEquipePorNomes(
     afirmarComposicaoAberta(torneio);
     afirmarEntradaNova(torneio);
     if (usuario.papel !== "ADMIN") afirmarInscricoesAbertas(torneio);
+    afirmarPagamentoDaAtleta(torneio, usuario.papel, pagamentoConfirmado);
     const ids: string[] = [];
     const telefoneObrigatorio = usuario.papel !== "ADMIN";
     for (const componente of componentes) {
@@ -208,7 +219,7 @@ async function persistirEquipe(
   return equipe;
 }
 
-export async function adicionarMembro(usuarioId: string, equipeId: string, atletaId: string) {
+export async function adicionarMembro(usuarioId: string, equipeId: string, atletaId: string, pagamentoConfirmado = false) {
   const { usuario, atletaId: proprio } = await atletaDoUsuario(usuarioId);
   return trancarEquipe(equipeId, async (tx, equipe) => {
     if (usuario.papel !== "ADMIN" && equipe.capitaoId !== proprio) {
@@ -217,6 +228,7 @@ export async function adicionarMembro(usuarioId: string, equipeId: string, atlet
     const torneio = await tx.torneio.findUniqueOrThrow({ where: { id: equipe.torneioId } });
     afirmarComposicaoAberta(torneio);
     afirmarEntradaNova(torneio);
+    afirmarPagamentoDaAtleta(torneio, usuario.papel, pagamentoConfirmado);
     const tamanho = tamanhoDaEquipe(torneio.formato);
     const membros = await tx.membroEquipe.count({ where: { equipeId } });
     if (membros >= tamanho) throw new ErroDeRegra("A equipe já está completa.");

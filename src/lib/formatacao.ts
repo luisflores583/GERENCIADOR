@@ -48,6 +48,10 @@ export function formatarMoeda(centavos: number | null | undefined): string {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(centavos / 100);
 }
 
+export function cobraInscricao(centavos: number | null | undefined): boolean {
+  return centavos != null && centavos > 0;
+}
+
 export function centavosDeReais(valor: string): number | null {
   const limpo = valor.trim();
   if (!limpo) return null;

@@ -1,6 +1,7 @@
 "use server";
 
 import { randomBytes } from "node:crypto";
+import { headers } from "next/headers";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Prisma } from "@prisma/client";
@@ -10,7 +11,7 @@ import { ZodError } from "zod";
 import { publicar } from "@/engine/tempo-real";
 import { ErroDeRegra } from "@/lib/erros";
 import { ehCadastroDuplicado } from "@/lib/restricao-unica";
-import { interpretarDataHoraLocal } from "@/lib/formatacao";
+import { cobraInscricao, interpretarDataHoraLocal } from "@/lib/formatacao";
 import { integrantesDoFormulario } from "@/lib/integrantes";
 import { erroZod, esquemaCadastro, esquemaEdicaoInscricao, esquemaInscricaoDireta, esquemaLogin, esquemaPerfil } from "@/lib/schemas";
 import { conferirSenha, gerarHash } from "@/server/senha";
@@ -52,6 +53,11 @@ import {
   trocarQuadra,
   vincularQuadra,
 } from "@/server/competicao";
+import {
+  iniciarPagamentoEquipe,
+  iniciarPagamentoIndividual,
+  iniciarPagamentoVaga,
+} from "@/server/pagamentos";
 import type { EstadoAcao } from "@/tipos";
 
 function ehRedirect(erro: unknown): boolean {
@@ -74,6 +80,24 @@ function falha(erro: unknown): EstadoAcao {
   }
   console.error(erro);
   return { ok: false, erro: "Não foi possível concluir a operação." };
+}
+
+function primeiroValor(valor: string | null, padrao: string) {
+  const item = valor?.split(",")[0]?.trim();
+  return item || padrao;
+}
+
+async function origemDaRequisicao() {
+  const cabecalhos = await headers();
+  const proto = primeiroValor(cabecalhos.get("x-forwarded-proto"), "http");
+  const host = primeiroValor(cabecalhos.get("x-forwarded-host") ?? cabecalhos.get("host"), "localhost:3000");
+  return `${proto}://${host}`;
+}
+
+async function inscricaoCobrada(torneioId: string) {
+  const torneio = await prisma.torneio.findUnique({ where: { id: torneioId }, select: { valorCentavos: true } });
+  if (!torneio) return false;
+  return cobraInscricao(torneio.valorCentavos);
 }
 
 function texto(form: FormData, campo: string): string {
@@ -408,7 +432,17 @@ export async function acaoInscreverDireto(_estado: EstadoAcao, form: FormData): 
 export async function acaoInscrever(_estado: EstadoAcao, form: FormData): Promise<EstadoAcao> {
   try {
     const { usuario } = await exigirAtleta();
-    await inscrever(usuario.id, texto(form, "torneioId"));
+    const torneioId = texto(form, "torneioId");
+    if (await inscricaoCobrada(torneioId)) {
+      const pagamento = await iniciarPagamentoIndividual(usuario.id, torneioId, await origemDaRequisicao());
+      revalidatePath("/atleta");
+      return {
+        ok: true,
+        mensagem: "Abrindo o Mercado Pago para o pagamento da inscrição.",
+        redirecionar: pagamento.initPoint,
+      };
+    }
+    await inscrever(usuario.id, torneioId);
     revalidatePath("/atleta");
     return { ok: true, mensagem: "Inscrição enviada. Aguarde a aprovação da organização." };
   } catch (erro) {
@@ -430,7 +464,23 @@ export async function acaoCadastrarEquipePorNome(_estado: EstadoAcao, form: Form
 export async function acaoCadastrarEquipe(_estado: EstadoAcao, form: FormData): Promise<EstadoAcao> {
   try {
     const usuario = await exigirAdminOuAtleta();
+    const torneioId = texto(form, "torneioId");
     const componentes = integrantesDoFormulario((campo) => texto(form, campo), 4);
+    if (usuario.papel === "ATLETA" && (await inscricaoCobrada(torneioId))) {
+      const pagamento = await iniciarPagamentoEquipe(
+        usuario.id,
+        torneioId,
+        texto(form, "nome"),
+        componentes,
+        await origemDaRequisicao(),
+      );
+      revalidatePath("/atleta");
+      return {
+        ok: true,
+        mensagem: "Abrindo o Mercado Pago para o pagamento da inscrição.",
+        redirecionar: pagamento.initPoint,
+      };
+    }
     const equipe = await cadastrarEquipePorNomes(
       usuario.id,
       texto(form, "torneioId"),
@@ -470,7 +520,20 @@ async function exigirAdminOuAtleta() {
 export async function acaoAdicionarMembro(_estado: EstadoAcao, form: FormData): Promise<EstadoAcao> {
   try {
     const usuario = await exigirAdminOuAtleta();
-    await adicionarMembro(usuario.id, texto(form, "equipeId"), texto(form, "atletaId"));
+    const equipeId = texto(form, "equipeId");
+    if (usuario.papel === "ATLETA") {
+      const equipe = await prisma.equipe.findUnique({ where: { id: equipeId }, select: { torneioId: true } });
+      if (equipe && (await inscricaoCobrada(equipe.torneioId))) {
+        const pagamento = await iniciarPagamentoVaga(usuario.id, equipeId, await origemDaRequisicao());
+        revalidatePath("/atleta");
+        return {
+          ok: true,
+          mensagem: "Abrindo o Mercado Pago para o pagamento da inscrição.",
+          redirecionar: pagamento.initPoint,
+        };
+      }
+    }
+    await adicionarMembro(usuario.id, equipeId, texto(form, "atletaId"));
     revalidarPainel();
     revalidatePath("/atleta");
     return { ok: true, mensagem: "Atleta incluído na equipe." };

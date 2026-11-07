@@ -32,6 +32,9 @@ services:
       SEED_ADMIN_EMAIL: admin@arena.local
       SEED_ADMIN_PASSWORD: arena-local-demo
       SEED_ATHLETE_PASSWORD: atleta-local-demo
+      MERCADO_PAGO_ACCESS_TOKEN: ""
+      MERCADO_PAGO_PUBLIC_KEY: ""
+      MERCADO_PAGO_WEBHOOK_SECRET: ""
     depends_on:
       db:
         condition: service_healthy

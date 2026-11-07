@@ -102,6 +102,19 @@ enum StatusSorteio {
   DESCARTADO
 }
 
+enum StatusPagamento {
+  AGUARDANDO
+  APROVADO
+  RECUSADO
+  CANCELADO
+}
+
+enum TipoPagamento {
+  INDIVIDUAL
+  EQUIPE
+  VAGA
+}
+
 model Usuario {
   id           String               @id @default(cuid())
   email        String?              @unique
@@ -142,6 +155,7 @@ model Atleta {
   inscricoes     Inscricao[]
   membros        MembroEquipe[]
   equipesCapitao Equipe[]       @relation("Capitao")
+  pagamentos     Pagamento[]
 }
 
 model Torneio {
@@ -184,6 +198,7 @@ model Torneio {
   partidas                 Partida[]
   sorteios                 Sorteio[]
   historicos               HistoricoResultado[]
+  pagamentos               Pagamento[]
   campeao                  Equipe?         @relation("CampeaoTorneio", fields: [campeaoEquipeId], references: [id])
   vice                     Equipe?         @relation("ViceTorneio", fields: [viceEquipeId], references: [id])
 
@@ -223,10 +238,34 @@ model Inscricao {
   torneio      Torneio         @relation(fields: [torneioId], references: [id], onDelete: Cascade)
   atleta       Atleta          @relation(fields: [atletaId], references: [id])
   equipe       Equipe?         @relation(fields: [equipeId], references: [id])
+  pagamentos   Pagamento[]
 
   @@unique([torneioId, atletaId])
   @@index([torneioId, status])
   @@index([equipeId])
+}
+
+model Pagamento {
+  id                 String          @id @default(cuid())
+  torneioId          String
+  atletaId           String
+  valorCentavos      Int
+  status             StatusPagamento @default(AGUARDANDO)
+  tipo               TipoPagamento
+  preferenciaId      String?
+  pagamentoExternoId String?         @unique
+  initPoint          String          @default("")
+  rascunho           Json
+  inscricaoId        String?
+  criadoEm           DateTime        @default(now())
+  atualizadoEm       DateTime        @updatedAt
+  aprovadoEm         DateTime?
+  torneio            Torneio         @relation(fields: [torneioId], references: [id], onDelete: Cascade)
+  atleta             Atleta          @relation(fields: [atletaId], references: [id], onDelete: Cascade)
+  inscricao          Inscricao?      @relation(fields: [inscricaoId], references: [id], onDelete: SetNull)
+
+  @@index([torneioId, atletaId, status])
+  @@index([inscricaoId])
 }
 
 model Equipe {

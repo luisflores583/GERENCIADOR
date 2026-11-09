@@ -63,6 +63,9 @@ export default async function TorneioDoAtleta({
   const configurado = pagamentoEstaConfigurado();
   const pagamento = cobrada ? await pagamentoDaInscricao(atleta.id, torneio.id) : null;
   const naLista = Boolean(inscricao && inscricao.status !== "REJEITADA" && inscricao.status !== "CANCELADA");
+  const pagamentoAprovado = pagamento?.status === "APROVADO";
+  const lancadaPelaOrganizacao = inscricao?.status === "APROVADA" && !pagamentoAprovado && pagamento?.status == null;
+  const faltaPagamento = cobrada && !pagamentoAprovado && !lancadaPelaOrganizacao;
 
   return (
     <div className="space-y-6">
@@ -75,14 +78,22 @@ export default async function TorneioDoAtleta({
       {torneio.status === "INSCRICOES_ENCERRADAS" && (!inscricao || inscricao.status === "REJEITADA" || inscricao.status === "CANCELADA") ? (
         <p className="rounded-2xl bg-amber-50 px-4 py-3 text-amber-950">As inscrições estão encerradas. A lista atual permanece. Ninguém novo entra.</p>
       ) : null}
-      {cobrada && !naLista ? (
+      {faltaPagamento ? (
         <AvisoDePagamento
           valorCentavos={torneio.valorCentavos}
           configurado={configurado}
           status={pagamento?.status ?? null}
           continuar={pagamento?.status === "AGUARDANDO" ? pagamento.initPoint : ""}
           retorno={busca.retorno}
+          jaNaLista={naLista}
         />
+      ) : null}
+      {faltaPagamento && naLista ? (
+        <Formulario acao={acaoInscrever} className="rounded-3xl bg-foam p-5 shadow-card">
+          <input type="hidden" name="torneioId" value={torneio.id} />
+          <p>PIX, cartão e boleto abrem no Mercado Pago.</p>
+          <Botao type="submit">Pagar inscrição</Botao>
+        </Formulario>
       ) : null}
       {torneio.formacao === "SORTEADAS" && torneio.status === "INSCRICOES_ABERTAS" && !naLista ? (
         <Formulario acao={acaoInscrever} className="rounded-3xl bg-foam p-5 shadow-card">
@@ -157,18 +168,26 @@ function AvisoDePagamento({
   status,
   continuar,
   retorno,
+  jaNaLista,
 }: {
   valorCentavos: number | null;
   configurado: boolean;
   status: "AGUARDANDO" | "APROVADO" | "RECUSADO" | "CANCELADO" | null;
   continuar: string;
   retorno?: string;
+  jaNaLista: boolean;
 }) {
   return (
     <section className="space-y-3 rounded-3xl bg-white p-5 shadow-card">
       <p>Inscrição {formatarMoeda(valorCentavos)}. O pagamento abre no Mercado Pago, com PIX, cartão ou boleto.</p>
       {configurado ? null : <p role="status">{AVISO_PAGAMENTO_NAO_CONFIGURADO}</p>}
-      {status === "AGUARDANDO" ? <p>Aguardando pagamento. A vaga entra na lista quando o Mercado Pago confirmar.</p> : null}
+      {status === "AGUARDANDO" ? (
+        <p>
+          {jaNaLista
+            ? "Aguardando pagamento."
+            : "Aguardando pagamento. A vaga entra na lista quando o Mercado Pago confirmar."}
+        </p>
+      ) : null}
       {status === "RECUSADO" || status === "CANCELADO" ? <p>O pagamento não foi concluído. Você pode tentar de novo.</p> : null}
       {retorno === "aprovado" ? <p>Se o Mercado Pago aprovou, a vaga entra na lista em seguida.</p> : null}
       {retorno === "recusado" ? <p>O pagamento não foi concluído. Você pode tentar de novo.</p> : null}

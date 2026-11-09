@@ -72,23 +72,33 @@ async function abrirCheckout(
 
   const reservado = await trancar(torneioId, async (tx) => {
     const torneio = await tx.torneio.findUniqueOrThrow({ where: { id: torneioId } });
-    if (torneio.status !== "INSCRICOES_ABERTAS") {
-      throw new ErroDeRegra("As inscrições deste torneio não estão abertas.");
-    }
-    if (torneio.inscricoesAte.getTime() < Date.now()) throw new ErroDeRegra("O prazo de inscrição terminou.");
     if (!cobraInscricao(torneio.valorCentavos)) throw new ErroDeRegra("Esta inscrição não cobra pagamento.");
     const inscricao = await tx.inscricao.findUnique({
       where: { torneioId_atletaId: { torneioId, atletaId: atleta.id } },
     });
-    if (inscricao && inscricao.status !== "REJEITADA" && inscricao.status !== "CANCELADA") {
-      throw new ErroDeRegra("Você já está inscrito neste torneio.");
+    const jaNaLista = Boolean(inscricao && inscricao.status !== "REJEITADA" && inscricao.status !== "CANCELADA");
+    const aprovado = await tx.pagamento.findFirst({
+      where: { torneioId, atletaId: atleta.id, status: "APROVADO" },
+    });
+    if (aprovado) throw new ErroDeRegra("Este pagamento já foi aprovado.");
+    const tentativa = await tx.pagamento.findFirst({
+      where: { torneioId, atletaId: atleta.id, status: { in: ["AGUARDANDO", "RECUSADO", "CANCELADO"] } },
+    });
+    if (jaNaLista && inscricao?.status === "APROVADA" && !tentativa) {
+      throw new ErroDeRegra("Esta inscrição já foi lançada pela organização.");
+    }
+    if (!jaNaLista) {
+      if (torneio.status !== "INSCRICOES_ABERTAS") {
+        throw new ErroDeRegra("As inscrições deste torneio não estão abertas.");
+      }
+      if (torneio.inscricoesAte.getTime() < Date.now()) throw new ErroDeRegra("O prazo de inscrição terminou.");
     }
     const aberto = await tx.pagamento.findFirst({
       where: { torneioId, atletaId: atleta.id, status: "AGUARDANDO" },
       orderBy: { criadoEm: "desc" },
     });
     if (aberto?.initPoint) return { pagamento: aberto, nome: torneio.nome, valorCentavos: torneio.valorCentavos ?? 0 };
-    if (torneio.maxAtletas != null) {
+    if (!jaNaLista && torneio.maxAtletas != null) {
       const ocupadas = await tx.inscricao.count({
         where: { torneioId, status: { in: ["PENDENTE", "APROVADA"] } },
       });

@@ -156,5 +156,38 @@ describe.skipIf(!rodar)("pagamento simulado do Mercado Pago", () => {
     expect(inscricoes).toHaveLength(1);
     expect(inscricoes[0]?.status).toBe("PENDENTE");
     expect((await prisma.pagamento.findUnique({ where: { id: novo.id } }))?.status).toBe("APROVADO");
+    await expect(iniciarPagamentoIndividual(atleta.id, pago.id, "http://localhost:3000")).rejects.toThrow(
+      "Este pagamento já foi aprovado.",
+    );
+    expect(await prisma.pagamento.count({ where: { torneioId: pago.id, status: "APROVADO" } })).toBe(1);
+  });
+
+  it("cobra a inscrição pendente uma vez e não duplica a vaga", async () => {
+    const { inscreverAtletaDireto } = await import("@/server/inscricoes");
+    const { iniciarPagamentoIndividual, aplicarNotificacaoDePagamento } = await import("@/server/pagamentos");
+    const admin = await usuario(`${prefixo}-admin3@arena.local`, "ADMIN", "Admin Três");
+    const atleta = await usuario(`${prefixo}-pendente@arena.local`, "ATLETA", "Atleta Pendente");
+    const pago = await torneio(admin.id, `${prefixo} pendente`, "10,00");
+    await inscreverAtletaDireto(admin.id, pago.id, atleta.atleta!.id);
+    process.env.MERCADO_PAGO_ACCESS_TOKEN = "TEST-simulado";
+    await expect(iniciarPagamentoIndividual(atleta.id, pago.id, "http://localhost:3000")).rejects.toThrow(
+      "Esta inscrição já foi lançada pela organização.",
+    );
+    await prisma.inscricao.update({
+      where: { torneioId_atletaId: { torneioId: pago.id, atletaId: atleta.atleta!.id } },
+      data: { status: "PENDENTE" },
+    });
+    const checkout = await iniciarPagamentoIndividual(atleta.id, pago.id, "http://localhost:3000");
+    expect(await prisma.inscricao.count({ where: { torneioId: pago.id } })).toBe(1);
+    remotos.get(`pay-${checkout.id}`)!.status = "approved";
+    await aplicarNotificacaoDePagamento(`pay-${checkout.id}`);
+    await aplicarNotificacaoDePagamento(`pay-${checkout.id}`);
+    const inscricoes = await prisma.inscricao.findMany({ where: { torneioId: pago.id, atletaId: atleta.atleta!.id } });
+    expect(inscricoes).toHaveLength(1);
+    expect(inscricoes[0]?.status).toBe("PENDENTE");
+    expect((await prisma.pagamento.findUnique({ where: { id: checkout.id } }))?.status).toBe("APROVADO");
+    await expect(iniciarPagamentoIndividual(atleta.id, pago.id, "http://localhost:3000")).rejects.toThrow(
+      "Este pagamento já foi aprovado.",
+    );
   });
 });

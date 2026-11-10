@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { cobraInscricao } from "@/lib/formatacao";
-import { efeitoDoStatus, pontoDeCheckout, validarAssinaturaWebhook } from "@/server/mercadopago";
+import { checkoutCombinaComToken, efeitoDoStatus, pontoDeCheckout, validarAssinaturaWebhook } from "@/server/mercadopago";
 
 describe("Mercado Pago", () => {
   it("cobra só quando o valor é maior que zero", () => {
@@ -41,5 +41,15 @@ describe("Mercado Pago", () => {
     };
     expect(pontoDeCheckout(preferencia, "TEST-token")).toBe(preferencia.sandbox_init_point);
     expect(pontoDeCheckout(preferencia, "APP_USR-token")).toBe(preferencia.init_point);
+  });
+
+  it("descarta o checkout quando o token não combina com o link guardado", () => {
+    const producao = "https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=antiga";
+    const sandbox = "https://sandbox.mercadopago.com.br/checkout/v1/redirect?pref_id=antiga";
+    expect(checkoutCombinaComToken(producao, "TEST-token", "teste")).toBe(false);
+    expect(checkoutCombinaComToken(sandbox, "APP_USR-token", "producao")).toBe(false);
+    expect(checkoutCombinaComToken(producao, "APP_USR-token", "")).toBe(false);
+    expect(checkoutCombinaComToken(sandbox, "TEST-token", "teste")).toBe(true);
+    expect(checkoutCombinaComToken(producao, "APP_USR-token", "producao")).toBe(true);
   });
 });

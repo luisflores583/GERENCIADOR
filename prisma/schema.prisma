@@ -255,6 +255,7 @@ model Pagamento {
   preferenciaId      String?
   pagamentoExternoId String?         @unique
   initPoint          String          @default("")
+  ambiente           String          @default("")
   rascunho           Json
   inscricaoId        String?
   criadoEm           DateTime        @default(now())

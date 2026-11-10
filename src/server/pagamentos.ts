@@ -8,6 +8,8 @@ import { adicionarMembro, cadastrarEquipePorNomes, inscrever } from "@/server/in
 import {
   AVISO_PAGAMENTO_NAO_CONFIGURADO,
   CAMINHO_WEBHOOK,
+  ambienteDoToken,
+  checkoutCombinaComToken,
   clienteMercadoPago,
   efeitoDoStatus,
   pagamentoEstaConfigurado,
@@ -67,6 +69,7 @@ async function abrirCheckout(
   origem: string,
 ) {
   if (!pagamentoEstaConfigurado()) throw new ErroDeRegra(AVISO_PAGAMENTO_NAO_CONFIGURADO);
+  const token = tokenDeAcesso();
   const atleta = await prisma.atleta.findUnique({ where: { usuarioId } });
   if (!atleta) throw new ErroDeRegra("Complete o perfil de atleta para se inscrever.", 403);
 
@@ -97,7 +100,15 @@ async function abrirCheckout(
       where: { torneioId, atletaId: atleta.id, status: "AGUARDANDO" },
       orderBy: { criadoEm: "desc" },
     });
-    if (aberto?.initPoint) return { pagamento: aberto, nome: torneio.nome, valorCentavos: torneio.valorCentavos ?? 0 };
+    if (aberto?.initPoint && checkoutCombinaComToken(aberto.initPoint, token, aberto.ambiente)) {
+      return { pagamento: aberto, nome: torneio.nome, valorCentavos: torneio.valorCentavos ?? 0 };
+    }
+    if (aberto?.initPoint) {
+      await tx.pagamento.update({
+        where: { id: aberto.id },
+        data: { initPoint: "", preferenciaId: null, ambiente: "" },
+      });
+    }
     if (!jaNaLista && torneio.maxAtletas != null) {
       const ocupadas = await tx.inscricao.count({
         where: { torneioId, status: { in: ["PENDENTE", "APROVADA"] } },
@@ -126,9 +137,10 @@ async function abrirCheckout(
     return { pagamento, nome: torneio.nome, valorCentavos: torneio.valorCentavos ?? 0 };
   });
 
-  if (reservado.pagamento.initPoint) return reservado.pagamento;
+  if (reservado.pagamento.initPoint && checkoutCombinaComToken(reservado.pagamento.initPoint, token, reservado.pagamento.ambiente)) {
+    return reservado.pagamento;
+  }
 
-  const token = tokenDeAcesso();
   const base = origem.replace(/\/$/, "");
   const volta = `${base}/atleta/torneios/${torneioId}`;
   const preferencia = await clienteMercadoPago().criarPreferencia(token, {
@@ -153,7 +165,7 @@ async function abrirCheckout(
   const initPoint = pontoDeCheckout(preferencia, token);
   return prisma.pagamento.update({
     where: { id: reservado.pagamento.id },
-    data: { preferenciaId: preferencia.id, initPoint },
+    data: { preferenciaId: preferencia.id, initPoint, ambiente: ambienteDoToken(token) },
   });
 }
 

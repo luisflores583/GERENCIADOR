@@ -9,6 +9,7 @@ import { tamanhoDaEquipe } from "@/engine/sorteio";
 import { cobraInscricao, formatarMoeda } from "@/lib/formatacao";
 import { acaoAdicionarMembro, acaoCadastrarEquipe, acaoInscrever } from "@/server/acoes";
 import { prisma } from "@/server/db";
+import { checkoutCombinaComToken, tokenDeAcesso } from "@/server/mercadopago";
 import { AVISO_PAGAMENTO_NAO_CONFIGURADO, pagamentoDaInscricao, pagamentoEstaConfigurado } from "@/server/pagamentos";
 import { exigirAtleta } from "@/server/sessao";
 
@@ -66,6 +67,10 @@ export default async function TorneioDoAtleta({
   const pagamentoAprovado = pagamento?.status === "APROVADO";
   const lancadaPelaOrganizacao = inscricao?.status === "APROVADA" && !pagamentoAprovado && pagamento?.status == null;
   const faltaPagamento = cobrada && !pagamentoAprovado && !lancadaPelaOrganizacao;
+  const continuar =
+    pagamento?.status === "AGUARDANDO" && checkoutCombinaComToken(pagamento.initPoint, tokenDeAcesso(), pagamento.ambiente)
+      ? pagamento.initPoint
+      : "";
 
   return (
     <div className="space-y-6">
@@ -83,7 +88,7 @@ export default async function TorneioDoAtleta({
           valorCentavos={torneio.valorCentavos}
           configurado={configurado}
           status={pagamento?.status ?? null}
-          continuar={pagamento?.status === "AGUARDANDO" ? pagamento.initPoint : ""}
+          continuar={continuar}
           retorno={busca.retorno}
           jaNaLista={naLista}
         />

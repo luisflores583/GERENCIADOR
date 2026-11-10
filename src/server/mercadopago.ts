@@ -38,9 +38,21 @@ export function pagamentoEstaConfigurado(): boolean {
   return tokenDeAcesso().length > 0;
 }
 
+export function ambienteDoToken(token: string): "teste" | "producao" {
+  return token.startsWith("TEST-") ? "teste" : "producao";
+}
+
 export function pontoDeCheckout(preferencia: PreferenciaCriada, token: string): string {
   if (token.startsWith("TEST-") && preferencia.sandbox_init_point) return preferencia.sandbox_init_point;
   return preferencia.init_point;
+}
+
+export function checkoutCombinaComToken(initPoint: string, token: string, ambiente = ""): boolean {
+  if (!initPoint || !token) return false;
+  const teste = token.startsWith("TEST-");
+  const urlDeTeste = initPoint.includes("sandbox.mercadopago.");
+  if (teste !== urlDeTeste) return false;
+  return ambiente === (teste ? "teste" : "producao");
 }
 
 export function efeitoDoStatus(

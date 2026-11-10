@@ -24,6 +24,7 @@ describe.skipIf(!rodar)("pagamento simulado do Mercado Pago", () => {
   const prefixo = `pag${Date.now().toString(36)}`;
   const criados = { usuarios: [] as string[], torneios: [] as string[] };
   const remotos = new Map<string, { status: string; external_reference: string }>();
+  let criacoes = 0;
   let prisma: Awaited<typeof import("@/server/db")>["prisma"];
   const tokenAnterior = process.env.MERCADO_PAGO_ACCESS_TOKEN;
 
@@ -33,13 +34,14 @@ describe.skipIf(!rodar)("pagamento simulado do Mercado Pago", () => {
     const { usarClienteMercadoPago } = await import("@/server/mercadopago");
     usarClienteMercadoPago({
       async criarPreferencia(_token, corpo) {
+        criacoes += 1;
         const referencia = String(corpo.external_reference);
         const id = `pay-${referencia}`;
         remotos.set(id, { status: "pending", external_reference: referencia });
         return {
-          id: `pref-${referencia}`,
-          init_point: `https://www.mercadopago.com.br/checkout/${referencia}`,
-          sandbox_init_point: `https://sandbox.mercadopago.com.br/checkout/${referencia}`,
+          id: `pref-${referencia}-${criacoes}`,
+          init_point: `https://www.mercadopago.com.br/checkout/${referencia}-${criacoes}`,
+          sandbox_init_point: `https://sandbox.mercadopago.com.br/checkout/${referencia}-${criacoes}`,
         };
       },
       async buscarPagamento(_token, id) {
@@ -189,5 +191,35 @@ describe.skipIf(!rodar)("pagamento simulado do Mercado Pago", () => {
     await expect(iniciarPagamentoIndividual(atleta.id, pago.id, "http://localhost:3000")).rejects.toThrow(
       "Este pagamento já foi aprovado.",
     );
+  });
+
+  it("troca a preferência de teste por uma de produção e reaproveita a nova", async () => {
+    const { iniciarPagamentoIndividual } = await import("@/server/pagamentos");
+    const admin = await usuario(`${prefixo}-admin4@arena.local`, "ADMIN", "Admin Quatro");
+    const atleta = await usuario(`${prefixo}-troca@arena.local`, "ATLETA", "Atleta Troca");
+    const pago = await torneio(admin.id, `${prefixo} troca`, "10,00");
+    process.env.MERCADO_PAGO_ACCESS_TOKEN = "TEST-antigo";
+    const antigo = await iniciarPagamentoIndividual(atleta.id, pago.id, "http://localhost:3000");
+    expect(antigo.initPoint).toContain("sandbox.mercadopago.com.br");
+    await prisma.pagamento.update({
+      where: { id: antigo.id },
+      data: {
+        initPoint: "https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=antiga",
+        preferenciaId: "pref-teste-antiga",
+        ambiente: "",
+      },
+    });
+    process.env.MERCADO_PAGO_ACCESS_TOKEN = "APP_USR-producao";
+    const antes = criacoes;
+    const novo = await iniciarPagamentoIndividual(atleta.id, pago.id, "http://localhost:3000");
+    expect(novo.id).toBe(antigo.id);
+    expect(novo.initPoint).toContain("www.mercadopago.com.br/checkout/");
+    expect(novo.initPoint).not.toContain("pref_id=antiga");
+    expect(novo.ambiente).toBe("producao");
+    expect(criacoes).toBe(antes + 1);
+    expect(await prisma.pagamento.count({ where: { torneioId: pago.id } })).toBe(1);
+    const deNovo = await iniciarPagamentoIndividual(atleta.id, pago.id, "http://localhost:3000");
+    expect(deNovo.initPoint).toBe(novo.initPoint);
+    expect(criacoes).toBe(antes + 1);
   });
 });

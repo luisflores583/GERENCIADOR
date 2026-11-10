@@ -1,0 +1,1 @@
+ALTER TABLE "Pagamento" ADD COLUMN "ambiente" TEXT NOT NULL DEFAULT '';

@@ -1,0 +1,14 @@
+node_modules
+.next
+dist
+out
+coverage
+.env
+.env.local
+.env.*.local
+*.log
+public/uploads/*
+!public/uploads/.gitkeep
+prisma/*.db
+.DS_Store
+tsconfig.tsbuildinfo

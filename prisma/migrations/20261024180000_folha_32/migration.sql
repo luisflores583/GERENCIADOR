@@ -1,0 +1,1 @@
+ALTER TYPE "ModeloChave" ADD VALUE 'FOLHA_32';

@@ -73,7 +73,7 @@ function pares(codigos: string[], coluna: number, span: number): CelulaDaFolha[]
 }
 
 const GRADE_16: GradeDaFolha = {
-  colunas: "12rem 11.5rem 11.5rem 11.5rem 11.5rem 11.5rem 12.5rem 12rem",
+  colunas: "9.25rem 8.5rem 8.5rem 8.5rem 8.5rem 8.5rem 9.5rem 9.25rem",
   linhas: 8,
   titulos: [null, null, null, "Perdedores", null, "Vencedores", null, null],
   celulas: [
@@ -95,7 +95,7 @@ const GRADE_16: GradeDaFolha = {
 };
 
 const GRADE_32: GradeDaFolha = {
-  colunas: "12rem 11.5rem 11.5rem 11.5rem 11.5rem 11.5rem 11.5rem 11.5rem 11.5rem 12.5rem 12rem",
+  colunas: "9.25rem 8.5rem 8.5rem 8.5rem 8.5rem 8.5rem 8.5rem 8.5rem 8.5rem 9.5rem 9.25rem",
   linhas: 16,
   titulos: [null, null, null, null, null, "Perdedores", null, "Vencedores", null, null, null],
   celulas: [
@@ -128,15 +128,15 @@ function Caixa({ celula, partida }: { celula: CelulaDaFolha; partida?: JogoDaFol
   const ladoB = textoDoLado(partida?.equipeB?.nome, status);
   return (
     <article
-      className={`flex h-full min-h-0 flex-col justify-center rounded-md border-2 bg-white px-2 py-1 ${celula.abertura ? "border-coral" : "border-navy"}`}
+      className={`w-full rounded-md border bg-white px-1.5 py-1 shadow-sm ${celula.abertura ? "border-coral" : "border-navy/30"}`}
       data-jogo={celula.codigo}
     >
-      <p className="text-[11px] font-bold leading-tight text-ocean">
+      <p className="truncate text-[10px] font-bold leading-none text-ocean">
         {celula.codigo}
-        {celula.rotulo ? <span className="ml-1 font-semibold text-navy/70">{celula.rotulo}</span> : null}
+        {celula.rotulo ? <span className="ml-1 font-semibold text-navy/60">{celula.rotulo}</span> : null}
       </p>
-      <p className="truncate text-xs font-semibold leading-tight text-navy">{ladoA}</p>
-      <p className="truncate text-xs font-semibold leading-tight text-navy">{ladoB}</p>
+      <p className="mt-0.5 truncate text-[11px] font-semibold leading-tight text-navy">{ladoA}</p>
+      <p className="truncate text-[11px] font-semibold leading-tight text-navy/80">{ladoB}</p>
     </article>
   );
 }
@@ -232,31 +232,32 @@ export function FolhaVisual({ partidas, modelo }: { partidas: JogoDaFolha[]; mod
   }, [modelo, assinatura]);
 
   return (
-    <div className="overflow-x-auto pb-2" data-chave="folha">
+    <div className="overflow-x-auto rounded-2xl border border-navy/10 bg-foam/80 p-3" data-chave="folha">
       <div className="min-w-max">
-        <div className="mb-1 grid items-end gap-x-2 text-xs font-bold uppercase tracking-wide" style={{ gridTemplateColumns: grade.colunas }}>
+        <div className="mb-2 grid items-end gap-x-8 px-6 text-[11px] font-bold uppercase tracking-wide" style={{ gridTemplateColumns: grade.colunas }}>
           {grade.titulos.map((titulo, indice) => (
             <p key={indice} className={titulo === "Vencedores" ? "text-center text-coral" : "text-center text-navy"}>
               {titulo ?? ""}
             </p>
           ))}
         </div>
-        <div className="relative px-6 py-20" ref={area}>
+        <div className="relative px-6 py-16" ref={area}>
           <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" data-ligacoes={tracados.length} aria-hidden="true">
             {tracados.map((traco) => (
-              <path key={traco.id} d={traco.d} stroke={traco.cor} strokeWidth="2.5" fill="none" strokeLinejoin="round" strokeLinecap="round" />
+              <path key={traco.id} d={traco.d} stroke={traco.cor} strokeWidth="2.25" fill="none" strokeLinejoin="round" strokeLinecap="round" />
             ))}
           </svg>
           <div
-            className="relative grid gap-x-2 gap-y-1"
+            className="relative grid items-center gap-x-8 gap-y-2"
             style={{
               gridTemplateColumns: grade.colunas,
-              gridTemplateRows: `repeat(${grade.linhas}, 4.25rem)`,
+              gridTemplateRows: `repeat(${grade.linhas}, 3rem)`,
             }}
           >
             {grade.celulas.map((celula) => (
               <div
                 key={celula.codigo}
+                className="flex h-full items-center"
                 style={{
                   gridColumn: celula.coluna,
                   gridRow: `${celula.linha} / span ${celula.span}`,

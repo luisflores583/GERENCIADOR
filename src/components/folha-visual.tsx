@@ -1,4 +1,33 @@
+"use client";
+
+import { useLayoutEffect, useRef, useState } from "react";
+import { construirFolha16 } from "@/engine/folha-16";
+import { construirFolha32 } from "@/engine/folha-32";
 import { textoDoLado } from "@/lib/confronto";
+
+export type LigacaoDaFolha = {
+  de: string;
+  para: string;
+  lado: "A" | "B";
+  tipo: "VENCEDOR" | "PERDEDOR";
+};
+
+export function ligacoesDaFolha(modelo: "FOLHA_16" | "FOLHA_32"): LigacaoDaFolha[] {
+  const partidas = modelo === "FOLHA_32" ? construirFolha32() : construirFolha16();
+  const ligacoes: LigacaoDaFolha[] = [];
+  for (const partida of partidas) {
+    const lados = [
+      ["A", partida.origemA],
+      ["B", partida.origemB],
+    ] as const;
+    for (const [lado, origem] of lados) {
+      if (origem.tipo === "VENCEDOR" || origem.tipo === "PERDEDOR") {
+        ligacoes.push({ de: origem.partidaId, para: partida.id, lado, tipo: origem.tipo });
+      }
+    }
+  }
+  return ligacoes;
+}
 
 export type JogoDaFolha = {
   id: string;
@@ -112,9 +141,96 @@ function Caixa({ celula, partida }: { celula: CelulaDaFolha; partida?: JogoDaFol
   );
 }
 
+type CaixaMedida = { left: number; right: number; top: number; bottom: number; width: number; height: number };
+type Traco = { id: string; d: string; cor: string };
+
+function tracoDaLigacao(
+  origem: CaixaMedida,
+  destino: CaixaMedida,
+  lado: "A" | "B",
+  colunaOrigem: number,
+  colunaDestino: number,
+  tipo: "VENCEDOR" | "PERDEDOR",
+  altura: number,
+  ordem: number,
+): { d: string; cor: string } {
+  const yOrigem = origem.top + origem.height / 2;
+  const yDestino = destino.top + (lado === "A" ? destino.height * 0.32 : destino.height * 0.68);
+  const indoParaDireita = colunaDestino > colunaOrigem;
+  const xOrigem = indoParaDireita || colunaDestino === colunaOrigem ? origem.right : origem.left;
+  const xDestino = indoParaDireita ? destino.left : colunaDestino === colunaOrigem ? destino.right : destino.right;
+  const cor = indoParaDireita || (colunaDestino === colunaOrigem && tipo === "VENCEDOR") ? "#e36a3a" : "#0e2a47";
+  const salto = Math.abs(colunaDestino - colunaOrigem);
+
+  if (salto === 0) {
+    const xFora = Math.max(origem.right, destino.right) + 12;
+    return { cor, d: `M ${xOrigem} ${yOrigem} H ${xFora} V ${yDestino} H ${destino.right}` };
+  }
+
+  if (salto === 1) {
+    const xTrilho = indoParaDireita ? xDestino - 6 : xDestino + 6;
+    return { cor, d: `M ${xOrigem} ${yOrigem} H ${xTrilho} V ${yDestino} H ${xDestino}` };
+  }
+
+  const meio = (origem.top + destino.top) / 2;
+  const noTopo = meio < altura / 2;
+  const deslocamento = (ordem % 12) * 4;
+  const yCanal = noTopo ? 8 + deslocamento : altura - 8 - deslocamento;
+  const xSaida = indoParaDireita ? origem.right + 6 : origem.left - 6;
+  const xChegada = indoParaDireita ? destino.left - 6 : destino.right + 6;
+  return {
+    cor,
+    d: `M ${xOrigem} ${yOrigem} H ${xSaida} V ${yCanal} H ${xChegada} V ${yDestino} H ${xDestino}`,
+  };
+}
+
 export function FolhaVisual({ partidas, modelo }: { partidas: JogoDaFolha[]; modelo: "FOLHA_16" | "FOLHA_32" }) {
   const grade = gradeDaFolha(modelo);
   const porCodigo = new Map(partidas.map((partida) => [partida.codigo, partida]));
+  const area = useRef<HTMLDivElement>(null);
+  const [tracados, setTracados] = useState<Traco[]>([]);
+  const assinatura = partidas.map((partida) => `${partida.codigo}:${partida.status}:${partida.equipeA?.nome ?? ""}:${partida.equipeB?.nome ?? ""}`).join("|");
+
+  useLayoutEffect(() => {
+    const colunaDe = new Map(gradeDaFolha(modelo).celulas.map((celula) => [celula.codigo, celula.coluna]));
+    const medir = () => {
+      const quadro = area.current;
+      if (!quadro) return;
+      const limite = quadro.getBoundingClientRect();
+      const caixas = new Map<string, CaixaMedida>();
+      quadro.querySelectorAll<HTMLElement>("[data-jogo]").forEach((elemento) => {
+        const codigo = elemento.dataset.jogo;
+        if (!codigo) return;
+        const retangulo = elemento.getBoundingClientRect();
+        caixas.set(codigo, {
+          left: retangulo.left - limite.left,
+          right: retangulo.right - limite.left,
+          top: retangulo.top - limite.top,
+          bottom: retangulo.bottom - limite.top,
+          width: retangulo.width,
+          height: retangulo.height,
+        });
+      });
+      let sequencia = 0;
+      const proximos = ligacoesDaFolha(modelo).flatMap((ligacao) => {
+        const origem = caixas.get(ligacao.de);
+        const destino = caixas.get(ligacao.para);
+        const colunaOrigem = colunaDe.get(ligacao.de);
+        const colunaDestino = colunaDe.get(ligacao.para);
+        if (!origem || !destino || colunaOrigem == null || colunaDestino == null) return [];
+        const ordem = Math.abs(colunaDestino - colunaOrigem) > 1 ? sequencia++ : 0;
+        const traco = tracoDaLigacao(origem, destino, ligacao.lado, colunaOrigem, colunaDestino, ligacao.tipo, limite.height, ordem);
+        return [{ id: `${ligacao.tipo}-${ligacao.de}-${ligacao.para}-${ligacao.lado}`, ...traco }];
+      });
+      setTracados(proximos);
+    };
+
+    medir();
+    const observador = new ResizeObserver(medir);
+    if (area.current) observador.observe(area.current);
+    return () => observador.disconnect();
+  }, [modelo, assinatura]);
+
   return (
     <div className="overflow-x-auto pb-2" data-chave="folha">
       <div className="min-w-max">
@@ -125,24 +241,31 @@ export function FolhaVisual({ partidas, modelo }: { partidas: JogoDaFolha[]; mod
             </p>
           ))}
         </div>
-        <div
-          className="grid gap-x-2 gap-y-1"
-          style={{
-            gridTemplateColumns: grade.colunas,
-            gridTemplateRows: `repeat(${grade.linhas}, 4.25rem)`,
-          }}
-        >
-          {grade.celulas.map((celula) => (
-            <div
-              key={celula.codigo}
-              style={{
-                gridColumn: celula.coluna,
-                gridRow: `${celula.linha} / span ${celula.span}`,
-              }}
-            >
-              <Caixa celula={celula} partida={porCodigo.get(celula.codigo)} />
-            </div>
-          ))}
+        <div className="relative px-6 py-20" ref={area}>
+          <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" data-ligacoes={tracados.length} aria-hidden="true">
+            {tracados.map((traco) => (
+              <path key={traco.id} d={traco.d} stroke={traco.cor} strokeWidth="2.5" fill="none" strokeLinejoin="round" strokeLinecap="round" />
+            ))}
+          </svg>
+          <div
+            className="relative grid gap-x-2 gap-y-1"
+            style={{
+              gridTemplateColumns: grade.colunas,
+              gridTemplateRows: `repeat(${grade.linhas}, 4.25rem)`,
+            }}
+          >
+            {grade.celulas.map((celula) => (
+              <div
+                key={celula.codigo}
+                style={{
+                  gridColumn: celula.coluna,
+                  gridRow: `${celula.linha} / span ${celula.span}`,
+                }}
+              >
+                <Caixa celula={celula} partida={porCodigo.get(celula.codigo)} />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

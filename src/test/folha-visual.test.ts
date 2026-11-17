@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { gradeDaFolha } from "@/components/folha-visual";
+import { construirFolha16 } from "@/engine/folha-16";
+import { construirFolha32 } from "@/engine/folha-32";
+import { gradeDaFolha, ligacoesDaFolha } from "@/components/folha-visual";
 
 function codigosEsperados(quantidade: number) {
   return Array.from({ length: quantidade }, (_, indice) => String(indice + 1));
@@ -27,7 +29,46 @@ describe("chave visual da folha", () => {
     expect(grade.celulas.find((celula) => celula.codigo === "58")?.rotulo).toBe("Semifinalista D");
     conferirGrade(grade.celulas, grade.linhas, grade.titulos.length);
   });
+
+  it("desenha só as ligações já escritas, dos dois lados, até as finais", () => {
+    conferirLigacoes("FOLHA_16", construirFolha16());
+    conferirLigacoes("FOLHA_32", construirFolha32());
+
+    const dezesseis = ligacoesDaFolha("FOLHA_16");
+    expect(dezesseis.filter((ligacao) => ligacao.para === "9").map(rotulo).sort()).toEqual(["VENCEDOR 1", "VENCEDOR 2"]);
+    expect(dezesseis.filter((ligacao) => ligacao.para === "10").map(rotulo).sort()).toEqual(["PERDEDOR 1", "PERDEDOR 2"]);
+    expect(dezesseis.filter((ligacao) => ligacao.para === "29").map(rotulo).sort()).toEqual(["PERDEDOR 27", "PERDEDOR 28"]);
+    expect(dezesseis.filter((ligacao) => ligacao.para === "30").map(rotulo).sort()).toEqual(["VENCEDOR 27", "VENCEDOR 28"]);
+
+    const trintaEDois = ligacoesDaFolha("FOLHA_32");
+    expect(trintaEDois.filter((ligacao) => ligacao.para === "41").map(rotulo).sort()).toEqual(["PERDEDOR 28", "VENCEDOR 25"]);
+    expect(trintaEDois.filter((ligacao) => ligacao.para === "59").map(rotulo).sort()).toEqual(["VENCEDOR 44", "VENCEDOR 57"]);
+    expect(trintaEDois.filter((ligacao) => ligacao.para === "60").map(rotulo).sort()).toEqual(["VENCEDOR 42", "VENCEDOR 58"]);
+    expect(trintaEDois.some((ligacao) => ligacao.de === "41" && ligacao.tipo === "PERDEDOR")).toBe(false);
+  });
 });
+
+function rotulo(ligacao: { tipo: string; de: string }) {
+  return `${ligacao.tipo} ${ligacao.de}`;
+}
+
+function conferirLigacoes(modelo: "FOLHA_16" | "FOLHA_32", partidas: ReturnType<typeof construirFolha16>) {
+  const esperadas: string[] = [];
+  for (const partida of partidas) {
+    const lados = [
+      ["A", partida.origemA],
+      ["B", partida.origemB],
+    ] as const;
+    for (const [lado, origem] of lados) {
+      if (origem.tipo === "VENCEDOR" || origem.tipo === "PERDEDOR") {
+        esperadas.push(`${origem.tipo}:${origem.partidaId}->${partida.id}:${lado}`);
+      }
+    }
+  }
+  const desenhadas = ligacoesDaFolha(modelo).map((ligacao) => `${ligacao.tipo}:${ligacao.de}->${ligacao.para}:${ligacao.lado}`);
+  expect(desenhadas.sort()).toEqual(esperadas.sort());
+  expect(new Set(desenhadas).size).toBe(esperadas.length);
+}
 
 function conferirGrade(
   celulas: Array<{ codigo: string; coluna: number; linha: number; span: number }>,

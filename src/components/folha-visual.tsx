@@ -163,19 +163,19 @@ function tracoDaLigacao(
   const salto = Math.abs(colunaDestino - colunaOrigem);
 
   if (salto === 0) {
-    const xFora = Math.max(origem.right, destino.right) + 12;
+    const xFora = Math.max(origem.right, destino.right) + 22;
     return { cor, d: `M ${xOrigem} ${yOrigem} H ${xFora} V ${yDestino} H ${destino.right}` };
   }
 
   if (salto === 1) {
-    const xTrilho = indoParaDireita ? xDestino - 6 : xDestino + 6;
+    const xTrilho = (xOrigem + xDestino) / 2;
     return { cor, d: `M ${xOrigem} ${yOrigem} H ${xTrilho} V ${yDestino} H ${xDestino}` };
   }
 
   const meio = (origem.top + destino.top) / 2;
   const noTopo = meio < altura / 2;
-  const deslocamento = (ordem % 12) * 4;
-  const yCanal = noTopo ? 8 + deslocamento : altura - 8 - deslocamento;
+  const deslocamento = (ordem % 14) * 8;
+  const yCanal = noTopo ? 14 + deslocamento : altura - 14 - deslocamento;
   const xSaida = indoParaDireita ? origem.right + 6 : origem.left - 6;
   const xChegada = indoParaDireita ? destino.left - 6 : destino.right + 6;
   return {
@@ -234,21 +234,24 @@ export function FolhaVisual({ partidas, modelo }: { partidas: JogoDaFolha[]; mod
   return (
     <div className="overflow-x-auto rounded-2xl border border-navy/10 bg-foam/80 p-3" data-chave="folha">
       <div className="min-w-max">
-        <div className="mb-2 grid items-end gap-x-8 px-6 text-[11px] font-bold uppercase tracking-wide" style={{ gridTemplateColumns: grade.colunas }}>
+        <div className="mb-2 grid items-end gap-x-10 px-8 text-[11px] font-bold uppercase tracking-wide" style={{ gridTemplateColumns: grade.colunas }}>
           {grade.titulos.map((titulo, indice) => (
             <p key={indice} className={titulo === "Vencedores" ? "text-center text-coral" : "text-center text-navy"}>
               {titulo ?? ""}
             </p>
           ))}
         </div>
-        <div className="relative px-6 py-16" ref={area}>
+        <div className="relative px-8 py-32" ref={area}>
           <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" data-ligacoes={tracados.length} aria-hidden="true">
             {tracados.map((traco) => (
-              <path key={traco.id} d={traco.d} stroke={traco.cor} strokeWidth="2.25" fill="none" strokeLinejoin="round" strokeLinecap="round" />
+              <path key={`${traco.id}-base`} d={traco.d} stroke="#fbf7f1" strokeWidth="11" fill="none" strokeLinejoin="round" strokeLinecap="round" />
+            ))}
+            {tracados.map((traco) => (
+              <path key={traco.id} d={traco.d} stroke={traco.cor} strokeWidth="5" fill="none" strokeLinejoin="round" strokeLinecap="round" />
             ))}
           </svg>
           <div
-            className="relative grid items-center gap-x-8 gap-y-2"
+            className="relative grid items-center gap-x-10 gap-y-2"
             style={{
               gridTemplateColumns: grade.colunas,
               gridTemplateRows: `repeat(${grade.linhas}, 3rem)`,

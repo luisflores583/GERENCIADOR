@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { construirFolha16 } from "@/engine/folha-16";
 import { construirFolha32 } from "@/engine/folha-32";
-import { gradeDaFolha, ligacoesDaFolha } from "@/components/folha-visual";
+import { gradeDaFolha, ligacoesDaFolha, tracadosDasLigacoes } from "@/components/folha-visual";
 
 function codigosEsperados(quantidade: number) {
   return Array.from({ length: quantidade }, (_, indice) => String(indice + 1));
@@ -46,7 +46,99 @@ describe("chave visual da folha", () => {
     expect(trintaEDois.filter((ligacao) => ligacao.para === "60").map(rotulo).sort()).toEqual(["VENCEDOR 42", "VENCEDOR 58"]);
     expect(trintaEDois.some((ligacao) => ligacao.de === "41" && ligacao.tipo === "PERDEDOR")).toBe(false);
   });
+
+  it("separa os traços para um caminho não ficar em cima do outro", () => {
+    conferirTracadosSeparados("FOLHA_16");
+    conferirTracadosSeparados("FOLHA_32");
+  });
 });
+
+function conferirTracadosSeparados(modelo: "FOLHA_16" | "FOLHA_32") {
+  const { caixas, altura } = caixasSinteticas(modelo);
+  const tracados = tracadosDasLigacoes(modelo, caixas, altura);
+  expect(tracados).toHaveLength(ligacoesDaFolha(modelo).length);
+  const segmentos = tracados.flatMap((traco) => segmentosDoTraco(traco.d));
+  for (let indice = 0; indice < segmentos.length; indice += 1) {
+    for (let outro = indice + 1; outro < segmentos.length; outro += 1) {
+      expect(sobrepoem(segmentos[indice], segmentos[outro]), `${modelo} ${indice} ${outro}`).toBe(false);
+    }
+    for (const caixa of caixas.values()) {
+      expect(atravessaCaixa(segmentos[indice], caixa), modelo).toBe(false);
+    }
+  }
+}
+
+function caixasSinteticas(modelo: "FOLHA_16" | "FOLHA_32") {
+  const grade = gradeDaFolha(modelo);
+  const larguras = grade.colunas.split(" ").map((valor) => Number.parseFloat(valor) * 16);
+  const intervaloX = 8.5 * 16;
+  const alturaLinha = 3 * 16;
+  const intervaloY = 8;
+  const recuoX = 6 * 16;
+  const recuoY = 11 * 16;
+  const alturaCaixa = 50;
+  const caixas = new Map<string, { left: number; right: number; top: number; bottom: number; width: number; height: number }>();
+  for (const celula of grade.celulas) {
+    let left = recuoX;
+    for (let coluna = 0; coluna < celula.coluna - 1; coluna += 1) left += larguras[coluna] + intervaloX;
+    const width = larguras[celula.coluna - 1];
+    const topoDaCelula = recuoY + (celula.linha - 1) * (alturaLinha + intervaloY);
+    const alturaDaCelula = celula.span * alturaLinha + (celula.span - 1) * intervaloY;
+    const top = topoDaCelula + (alturaDaCelula - alturaCaixa) / 2;
+    caixas.set(celula.codigo, { left, right: left + width, top, bottom: top + alturaCaixa, width, height: alturaCaixa });
+  }
+  const altura = recuoY + grade.linhas * alturaLinha + (grade.linhas - 1) * intervaloY + recuoY;
+  return { caixas, altura };
+}
+
+function segmentosDoTraco(d: string) {
+  const partes = d.trim().split(/\s+/);
+  let x = 0;
+  let y = 0;
+  const segmentos: Array<{ direcao: "H" | "V"; a: number; b: number; fixo: number }> = [];
+  for (let indice = 0; indice < partes.length; indice += 1) {
+    if (partes[indice] === "M") {
+      x = Number(partes[indice + 1]);
+      y = Number(partes[indice + 2]);
+      indice += 2;
+    } else if (partes[indice] === "H") {
+      const proximo = Number(partes[indice + 1]);
+      segmentos.push({ direcao: "H", a: x, b: proximo, fixo: y });
+      x = proximo;
+      indice += 1;
+    } else if (partes[indice] === "V") {
+      const proximo = Number(partes[indice + 1]);
+      segmentos.push({ direcao: "V", a: y, b: proximo, fixo: x });
+      y = proximo;
+      indice += 1;
+    }
+  }
+  return segmentos;
+}
+
+function sobrepoem(
+  um: { direcao: "H" | "V"; a: number; b: number; fixo: number },
+  outro: { direcao: "H" | "V"; a: number; b: number; fixo: number },
+) {
+  if (um.direcao !== outro.direcao || Math.abs(um.fixo - outro.fixo) >= 6) return false;
+  const inicio = Math.max(Math.min(um.a, um.b), Math.min(outro.a, outro.b));
+  const fim = Math.min(Math.max(um.a, um.b), Math.max(outro.a, outro.b));
+  return fim - inicio > 3;
+}
+
+function atravessaCaixa(
+  segmento: { direcao: "H" | "V"; a: number; b: number; fixo: number },
+  caixa: { left: number; right: number; top: number; bottom: number },
+) {
+  if (segmento.direcao === "H") {
+    const inicio = Math.max(Math.min(segmento.a, segmento.b), caixa.left + 2);
+    const fim = Math.min(Math.max(segmento.a, segmento.b), caixa.right - 2);
+    return fim - inicio > 1 && segmento.fixo > caixa.top + 2 && segmento.fixo < caixa.bottom - 2;
+  }
+  const inicio = Math.max(Math.min(segmento.a, segmento.b), caixa.top + 2);
+  const fim = Math.min(Math.max(segmento.a, segmento.b), caixa.bottom - 2);
+  return fim - inicio > 1 && segmento.fixo > caixa.left + 2 && segmento.fixo < caixa.right - 2;
+}
 
 function rotulo(ligacao: { tipo: string; de: string }) {
   return `${ligacao.tipo} ${ligacao.de}`;

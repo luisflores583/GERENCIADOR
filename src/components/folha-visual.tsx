@@ -144,44 +144,213 @@ function Caixa({ celula, partida }: { celula: CelulaDaFolha; partida?: JogoDaFol
 type CaixaMedida = { left: number; right: number; top: number; bottom: number; width: number; height: number };
 type Traco = { id: string; d: string; cor: string };
 
-function tracoDaLigacao(
-  origem: CaixaMedida,
-  destino: CaixaMedida,
-  lado: "A" | "B",
-  colunaOrigem: number,
-  colunaDestino: number,
-  tipo: "VENCEDOR" | "PERDEDOR",
-  altura: number,
-  ordem: number,
-): { d: string; cor: string } {
-  const yOrigem = origem.top + origem.height / 2;
-  const yDestino = destino.top + (lado === "A" ? destino.height * 0.32 : destino.height * 0.68);
-  const indoParaDireita = colunaDestino > colunaOrigem;
-  const xOrigem = indoParaDireita || colunaDestino === colunaOrigem ? origem.right : origem.left;
-  const xDestino = indoParaDireita ? destino.left : colunaDestino === colunaOrigem ? destino.right : destino.right;
-  const cor = indoParaDireita || (colunaDestino === colunaOrigem && tipo === "VENCEDOR") ? "#e36a3a" : "#0e2a47";
-  const salto = Math.abs(colunaDestino - colunaOrigem);
+type ItemDoTraco = {
+  id: string;
+  cor: string;
+  origem: CaixaMedida;
+  destino: CaixaMedida;
+  colunaOrigem: number;
+  colunaDestino: number;
+  lado: "A" | "B";
+  tipo: "VENCEDOR" | "PERDEDOR";
+  yOrigem: number;
+  yDestino: number;
+  xOrigem: number;
+  xDestino: number;
+  salto: number;
+  indoParaDireita: boolean;
+  xSaida: number;
+  xChegada: number;
+  yCanal: number;
+};
 
-  if (salto === 0) {
-    const xFora = Math.max(origem.right, destino.right) + 22;
-    return { cor, d: `M ${xOrigem} ${yOrigem} H ${xFora} V ${yDestino} H ${destino.right}` };
+function corDoTraco(indoParaDireita: boolean, mesmaColuna: boolean, tipo: "VENCEDOR" | "PERDEDOR") {
+  return indoParaDireita || (mesmaColuna && tipo === "VENCEDOR") ? "#e36a3a" : "#0e2a47";
+}
+
+function itensDosTracos(
+  modelo: "FOLHA_16" | "FOLHA_32",
+  caixas: Map<string, CaixaMedida>,
+  colunaDe: Map<string, number>,
+): ItemDoTraco[] {
+  return ligacoesDaFolha(modelo).flatMap((ligacao) => {
+    const origem = caixas.get(ligacao.de);
+    const destino = caixas.get(ligacao.para);
+    const colunaOrigem = colunaDe.get(ligacao.de);
+    const colunaDestino = colunaDe.get(ligacao.para);
+    if (!origem || !destino || colunaOrigem == null || colunaDestino == null) return [];
+    const indoParaDireita = colunaDestino > colunaOrigem;
+    const mesmaColuna = colunaDestino === colunaOrigem;
+    const salto = Math.abs(colunaDestino - colunaOrigem);
+    const yOrigem = origem.top + origem.height * (salto === 1 ? 0.5 : ligacao.tipo === "VENCEDOR" ? 0.18 : 0.84);
+    const yDestino = destino.top + destino.height * (ligacao.lado === "A" ? 0.32 : 0.7);
+    const xOrigem = indoParaDireita || mesmaColuna ? origem.right : origem.left;
+    const xDestino = indoParaDireita ? destino.left : destino.right;
+    return [{
+      id: `${ligacao.tipo}-${ligacao.de}-${ligacao.para}-${ligacao.lado}`,
+      cor: corDoTraco(indoParaDireita, mesmaColuna, ligacao.tipo),
+      origem,
+      destino,
+      colunaOrigem,
+      colunaDestino,
+      lado: ligacao.lado,
+      tipo: ligacao.tipo,
+      yOrigem,
+      yDestino,
+      xOrigem,
+      xDestino,
+      salto,
+      indoParaDireita,
+      xSaida: xOrigem,
+      xChegada: xDestino,
+      yCanal: yOrigem,
+    }];
+  });
+}
+
+function bordasDasColunas(itens: ItemDoTraco[]) {
+  const esquerda = new Map<number, number>();
+  const direita = new Map<number, number>();
+  for (const item of itens) {
+    for (const [coluna, caixa] of [[item.colunaOrigem, item.origem], [item.colunaDestino, item.destino]] as const) {
+      esquerda.set(coluna, Math.min(esquerda.get(coluna) ?? caixa.left, caixa.left));
+      direita.set(coluna, Math.max(direita.get(coluna) ?? caixa.right, caixa.right));
+    }
   }
+  return { esquerda, direita };
+}
 
-  if (salto === 1) {
-    const xTrilho = (xOrigem + xDestino) / 2;
-    return { cor, d: `M ${xOrigem} ${yOrigem} H ${xTrilho} V ${yDestino} H ${xDestino}` };
+function separarTrilhosLongos(itens: ItemDoTraco[], altura: number) {
+  const longos = itens.filter((item) => item.salto > 1);
+  const menorTop = Math.min(...itens.map((item) => Math.min(item.origem.top, item.destino.top)));
+  const maiorBase = Math.max(...itens.map((item) => Math.max(item.origem.bottom, item.destino.bottom)));
+  const topo: ItemDoTraco[] = [];
+  const base: ItemDoTraco[] = [];
+  const flexiveis: ItemDoTraco[] = [];
+  for (const item of longos) {
+    const meio = (item.yOrigem + item.yDestino) / 2;
+    const relativo = (meio - menorTop) / Math.max(maiorBase - menorTop, 1);
+    if (relativo < 0.38) topo.push(item);
+    else if (relativo > 0.62) base.push(item);
+    else flexiveis.push(item);
   }
-
-  const meio = (origem.top + destino.top) / 2;
-  const noTopo = meio < altura / 2;
-  const deslocamento = (ordem % 14) * 8;
-  const yCanal = noTopo ? 14 + deslocamento : altura - 14 - deslocamento;
-  const xSaida = indoParaDireita ? origem.right + 6 : origem.left - 6;
-  const xChegada = indoParaDireita ? destino.left - 6 : destino.right + 6;
-  return {
-    cor,
-    d: `M ${xOrigem} ${yOrigem} H ${xSaida} V ${yCanal} H ${xChegada} V ${yDestino} H ${xDestino}`,
+  flexiveis.sort((um, outro) => um.yOrigem + um.yDestino - (outro.yOrigem + outro.yDestino));
+  for (const item of flexiveis) {
+    const prefereTopo = item.yOrigem + item.yDestino <= menorTop + maiorBase;
+    if ((prefereTopo && topo.length <= base.length) || (!prefereTopo && topo.length < base.length)) topo.push(item);
+    else base.push(item);
+  }
+  topo.sort((um, outro) => um.yOrigem - outro.yOrigem || um.yDestino - outro.yDestino || um.id.localeCompare(outro.id));
+  base.sort((um, outro) => outro.yOrigem - um.yOrigem || outro.yDestino - um.yDestino || um.id.localeCompare(outro.id));
+  const passoDo = (quantidade: number, espaco: number) => {
+    if (quantidade <= 1) return 14;
+    return Math.min(14, Math.max(8, (espaco - 28) / quantidade));
   };
+  const passoTopo = passoDo(topo.length, menorTop);
+  const passoBase = passoDo(base.length, altura - maiorBase);
+  topo.forEach((item, indice) => {
+    item.yCanal = menorTop - 18 - (indice + 1) * passoTopo;
+  });
+  base.forEach((item, indice) => {
+    item.yCanal = maiorBase + 18 + (indice + 1) * passoBase;
+  });
+}
+
+function separarVerticais(itens: ItemDoTraco[]) {
+  const bordas = bordasDasColunas(itens);
+  const pedidos = new Map<string, Array<{ ini: number; fim: number; aplicar: (x: number) => void }>>();
+  const registrar = (colunaA: number, colunaB: number, y1: number, y2: number, aplicar: (x: number) => void) => {
+    const lista = pedidos.get(`${colunaA}|${colunaB}`) ?? [];
+    lista.push({ ini: Math.min(y1, y2), fim: Math.max(y1, y2), aplicar });
+    pedidos.set(`${colunaA}|${colunaB}`, lista);
+  };
+  for (const item of itens) {
+    if (item.salto === 0) continue;
+    const menor = Math.min(item.colunaOrigem, item.colunaDestino);
+    const maior = Math.max(item.colunaOrigem, item.colunaDestino);
+    if (item.salto === 1) {
+      registrar(menor, maior, item.yOrigem, item.yDestino, (x) => {
+        item.xSaida = x;
+      });
+      continue;
+    }
+    if (item.indoParaDireita) {
+      registrar(item.colunaOrigem, item.colunaOrigem + 1, item.yOrigem, item.yCanal, (x) => {
+        item.xSaida = x;
+      });
+      registrar(item.colunaDestino - 1, item.colunaDestino, item.yCanal, item.yDestino, (x) => {
+        item.xChegada = x;
+      });
+    } else {
+      registrar(item.colunaOrigem - 1, item.colunaOrigem, item.yOrigem, item.yCanal, (x) => {
+        item.xSaida = x;
+      });
+      registrar(item.colunaDestino, item.colunaDestino + 1, item.yCanal, item.yDestino, (x) => {
+        item.xChegada = x;
+      });
+    }
+  }
+  for (const [chave, lista] of pedidos) {
+    const [colunaA, colunaB] = chave.split("|").map(Number);
+    const bordaA = bordas.direita.get(colunaA);
+    const bordaB = bordas.esquerda.get(colunaB);
+    if (bordaA == null || bordaB == null) continue;
+    const ordenados = [...lista].sort((um, outro) => um.ini - outro.ini || um.fim - outro.fim);
+    const fimDaFaixa: number[] = [];
+    const faixaDe = new Map<(typeof ordenados)[number], number>();
+    for (const intervalo of ordenados) {
+      let faixa = fimDaFaixa.findIndex((fim) => intervalo.ini - fim >= 6);
+      if (faixa < 0) {
+        faixa = fimDaFaixa.length;
+        fimDaFaixa.push(intervalo.fim);
+      } else fimDaFaixa[faixa] = intervalo.fim;
+      faixaDe.set(intervalo, faixa);
+    }
+    const largura = Math.abs(bordaB - bordaA);
+    const passo = fimDaFaixa.length <= 1 ? 0 : Math.min(14, (largura - 16) / (fimDaFaixa.length - 1));
+    const origemX = Math.min(bordaA, bordaB) + 8;
+    for (const intervalo of ordenados) intervalo.aplicar(origemX + (faixaDe.get(intervalo) ?? 0) * passo);
+  }
+}
+
+function separarMesmaColuna(itens: ItemDoTraco[]) {
+  const mesmos = itens.filter((item) => item.salto === 0);
+  const grupos = new Map<number, ItemDoTraco[]>();
+  for (const item of mesmos) {
+    const lista = grupos.get(item.colunaOrigem) ?? [];
+    lista.push(item);
+    grupos.set(item.colunaOrigem, lista);
+  }
+  for (const lista of grupos.values()) {
+    const borda = Math.max(...lista.map((item) => Math.max(item.origem.right, item.destino.right)));
+    lista.sort((um, outro) => um.yOrigem - outro.yOrigem || um.yDestino - outro.yDestino || um.id.localeCompare(outro.id));
+    lista.forEach((item, indice) => {
+      item.xSaida = borda + 18 + indice * 14;
+      item.xChegada = item.xDestino;
+    });
+  }
+}
+
+export function tracadosDasLigacoes(
+  modelo: "FOLHA_16" | "FOLHA_32",
+  caixas: Map<string, CaixaMedida>,
+  altura: number,
+): Traco[] {
+  const colunaDe = new Map(gradeDaFolha(modelo).celulas.map((celula) => [celula.codigo, celula.coluna]));
+  const itens = itensDosTracos(modelo, caixas, colunaDe);
+  if (itens.length === 0) return [];
+  separarTrilhosLongos(itens, altura);
+  separarVerticais(itens);
+  separarMesmaColuna(itens);
+  return itens.map((item) => {
+    if (item.salto === 1) {
+      return { id: item.id, cor: item.cor, d: `M ${item.xOrigem} ${item.yOrigem} H ${item.xSaida} V ${item.yDestino} H ${item.xDestino}` };
+    }
+    if (item.salto === 0) {
+      return { id: item.id, cor: item.cor, d: `M ${item.xOrigem} ${item.yOrigem} H ${item.xSaida} V ${item.yDestino} H ${item.xDestino}` };
+    }
+    return { id: item.id, cor: item.cor, d: `M ${item.xOrigem} ${item.yOrigem} H ${item.xSaida} V ${item.yCanal} H ${item.xChegada} V ${item.yDestino} H ${item.xDestino}` };
+  });
 }
 
 export function FolhaVisual({ partidas, modelo }: { partidas: JogoDaFolha[]; modelo: "FOLHA_16" | "FOLHA_32" }) {
@@ -192,7 +361,6 @@ export function FolhaVisual({ partidas, modelo }: { partidas: JogoDaFolha[]; mod
   const assinatura = partidas.map((partida) => `${partida.codigo}:${partida.status}:${partida.equipeA?.nome ?? ""}:${partida.equipeB?.nome ?? ""}`).join("|");
 
   useLayoutEffect(() => {
-    const colunaDe = new Map(gradeDaFolha(modelo).celulas.map((celula) => [celula.codigo, celula.coluna]));
     const medir = () => {
       const quadro = area.current;
       if (!quadro) return;
@@ -211,18 +379,7 @@ export function FolhaVisual({ partidas, modelo }: { partidas: JogoDaFolha[]; mod
           height: retangulo.height,
         });
       });
-      let sequencia = 0;
-      const proximos = ligacoesDaFolha(modelo).flatMap((ligacao) => {
-        const origem = caixas.get(ligacao.de);
-        const destino = caixas.get(ligacao.para);
-        const colunaOrigem = colunaDe.get(ligacao.de);
-        const colunaDestino = colunaDe.get(ligacao.para);
-        if (!origem || !destino || colunaOrigem == null || colunaDestino == null) return [];
-        const ordem = Math.abs(colunaDestino - colunaOrigem) > 1 ? sequencia++ : 0;
-        const traco = tracoDaLigacao(origem, destino, ligacao.lado, colunaOrigem, colunaDestino, ligacao.tipo, limite.height, ordem);
-        return [{ id: `${ligacao.tipo}-${ligacao.de}-${ligacao.para}-${ligacao.lado}`, ...traco }];
-      });
-      setTracados(proximos);
+      setTracados(tracadosDasLigacoes(modelo, caixas, limite.height));
     };
 
     medir();
@@ -234,24 +391,24 @@ export function FolhaVisual({ partidas, modelo }: { partidas: JogoDaFolha[]; mod
   return (
     <div className="overflow-x-auto rounded-2xl border border-navy/10 bg-foam/80 p-3" data-chave="folha">
       <div className="min-w-max">
-        <div className="mb-2 grid items-end gap-x-10 px-8 text-[11px] font-bold uppercase tracking-wide" style={{ gridTemplateColumns: grade.colunas }}>
+        <div className="mb-2 grid items-end gap-x-[8.5rem] px-24 text-[11px] font-bold uppercase tracking-wide" style={{ gridTemplateColumns: grade.colunas }}>
           {grade.titulos.map((titulo, indice) => (
             <p key={indice} className={titulo === "Vencedores" ? "text-center text-coral" : "text-center text-navy"}>
               {titulo ?? ""}
             </p>
           ))}
         </div>
-        <div className="relative px-8 py-32" ref={area}>
+        <div className="relative px-24 py-44" ref={area}>
           <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" data-ligacoes={tracados.length} aria-hidden="true">
             {tracados.map((traco) => (
-              <path key={`${traco.id}-base`} d={traco.d} stroke="#fbf7f1" strokeWidth="11" fill="none" strokeLinejoin="round" strokeLinecap="round" />
+              <path key={`${traco.id}-base`} d={traco.d} stroke="#fbf7f1" strokeWidth="8" fill="none" strokeLinejoin="round" strokeLinecap="round" />
             ))}
             {tracados.map((traco) => (
               <path key={traco.id} d={traco.d} stroke={traco.cor} strokeWidth="5" fill="none" strokeLinejoin="round" strokeLinecap="round" />
             ))}
           </svg>
           <div
-            className="relative grid items-center gap-x-10 gap-y-2"
+            className="relative grid items-center gap-x-[8.5rem] gap-y-2"
             style={{
               gridTemplateColumns: grade.colunas,
               gridTemplateRows: `repeat(${grade.linhas}, 3rem)`,

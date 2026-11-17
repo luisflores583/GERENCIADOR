@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ChaveVisual } from "@/components/chave-visual";
+import { TabelaConfrontos } from "@/components/tabela-confrontos";
 import { SeloPartida, SeloSituacao, SeloStatus } from "@/components/selo";
 import { formatarDataHora } from "@/lib/formatacao";
 import { rotuloDoLado } from "@/engine/fila";
@@ -144,7 +145,15 @@ export function PainelAoVivo({ inicial }: { inicial: PainelDTO }) {
         {painel.partidas.length === 0 ? (
           <p className="rounded-3xl bg-white p-6 text-navy/70">A chave será publicada depois do sorteio.</p>
         ) : (
-          <ChaveVisual partidas={painel.partidas} />
+          <>
+            {painel.modeloChave === "FOLHA_16" || painel.modeloChave === "FOLHA_32" ? (
+              <div className="mb-8">
+                <h3 className="mb-3 font-display text-2xl text-navy">Tabela</h3>
+                <TabelaConfrontos partidas={painel.partidas} />
+              </div>
+            ) : null}
+            <ChaveVisual partidas={painel.partidas} />
+          </>
         )}
       </section>
 

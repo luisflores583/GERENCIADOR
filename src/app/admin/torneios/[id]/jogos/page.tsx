@@ -6,6 +6,7 @@ import { IniciarTorneio } from "@/components/iniciar-torneio";
 import { ReiniciarTorneio } from "@/components/reiniciar-torneio";
 import { MenuTorneio } from "@/components/menu-torneio";
 import { SeloPartida } from "@/components/selo";
+import { TabelaConfrontos } from "@/components/tabela-confrontos";
 import { formatarDataHora } from "@/lib/formatacao";
 import { nomeDaFase, rodadasDaChaveDeVencedores } from "@/engine/dupla-eliminacao";
 import { classificarLados, ordenarEntradas, rotuloDoLado, type EntradaDaFila } from "@/engine/fila";
@@ -114,6 +115,15 @@ export default async function Jogos({ params }: { params: Promise<{ id: string }
         <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-navy">
           Nenhuma partida está pronta para receber a vitória. A chave precisa ter os dois adversários definidos.
         </p>
+      ) : null}
+      {torneio.modeloChave === "FOLHA_16" || torneio.modeloChave === "FOLHA_32" ? (
+        <section className="mt-8">
+          <h2 className="mb-3 font-display text-2xl text-navy">Tabela</h2>
+          <p className="mb-3 text-navy/70">
+            Quando uma vitória define o próximo jogo, o nome das equipes entra nessa linha. Folga continua folga.
+          </p>
+          <TabelaConfrontos partidas={partidas} />
+        </section>
       ) : null}
       {grupos.map((status) => {
         const lista = partidas

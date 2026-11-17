@@ -240,20 +240,81 @@ function separarTrilhosLongos(itens: ItemDoTraco[], altura: number) {
     if ((prefereTopo && topo.length <= base.length) || (!prefereTopo && topo.length < base.length)) topo.push(item);
     else base.push(item);
   }
+  const limite = Math.ceil(longos.length / 2);
+  while (topo.length > limite) {
+    topo.sort((um, outro) => outro.yOrigem + outro.yDestino - (um.yOrigem + um.yDestino));
+    const movido = topo.shift();
+    if (movido) base.push(movido);
+  }
+  while (base.length > limite) {
+    base.sort((um, outro) => um.yOrigem + um.yDestino - (outro.yOrigem + outro.yDestino));
+    const movido = base.shift();
+    if (movido) topo.push(movido);
+  }
   topo.sort((um, outro) => um.yOrigem - outro.yOrigem || um.yDestino - outro.yDestino || um.id.localeCompare(outro.id));
   base.sort((um, outro) => outro.yOrigem - um.yOrigem || outro.yDestino - um.yDestino || um.id.localeCompare(outro.id));
-  const passoDo = (quantidade: number, espaco: number) => {
-    if (quantidade <= 1) return 14;
-    return Math.min(14, Math.max(8, (espaco - 28) / quantidade));
-  };
-  const passoTopo = passoDo(topo.length, menorTop);
-  const passoBase = passoDo(base.length, altura - maiorBase);
+  const passo = 22;
   topo.forEach((item, indice) => {
-    item.yCanal = menorTop - 18 - (indice + 1) * passoTopo;
+    item.yCanal = menorTop - 18 - (indice + 1) * passo;
   });
   base.forEach((item, indice) => {
-    item.yCanal = maiorBase + 18 + (indice + 1) * passoBase;
+    item.yCanal = maiorBase + 18 + (indice + 1) * passo;
   });
+  return altura;
+}
+
+function faixaEntre(colunaMenor: number, colunaMaior: number) {
+  return `${colunaMenor}|${colunaMaior}`;
+}
+
+function afastarLongos(itens: ItemDoTraco[]) {
+  const ocupados = new Map<string, number[]>();
+  const marcar = (chave: string, y: number) => {
+    const lista = ocupados.get(chave) ?? [];
+    lista.push(y);
+    ocupados.set(chave, lista);
+  };
+  for (const item of itens) {
+    if (item.salto === 1) {
+      const menor = Math.min(item.colunaOrigem, item.colunaDestino);
+      const chave = faixaEntre(menor, menor + 1);
+      marcar(chave, item.yOrigem);
+      marcar(chave, item.yDestino);
+    }
+    if (item.salto > 1) {
+      const menor = Math.min(item.colunaOrigem, item.colunaDestino);
+      const maior = Math.max(item.colunaOrigem, item.colunaDestino);
+      for (let coluna = menor; coluna < maior; coluna += 1) marcar(faixaEntre(coluna, coluna + 1), item.yCanal);
+    }
+  }
+  const escolher = (chave: string, caixa: CaixaMedida) => {
+    const usados = ocupados.get(chave) ?? [];
+    const meio = caixa.top + caixa.height / 2;
+    const livre = (y: number) => usados.every((usado) => Math.abs(usado - y) >= 20);
+    for (let distancia = 0; distancia <= 180; distancia += 4) {
+      if (livre(meio - distancia)) {
+        marcar(chave, meio - distancia);
+        return meio - distancia;
+      }
+      if (distancia > 0 && livre(meio + distancia)) {
+        marcar(chave, meio + distancia);
+        return meio + distancia;
+      }
+    }
+    marcar(chave, meio);
+    return meio;
+  };
+  for (const item of itens) {
+    if (item.salto <= 1) continue;
+    const saida = item.indoParaDireita
+      ? faixaEntre(item.colunaOrigem, item.colunaOrigem + 1)
+      : faixaEntre(item.colunaOrigem - 1, item.colunaOrigem);
+    const chegada = item.indoParaDireita
+      ? faixaEntre(item.colunaDestino - 1, item.colunaDestino)
+      : faixaEntre(item.colunaDestino, item.colunaDestino + 1);
+    item.yOrigem = escolher(saida, item.origem);
+    item.yDestino = escolher(chegada, item.destino);
+  }
 }
 
 function separarVerticais(itens: ItemDoTraco[]) {
@@ -299,7 +360,7 @@ function separarVerticais(itens: ItemDoTraco[]) {
     const fimDaFaixa: number[] = [];
     const faixaDe = new Map<(typeof ordenados)[number], number>();
     for (const intervalo of ordenados) {
-      let faixa = fimDaFaixa.findIndex((fim) => intervalo.ini - fim >= 6);
+      let faixa = fimDaFaixa.findIndex((fim) => intervalo.ini - fim >= 12);
       if (faixa < 0) {
         faixa = fimDaFaixa.length;
         fimDaFaixa.push(intervalo.fim);
@@ -307,8 +368,9 @@ function separarVerticais(itens: ItemDoTraco[]) {
       faixaDe.set(intervalo, faixa);
     }
     const largura = Math.abs(bordaB - bordaA);
-    const passo = fimDaFaixa.length <= 1 ? 0 : Math.min(14, (largura - 16) / (fimDaFaixa.length - 1));
-    const origemX = Math.min(bordaA, bordaB) + 8;
+    const quantidade = fimDaFaixa.length;
+    const passo = quantidade <= 1 ? 0 : Math.min(20, (largura - 20) / (quantidade - 1));
+    const origemX = Math.min(bordaA, bordaB) + 10;
     for (const intervalo of ordenados) intervalo.aplicar(origemX + (faixaDe.get(intervalo) ?? 0) * passo);
   }
 }
@@ -325,7 +387,7 @@ function separarMesmaColuna(itens: ItemDoTraco[]) {
     const borda = Math.max(...lista.map((item) => Math.max(item.origem.right, item.destino.right)));
     lista.sort((um, outro) => um.yOrigem - outro.yOrigem || um.yDestino - outro.yDestino || um.id.localeCompare(outro.id));
     lista.forEach((item, indice) => {
-      item.xSaida = borda + 18 + indice * 14;
+      item.xSaida = borda + 20 + indice * 22;
       item.xChegada = item.xDestino;
     });
   }
@@ -340,6 +402,7 @@ export function tracadosDasLigacoes(
   const itens = itensDosTracos(modelo, caixas, colunaDe);
   if (itens.length === 0) return [];
   separarTrilhosLongos(itens, altura);
+  afastarLongos(itens);
   separarVerticais(itens);
   separarMesmaColuna(itens);
   return itens.map((item) => {
@@ -349,7 +412,11 @@ export function tracadosDasLigacoes(
     if (item.salto === 0) {
       return { id: item.id, cor: item.cor, d: `M ${item.xOrigem} ${item.yOrigem} H ${item.xSaida} V ${item.yDestino} H ${item.xDestino}` };
     }
-    return { id: item.id, cor: item.cor, d: `M ${item.xOrigem} ${item.yOrigem} H ${item.xSaida} V ${item.yCanal} H ${item.xChegada} V ${item.yDestino} H ${item.xDestino}` };
+    const yLadoOrigem = item.origem.top + item.origem.height * (item.tipo === "VENCEDOR" ? 0.38 : 0.62);
+    const yLadoDestino = item.destino.top + item.destino.height * (item.lado === "A" ? 0.32 : 0.7);
+    const saida = Math.abs(yLadoOrigem - item.yOrigem) < 1 ? `M ${item.xOrigem} ${item.yOrigem}` : `M ${item.xOrigem} ${yLadoOrigem} V ${item.yOrigem}`;
+    const chegada = Math.abs(yLadoDestino - item.yDestino) < 1 ? `H ${item.xDestino}` : `H ${item.xDestino} V ${yLadoDestino}`;
+    return { id: item.id, cor: item.cor, d: `${saida} H ${item.xSaida} V ${item.yCanal} H ${item.xChegada} V ${item.yDestino} ${chegada}` };
   });
 }
 
@@ -391,24 +458,24 @@ export function FolhaVisual({ partidas, modelo }: { partidas: JogoDaFolha[]; mod
   return (
     <div className="overflow-x-auto rounded-2xl border border-navy/10 bg-foam/80 p-3" data-chave="folha">
       <div className="min-w-max">
-        <div className="mb-2 grid items-end gap-x-[8.5rem] px-24 text-[11px] font-bold uppercase tracking-wide" style={{ gridTemplateColumns: grade.colunas }}>
+        <div className="mb-2 grid items-end gap-x-[11rem] px-28 text-[11px] font-bold uppercase tracking-wide" style={{ gridTemplateColumns: grade.colunas }}>
           {grade.titulos.map((titulo, indice) => (
             <p key={indice} className={titulo === "Vencedores" ? "text-center text-coral" : "text-center text-navy"}>
               {titulo ?? ""}
             </p>
           ))}
         </div>
-        <div className="relative px-24 py-44" ref={area}>
+        <div className="relative px-28 py-[15rem]" ref={area}>
           <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" data-ligacoes={tracados.length} aria-hidden="true">
             {tracados.map((traco) => (
-              <path key={`${traco.id}-base`} d={traco.d} stroke="#fbf7f1" strokeWidth="8" fill="none" strokeLinejoin="round" strokeLinecap="round" />
+              <path key={`${traco.id}-base`} d={traco.d} stroke="#fbf7f1" strokeWidth="6" fill="none" strokeLinejoin="round" strokeLinecap="round" />
             ))}
             {tracados.map((traco) => (
               <path key={traco.id} d={traco.d} stroke={traco.cor} strokeWidth="5" fill="none" strokeLinejoin="round" strokeLinecap="round" />
             ))}
           </svg>
           <div
-            className="relative grid items-center gap-x-[8.5rem] gap-y-2"
+            className="relative grid items-center gap-x-[11rem] gap-y-2"
             style={{
               gridTemplateColumns: grade.colunas,
               gridTemplateRows: `repeat(${grade.linhas}, 3rem)`,

@@ -71,11 +71,11 @@ function conferirTracadosSeparados(modelo: "FOLHA_16" | "FOLHA_32") {
 function caixasSinteticas(modelo: "FOLHA_16" | "FOLHA_32") {
   const grade = gradeDaFolha(modelo);
   const larguras = grade.colunas.split(" ").map((valor) => Number.parseFloat(valor) * 16);
-  const intervaloX = 8.5 * 16;
+  const intervaloX = 11 * 16;
   const alturaLinha = 3 * 16;
   const intervaloY = 8;
-  const recuoX = 6 * 16;
-  const recuoY = 11 * 16;
+  const recuoX = 7 * 16;
+  const recuoY = 15 * 16;
   const alturaCaixa = 50;
   const caixas = new Map<string, { left: number; right: number; top: number; bottom: number; width: number; height: number }>();
   for (const celula of grade.celulas) {
@@ -120,7 +120,9 @@ function sobrepoem(
   um: { direcao: "H" | "V"; a: number; b: number; fixo: number },
   outro: { direcao: "H" | "V"; a: number; b: number; fixo: number },
 ) {
-  if (um.direcao !== outro.direcao || Math.abs(um.fixo - outro.fixo) >= 6) return false;
+  const longo = Math.min(Math.abs(um.a - um.b), Math.abs(outro.a - outro.b)) >= 80;
+  const folga = longo ? 18 : 6;
+  if (um.direcao !== outro.direcao || Math.abs(um.fixo - outro.fixo) >= folga) return false;
   const inicio = Math.max(Math.min(um.a, um.b), Math.min(outro.a, outro.b));
   const fim = Math.min(Math.max(um.a, um.b), Math.max(outro.a, outro.b));
   return fim - inicio > 3;

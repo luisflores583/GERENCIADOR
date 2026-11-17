@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { construirFolha16 } from "@/engine/folha-16";
 import { construirFolha32 } from "@/engine/folha-32";
 import { textoDoLado } from "@/lib/confronto";
@@ -420,17 +420,56 @@ export function tracadosDasLigacoes(
   });
 }
 
+function limitarZoom(valor: number) {
+  return Math.min(4, Math.max(0.5, valor));
+}
+
 export function FolhaVisual({ partidas, modelo }: { partidas: JogoDaFolha[]; modelo: "FOLHA_16" | "FOLHA_32" }) {
   const grade = gradeDaFolha(modelo);
   const porCodigo = new Map(partidas.map((partida) => [partida.codigo, partida]));
+  const vista = useRef<HTMLDivElement>(null);
+  const miolo = useRef<HTMLDivElement>(null);
   const area = useRef<HTMLDivElement>(null);
+  const zoomRef = useRef(1);
+  const escalaRef = useRef(1);
+  const [ajuste, setAjuste] = useState(1);
+  const [zoom, setZoom] = useState(1);
+  const [tamanho, setTamanho] = useState({ largura: 0, altura: 0 });
   const [tracados, setTracados] = useState<Traco[]>([]);
   const assinatura = partidas.map((partida) => `${partida.codigo}:${partida.status}:${partida.equipeA?.nome ?? ""}:${partida.equipeB?.nome ?? ""}`).join("|");
+  const escala = ajuste * zoom;
+  escalaRef.current = escala;
+
+  function definirZoom(valor: number) {
+    const proximo = limitarZoom(valor);
+    zoomRef.current = proximo;
+    setZoom(proximo);
+  }
+
+  useLayoutEffect(() => {
+    const medirAjuste = () => {
+      const quadro = vista.current;
+      const folha = miolo.current;
+      if (!quadro || !folha) return;
+      const largura = folha.offsetWidth;
+      const altura = folha.offsetHeight;
+      if (largura <= 0 || altura <= 0) return;
+      const cabe = Math.min(1, quadro.clientWidth / largura);
+      setTamanho((atual) => (atual.largura === largura && atual.altura === altura ? atual : { largura, altura }));
+      setAjuste((atual) => (Math.abs(atual - cabe) < 0.001 ? atual : cabe));
+    };
+    medirAjuste();
+    const observador = new ResizeObserver(medirAjuste);
+    if (vista.current) observador.observe(vista.current);
+    if (miolo.current) observador.observe(miolo.current);
+    return () => observador.disconnect();
+  }, [modelo, assinatura]);
 
   useLayoutEffect(() => {
     const medir = () => {
       const quadro = area.current;
       if (!quadro) return;
+      const fator = escalaRef.current || 1;
       const limite = quadro.getBoundingClientRect();
       const caixas = new Map<string, CaixaMedida>();
       quadro.querySelectorAll<HTMLElement>("[data-jogo]").forEach((elemento) => {
@@ -438,61 +477,117 @@ export function FolhaVisual({ partidas, modelo }: { partidas: JogoDaFolha[]; mod
         if (!codigo) return;
         const retangulo = elemento.getBoundingClientRect();
         caixas.set(codigo, {
-          left: retangulo.left - limite.left,
-          right: retangulo.right - limite.left,
-          top: retangulo.top - limite.top,
-          bottom: retangulo.bottom - limite.top,
-          width: retangulo.width,
-          height: retangulo.height,
+          left: (retangulo.left - limite.left) / fator,
+          right: (retangulo.right - limite.left) / fator,
+          top: (retangulo.top - limite.top) / fator,
+          bottom: (retangulo.bottom - limite.top) / fator,
+          width: retangulo.width / fator,
+          height: retangulo.height / fator,
         });
       });
-      setTracados(tracadosDasLigacoes(modelo, caixas, limite.height));
+      setTracados(tracadosDasLigacoes(modelo, caixas, limite.height / fator));
     };
 
     medir();
     const observador = new ResizeObserver(medir);
     if (area.current) observador.observe(area.current);
     return () => observador.disconnect();
-  }, [modelo, assinatura]);
+  }, [modelo, assinatura, escala]);
+
+  useEffect(() => {
+    const quadro = vista.current;
+    if (!quadro) return;
+    let gesto: { distancia: number; zoom: number } | null = null;
+    const distanciaEntre = (primeiro: Touch, segundo: Touch) => Math.hypot(primeiro.clientX - segundo.clientX, primeiro.clientY - segundo.clientY);
+    const iniciar = (evento: TouchEvent) => {
+      if (evento.touches.length !== 2) return;
+      gesto = { distancia: distanciaEntre(evento.touches[0], evento.touches[1]), zoom: zoomRef.current };
+    };
+    const mover = (evento: TouchEvent) => {
+      if (evento.touches.length !== 2 || !gesto || gesto.distancia <= 0) return;
+      evento.preventDefault();
+      const proximo = limitarZoom(gesto.zoom * (distanciaEntre(evento.touches[0], evento.touches[1]) / gesto.distancia));
+      zoomRef.current = proximo;
+      setZoom(proximo);
+    };
+    const encerrar = () => {
+      gesto = null;
+    };
+    const roda = (evento: WheelEvent) => {
+      if (!evento.ctrlKey) return;
+      evento.preventDefault();
+      const proximo = limitarZoom(zoomRef.current * (evento.deltaY < 0 ? 1.08 : 1 / 1.08));
+      zoomRef.current = proximo;
+      setZoom(proximo);
+    };
+    quadro.addEventListener("touchstart", iniciar, { passive: true });
+    quadro.addEventListener("touchmove", mover, { passive: false });
+    quadro.addEventListener("touchend", encerrar);
+    quadro.addEventListener("touchcancel", encerrar);
+    quadro.addEventListener("wheel", roda, { passive: false });
+    return () => {
+      quadro.removeEventListener("touchstart", iniciar);
+      quadro.removeEventListener("touchmove", mover);
+      quadro.removeEventListener("touchend", encerrar);
+      quadro.removeEventListener("touchcancel", encerrar);
+      quadro.removeEventListener("wheel", roda);
+    };
+  }, []);
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-navy/10 bg-foam/80 p-3" data-chave="folha">
-      <div className="min-w-max">
-        <div className="mb-2 grid items-end gap-x-[11rem] px-28 text-[11px] font-bold uppercase tracking-wide" style={{ gridTemplateColumns: grade.colunas }}>
-          {grade.titulos.map((titulo, indice) => (
-            <p key={indice} className={titulo === "Vencedores" ? "text-center text-coral" : "text-center text-navy"}>
-              {titulo ?? ""}
-            </p>
-          ))}
-        </div>
-        <div className="relative px-28 py-[15rem]" ref={area}>
-          <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" data-ligacoes={tracados.length} aria-hidden="true">
-            {tracados.map((traco) => (
-              <path key={`${traco.id}-base`} d={traco.d} stroke="#fbf7f1" strokeWidth="6" fill="none" strokeLinejoin="round" strokeLinecap="round" />
-            ))}
-            {tracados.map((traco) => (
-              <path key={traco.id} d={traco.d} stroke={traco.cor} strokeWidth="5" fill="none" strokeLinejoin="round" strokeLinecap="round" />
-            ))}
-          </svg>
-          <div
-            className="relative grid items-center gap-x-[11rem] gap-y-2"
-            style={{
-              gridTemplateColumns: grade.colunas,
-              gridTemplateRows: `repeat(${grade.linhas}, 3rem)`,
-            }}
-          >
-            {grade.celulas.map((celula) => (
+    <div className="rounded-2xl border border-navy/10 bg-foam/80 p-3" data-chave="folha" data-zoom={zoom.toFixed(2)}>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <button type="button" className="rounded-xl border border-navy/15 bg-white px-4 py-2 text-sm font-semibold text-navy disabled:opacity-40" onClick={() => definirZoom(zoom / 1.25)} disabled={zoom <= 0.5} aria-label="Reduzir a chave">
+          Reduzir
+        </button>
+        <button type="button" className="rounded-xl border border-navy/15 bg-white px-4 py-2 text-sm font-semibold text-navy" onClick={() => definirZoom(1)} aria-label="Ajustar a chave à largura">
+          Ajustar à largura
+        </button>
+        <button type="button" className="rounded-xl border border-navy/15 bg-white px-4 py-2 text-sm font-semibold text-navy disabled:opacity-40" onClick={() => definirZoom(zoom * 1.25)} disabled={zoom >= 4} aria-label="Ampliar a chave">
+          Ampliar
+        </button>
+        <p className="text-sm font-semibold text-navy/70">{Math.round(zoom * 100)}%</p>
+      </div>
+      <div ref={vista} className="max-h-[75vh] overflow-auto" data-viewport="chave" style={{ touchAction: "pan-x pan-y" }}>
+        <div className="relative" style={{ width: tamanho.largura ? tamanho.largura * escala : undefined, height: tamanho.altura ? tamanho.altura * escala : undefined }}>
+          <div ref={miolo} className="absolute left-0 top-0 min-w-max" style={{ transform: `scale(${escala})`, transformOrigin: "top left" }}>
+            <div className="mb-2 grid items-end gap-x-[11rem] px-28 text-[11px] font-bold uppercase tracking-wide" style={{ gridTemplateColumns: grade.colunas }}>
+              {grade.titulos.map((titulo, indice) => (
+                <p key={indice} className={titulo === "Vencedores" ? "text-center text-coral" : "text-center text-navy"}>
+                  {titulo ?? ""}
+                </p>
+              ))}
+            </div>
+            <div className="relative px-28 py-[15rem]" ref={area}>
+              <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" data-ligacoes={tracados.length} aria-hidden="true">
+                {tracados.map((traco) => (
+                  <path key={`${traco.id}-base`} d={traco.d} stroke="#fbf7f1" strokeWidth="6" fill="none" strokeLinejoin="round" strokeLinecap="round" />
+                ))}
+                {tracados.map((traco) => (
+                  <path key={traco.id} d={traco.d} stroke={traco.cor} strokeWidth="5" fill="none" strokeLinejoin="round" strokeLinecap="round" />
+                ))}
+              </svg>
               <div
-                key={celula.codigo}
-                className="flex h-full items-center"
+                className="relative grid items-center gap-x-[11rem] gap-y-2"
                 style={{
-                  gridColumn: celula.coluna,
-                  gridRow: `${celula.linha} / span ${celula.span}`,
+                  gridTemplateColumns: grade.colunas,
+                  gridTemplateRows: `repeat(${grade.linhas}, 3rem)`,
                 }}
               >
-                <Caixa celula={celula} partida={porCodigo.get(celula.codigo)} />
+                {grade.celulas.map((celula) => (
+                  <div
+                    key={celula.codigo}
+                    className="flex h-full items-center"
+                    style={{
+                      gridColumn: celula.coluna,
+                      gridRow: `${celula.linha} / span ${celula.span}`,
+                    }}
+                  >
+                    <Caixa celula={celula} partida={porCodigo.get(celula.codigo)} />
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
         </div>
       </div>
